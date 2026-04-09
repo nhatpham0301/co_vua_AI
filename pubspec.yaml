@@ -1,5 +1,5 @@
-name: en_passant
-description: A Flutter chess app.
+name: infinite_chess_ai
+description: A feature-rich chess app with AI powered by Minimax algorithm.
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `pub publish`. This is preferred for private packages.

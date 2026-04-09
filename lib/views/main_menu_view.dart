@@ -1,3 +1,5 @@
+﻿import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -11,34 +13,150 @@ import '../model/player.dart';
 import 'chess_view.dart';
 import 'settings_view.dart';
 
-// ---------------------------------------------------------------------------
-// Palette — dark green chess theme
-// ---------------------------------------------------------------------------
+// ─── Palette ────────────────────────────────────────────────────────────────
 const _bgMid = Color(0xFF1A5C38);
 const _bgEdge = Color(0xFF0C2C18);
-
 const _goldDark = Color(0xFF9A6C08);
 const _goldMid = Color(0xFFCC9518);
 const _goldLight = Color(0xFFEDBC50);
 const _goldGlow = Color(0xFFFFD86E);
 
-const _orbitR = 118.0;
+// ─── Connectivity helper ─────────────────────────────────────────────────────
+Future<bool> _checkOnline() async {
+  try {
+    final r = await InternetAddress.lookup('google.com')
+        .timeout(const Duration(seconds: 5));
+    return r.isNotEmpty && r[0].rawAddress.isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
 
-// ---------------------------------------------------------------------------
-// MainMenuView
-// ---------------------------------------------------------------------------
+// ─── Live Match data model ───────────────────────────────────────────────────
+class _MatchPlayer {
+  final String name;
+  final int elo;
+  final bool isBot;
+  const _MatchPlayer(this.name, this.elo, {this.isBot = false});
+}
+
+class _LiveMatch {
+  final String id;
+  final _MatchPlayer white;
+  final _MatchPlayer black;
+  int moveCount;
+  int elapsedSec;
+  final List<List<bool>> board; // 8×8 occupancy for mini preview
+
+  _LiveMatch({
+    required this.id,
+    required this.white,
+    required this.black,
+    required this.moveCount,
+    required this.elapsedSec,
+    required this.board,
+  });
+}
+
+// ─── Match generator ─────────────────────────────────────────────────────────
+class _MatchGen {
+  static final _rng = math.Random();
+
+  static const _botNames = [
+    'Bot Lv.1',
+    'Bot Lv.2',
+    'Bot Lv.3',
+    'Bot Lv.4',
+    'Bot Lv.5',
+  ];
+  static const _humanNames = [
+    'VuaLua88',
+    'DragonKing',
+    'ChessWizard',
+    'DarkKnight99',
+    'QueenSlayer',
+    'MasterMind',
+    'PawnStorm',
+    'RookRookie',
+    'BishopBoss',
+    'KnightFury',
+    'EndgameGod',
+    'SilkRoad',
+    'AlphaZero9',
+    'NightRider',
+    'GrandPawn',
+  ];
+
+  static _MatchPlayer _bot() {
+    final name = _botNames[_rng.nextInt(_botNames.length)];
+    return _MatchPlayer(name, 800 + _rng.nextInt(1000), isBot: true);
+  }
+
+  static _MatchPlayer _human() {
+    final name = _humanNames[_rng.nextInt(_humanNames.length)];
+    return _MatchPlayer(name, 900 + _rng.nextInt(1200));
+  }
+
+  static List<List<bool>> _randomBoard() {
+    return List.generate(
+        8, (_) => List.generate(8, (_) => _rng.nextDouble() > 0.55));
+  }
+
+  /// Generates 10 matches: first 2 are human vs human, rest are Bot vs Bot
+  static List<_LiveMatch> generateTen() {
+    return List.generate(10, (i) {
+      final isBotMatch = i >= 2;
+      return _LiveMatch(
+        id: 'match_$i',
+        white: isBotMatch ? _bot() : _human(),
+        black: isBotMatch ? _bot() : _human(),
+        moveCount: 10 + _rng.nextInt(60),
+        elapsedSec: 60 + _rng.nextInt(1800),
+        board: _randomBoard(),
+      );
+    });
+  }
+
+  /// Simulate real-time updates (tick every 3 seconds)
+  static void tick(List<_LiveMatch> matches) {
+    for (final m in matches) {
+      m.elapsedSec += 3;
+      if (_rng.nextDouble() > 0.4) m.moveCount++;
+    }
+  }
+}
+
+// ─── MainMenuView ────────────────────────────────────────────────────────────
 class MainMenuView extends StatefulWidget {
   @override
   _MainMenuViewState createState() => _MainMenuViewState();
 }
 
 class _MainMenuViewState extends State<MainMenuView> {
+  // Auth state — Phase 2 will replace with real session check
+  bool _isLoggedIn = false;
+  final String _userName = 'Guest';
+  final int _elo = 1200;
+
   bool _hasSavedGame = false;
+  List<_LiveMatch> _matches = [];
+  Timer? _ticker;
 
   @override
   void initState() {
     super.initState();
+    _matches = _MatchGen.generateTen();
     _checkSavedGame();
+    // Refresh live match data every 3 s to simulate real-time
+    _ticker = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) setState(() => _MatchGen.tick(_matches));
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkSavedGame() async {
@@ -46,347 +164,95 @@ class _MainMenuViewState extends State<MainMenuView> {
     if (mounted) setState(() => _hasSavedGame = has);
   }
 
+  void _refreshMatches() => setState(() => _matches = _MatchGen.generateTen());
+
+  void _handleLogin() {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Đăng nhập', style: TextStyle(fontFamily: 'Jura')),
+        content: const Text(
+          'Tính năng đăng nhập đang được phát triển.\nSẽ ra mắt sớm!',
+          style: TextStyle(fontFamily: 'Jura'),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK', style: TextStyle(fontFamily: 'Jura')),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    const bannerHeight = 50.0;
+    const fabAreaHeight = 72.0;
+
     return Scaffold(
       backgroundColor: _bgEdge,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Background radial gradient
+          // ── Background ──────────────────────────────────────────────────
           Container(
             decoration: const BoxDecoration(
               gradient: RadialGradient(
-                center: Alignment(0, 0.05),
-                radius: 0.80,
+                center: Alignment(0, -0.3),
+                radius: 0.9,
                 colors: [_bgMid, _bgEdge],
               ),
             ),
           ),
-          // Side piece decorations
-          const _SidePieces(),
-          // Corner knot decorations
+          const _BoardPattern(),
           const _CornerKnots(),
-          // Main content
-          SafeArea(
-            child: Column(
-              children: [
-                _TopBar(),
-                Expanded(
-                  child: _RadialMenu(
-                    hasSavedGame: _hasSavedGame,
-                    onRefresh: _checkSavedGame,
-                  ),
-                ),
-                const _BannerSlot(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-// ---------------------------------------------------------------------------
-// Top bar
-// ---------------------------------------------------------------------------
-class _TopBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          Image.asset('assets/images/logo.png', width: 34, height: 34),
-          const SizedBox(width: 10),
-          const Text(
-            'Chess',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              fontFamily: 'Jura',
-            ),
-          ),
-          const Spacer(),
-          _TopIconBtn(
-            icon: CupertinoIcons.settings,
-            tooltip: 'Settings',
-            onTap: () => Navigator.push(
-              context,
-              CupertinoPageRoute(builder: (_) => SettingsView()),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Radial menu — 8 satellite buttons + central PLAY
-// ---------------------------------------------------------------------------
-class _RadialMenu extends StatelessWidget {
-  final bool hasSavedGame;
-  final VoidCallback onRefresh;
-
-  const _RadialMenu({required this.hasSavedGame, required this.onRefresh});
-
-  @override
-  Widget build(BuildContext context) {
-    final appModel = Provider.of<AppModel>(context, listen: false);
-
-    final items = <_SatItem>[
-      _SatItem(
-        CupertinoIcons.person_2_fill,
-        'vs Friend',
-        -90,
-        () => _startGame(context, appModel, players: 2),
-      ),
-      _SatItem(
-        CupertinoIcons.waveform_path_ecg,
-        'Difficulty',
-        -45,
-        () => _showDifficultySheet(context, appModel),
-      ),
-      _SatItem(
-        CupertinoIcons.clock,
-        'Time',
-        0,
-        () => _showTimerSheet(context, appModel),
-      ),
-      _SatItem(
-        CupertinoIcons.paintbrush_fill,
-        'Theme',
-        45,
-        () {
-          final next = (appModel.themeIndex + 1) % themeList.length;
-          appModel.setTheme(next);
-        },
-      ),
-      _SatItem(
-        hasSavedGame
-            ? CupertinoIcons.arrow_counterclockwise_circle_fill
-            : CupertinoIcons.star_fill,
-        hasSavedGame ? 'Resume' : 'Classic',
-        90,
-        hasSavedGame
-            ? () => _startGame(context, appModel, resume: true)
-            : () => _startGame(context, appModel, players: 1),
-      ),
-      _SatItem(
-        CupertinoIcons.rectangle_on_rectangle_angled,
-        'Pieces',
-        135,
-        () {
-          final next =
-              (appModel.pieceThemeIndex + 1) % appModel.pieceThemes.length;
-          appModel.setPieceTheme(next);
-        },
-      ),
-      _SatItem(
-        CupertinoIcons.person_crop_circle_fill,
-        'Side',
-        180,
-        () => _showSideSheet(context, appModel),
-      ),
-      _SatItem(
-        CupertinoIcons.flag_fill,
-        'vs AI',
-        225,
-        () => _startGame(context, appModel, players: 1),
-      ),
-    ];
-
-    return LayoutBuilder(builder: (context, bc) {
-      final d = math.min(bc.maxWidth, bc.maxHeight).clamp(0.0, 430.0);
-      return Center(
-        child: SizedBox(
-          width: d,
-          height: d,
-          child: Stack(
-            alignment: Alignment.center,
+          // ── Main layout ─────────────────────────────────────────────────
+          Column(
             children: [
-              CustomPaint(
-                size: Size(d, d),
-                painter: _OrbitPainter(radius: _orbitR),
-              ),
-              ...items.map((item) {
-                final rad = item.angleDeg * math.pi / 180.0;
-                return Transform.translate(
-                  offset: Offset(
-                    _orbitR * math.cos(rad),
-                    _orbitR * math.sin(rad),
+              SafeArea(
+                bottom: false,
+                child: _Header(
+                  isLoggedIn: _isLoggedIn,
+                  userName: _userName,
+                  elo: _elo,
+                  onLoginTap: _handleLogin,
+                  onSettingsTap: () => Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (_) => SettingsView()),
                   ),
-                  child: _SatelliteBtn(item: item),
-                );
-              }),
-              _PlayBtn(
-                onTap: () =>
-                    _showModeSheet(context, appModel, hasSavedGame, onRefresh),
+                  onThemeTap: () {
+                    final m = Provider.of<AppModel>(context, listen: false);
+                    m.setTheme((m.themeIndex + 1) % themeList.length);
+                  },
+                ),
               ),
+              // Scrollable live match list — leaves room for FAB + banner
+              Expanded(
+                child: _LiveMatchList(
+                  matches: _matches,
+                  onRefresh: _refreshMatches,
+                  hasSavedGame: _hasSavedGame,
+                  bottomPadding: fabAreaHeight + bannerHeight + bottomPad + 12,
+                ),
+              ),
+              // Fixed bottom banner
+              _BannerAd(bottomPad: bottomPad),
             ],
           ),
-        ),
-      );
-    });
-  }
 
-  // ── Navigation helpers ──
-
-  void _startGame(BuildContext context, AppModel appModel,
-      {int players = 1, bool resume = false}) {
-    appModel.setPlayerCount(players);
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-          builder: (_) => ChessView(appModel, isResuming: resume)),
-    ).then((_) => onRefresh());
-  }
-
-  void _showModeSheet(BuildContext context, AppModel appModel, bool hasSaved,
-      VoidCallback onRefresh) {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (_) => _ModeSheet(
-        appModel: appModel,
-        hasSavedGame: hasSaved,
-        onRefresh: onRefresh,
-      ),
-    );
-  }
-
-  void _showDifficultySheet(BuildContext context, AppModel appModel) {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (_) => _DifficultySheet(appModel: appModel),
-    );
-  }
-
-  void _showTimerSheet(BuildContext context, AppModel appModel) {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (_) => _TimerSheet(appModel: appModel),
-    );
-  }
-
-  void _showSideSheet(BuildContext context, AppModel appModel) {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (_) => _SideSheet(appModel: appModel),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Central PLAY button
-// ---------------------------------------------------------------------------
-class _PlayBtn extends StatelessWidget {
-  final VoidCallback onTap;
-  const _PlayBtn({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 92,
-        height: 92,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [_goldGlow, _goldMid, _goldDark],
-            stops: [0.0, 0.5, 1.0],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _goldMid.withValues(alpha: 0.65),
-              blurRadius: 28,
-              spreadRadius: 6,
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.play_arrow_rounded, color: Colors.white, size: 42),
-            SizedBox(height: 1),
-            Text(
-              'Play',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-                fontFamily: 'Jura',
+          // ── Floating "Chơi nhanh" button — sits above the banner ─────
+          Positioned(
+            bottom: bannerHeight + bottomPad + 14,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _QuickPlayBtn(
+                hasSavedGame: _hasSavedGame,
+                onGameFinished: _checkSavedGame,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Satellite button
-// ---------------------------------------------------------------------------
-class _SatelliteBtn extends StatelessWidget {
-  final _SatItem item;
-  const _SatelliteBtn({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: item.onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_goldLight, _goldMid, _goldDark],
-                stops: [0.0, 0.45, 1.0],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _goldDark.withValues(alpha: 0.5),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(item.icon, color: Colors.white, size: 22),
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            width: 60,
-            child: Text(
-              item.label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Jura',
-                shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -395,522 +261,262 @@ class _SatelliteBtn extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Mode selection bottom sheet
-// ---------------------------------------------------------------------------
-class _ModeSheet extends StatelessWidget {
-  final AppModel appModel;
-  final bool hasSavedGame;
-  final VoidCallback onRefresh;
+// ─── Header ──────────────────────────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  final bool isLoggedIn;
+  final String userName;
+  final int elo;
+  final VoidCallback onLoginTap;
+  final VoidCallback onSettingsTap;
+  final VoidCallback onThemeTap;
 
-  const _ModeSheet({
-    required this.appModel,
-    required this.hasSavedGame,
-    required this.onRefresh,
+  const _Header({
+    required this.isLoggedIn,
+    required this.userName,
+    required this.elo,
+    required this.onLoginTap,
+    required this.onSettingsTap,
+    required this.onThemeTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F3820),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2),
+        border: Border(
+          bottom: BorderSide(color: _goldMid.withValues(alpha: 0.2)),
+        ),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          // Handle
-          Container(
-            width: 38,
-            height: 4,
-            decoration: BoxDecoration(
-              color: _goldMid.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Chọn Chế Độ',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (hasSavedGame) ...[
-            _SheetRow(
-              icon: CupertinoIcons.arrow_counterclockwise_circle_fill,
-              label: 'Resume Game',
-              sub: 'Tiếp tục ván trước',
-              onTap: () {
-                Navigator.pop(context);
-                appModel.setPlayerCount(appModel.playerCount);
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                      builder: (_) => ChessView(appModel, isResuming: true)),
-                ).then((_) => onRefresh());
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
-          _SheetRow(
-            icon: CupertinoIcons.flag_fill,
-            label: 'vs AI',
-            sub: 'Chơi với máy tính',
-            onTap: () {
-              Navigator.pop(context);
-              appModel.setPlayerCount(1);
-              Navigator.push(
-                context,
-                CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-              ).then((_) => onRefresh());
-            },
-          ),
-          const SizedBox(height: 10),
-          _SheetRow(
-            icon: CupertinoIcons.person_2_fill,
-            label: '2 Người Chơi',
-            sub: 'Chơi với bạn bè trên cùng thiết bị',
-            onTap: () {
-              Navigator.pop(context);
-              appModel.setPlayerCount(2);
-              Navigator.push(
-                context,
-                CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-              ).then((_) => onRefresh());
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SheetRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String sub;
-  final VoidCallback onTap;
-
-  const _SheetRow({
-    required this.icon,
-    required this.label,
-    required this.sub,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF1A5C38),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        highlightColor: _goldMid.withValues(alpha: 0.1),
-        splashColor: _goldMid.withValues(alpha: 0.2),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [_goldLight, _goldDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          // ── Left: auth status ──────────────────────────────────────────
+          if (isLoggedIn) ...[
+            _AvatarCircle(initial: userName.isNotEmpty ? userName[0] : 'G'),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Jura',
                   ),
-                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
+                    const Icon(CupertinoIcons.star_fill,
+                        color: _goldMid, size: 11),
+                    const SizedBox(width: 3),
                     Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                      'ELO $elo',
+                      style: TextStyle(
+                        color: _goldLight.withValues(alpha: 0.9),
+                        fontSize: 11,
                         fontFamily: 'Jura',
                       ),
                     ),
+                  ],
+                ),
+              ],
+            ),
+          ] else ...[
+            GestureDetector(
+              onTap: onLoginTap,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [_goldGlow, _goldMid]),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                        color: _goldMid.withValues(alpha: 0.4), blurRadius: 8),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(CupertinoIcons.person_fill,
+                        color: Colors.white, size: 14),
+                    SizedBox(width: 6),
                     Text(
-                      sub,
+                      'Đăng nhập / Đăng ký',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
+                        color: Colors.white,
                         fontSize: 12,
+                        fontWeight: FontWeight.bold,
                         fontFamily: 'Jura',
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(CupertinoIcons.chevron_right,
-                  color: Colors.white38, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Difficulty bottom sheet
-// ---------------------------------------------------------------------------
-class _DifficultySheet extends StatelessWidget {
-  final AppModel appModel;
-  const _DifficultySheet({required this.appModel});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F3820),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SheetHandle(),
-          const SizedBox(height: 18),
-          const Text(
-            'Độ Khó AI',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
             ),
-          ),
-          const SizedBox(height: 20),
-          ...List.generate(5, (i) {
-            final level = i + 1;
-            final labels = ['Rất dễ', 'Dễ', 'Trung bình', 'Khó', 'Rất khó'];
-            final icons = [
-              CupertinoIcons.smiley,
-              CupertinoIcons.hand_thumbsup,
-              CupertinoIcons.person_fill,
-              CupertinoIcons.flame,
-              CupertinoIcons.bolt_fill,
-            ];
-            final selected = appModel.aiDifficulty == level;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                onTap: () {
-                  appModel.setAIDifficulty(level);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _goldMid.withValues(alpha: 0.25)
-                        : const Color(0xFF1A5C38),
-                    borderRadius: BorderRadius.circular(12),
-                    border: selected
-                        ? Border.all(color: _goldMid, width: 1.5)
-                        : null,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(icons[i],
-                          color: selected ? _goldGlow : Colors.white60,
-                          size: 22),
-                      const SizedBox(width: 14),
-                      Text(
-                        'Cấp $level — ${labels[i]}',
-                        style: TextStyle(
-                          color: selected ? _goldGlow : Colors.white,
-                          fontWeight:
-                              selected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                          fontFamily: 'Jura',
-                        ),
-                      ),
-                      const Spacer(),
-                      if (selected)
-                        const Icon(CupertinoIcons.checkmark_alt,
-                            color: _goldGlow, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
+          ],
+          const Spacer(),
+          // ── Right: theme + settings ────────────────────────────────────
+          _IconBtn(
+              icon: CupertinoIcons.paintbrush_fill,
+              tooltip: 'Đổi giao diện',
+              onTap: onThemeTap),
+          const SizedBox(width: 8),
+          _IconBtn(
+              icon: CupertinoIcons.settings,
+              tooltip: 'Cài đặt',
+              onTap: onSettingsTap),
         ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Timer bottom sheet
-// ---------------------------------------------------------------------------
-class _TimerSheet extends StatelessWidget {
-  final AppModel appModel;
-  const _TimerSheet({required this.appModel});
+class _AvatarCircle extends StatelessWidget {
+  final String initial;
+  const _AvatarCircle({required this.initial});
 
   @override
   Widget build(BuildContext context) {
-    const times = [0, 1, 3, 5, 10, 15, 30];
-    const labels = [
-      'Không giới hạn',
-      '1 phút',
-      '3 phút',
-      '5 phút',
-      '10 phút',
-      '15 phút',
-      '30 phút',
-    ];
-
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F3820),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SheetHandle(),
-          const SizedBox(height: 18),
-          const Text(
-            'Thời Gian',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
-            ),
-          ),
-          const SizedBox(height: 20),
-          ...List.generate(times.length, (i) {
-            final selected = appModel.timeLimit == times[i];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                onTap: () {
-                  appModel.setTimeLimit(times[i]);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _goldMid.withValues(alpha: 0.25)
-                        : const Color(0xFF1A5C38),
-                    borderRadius: BorderRadius.circular(12),
-                    border: selected
-                        ? Border.all(color: _goldMid, width: 1.5)
-                        : null,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        times[i] == 0
-                            ? CupertinoIcons.minus_circle
-                            : CupertinoIcons.clock,
-                        color: selected ? _goldGlow : Colors.white60,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 14),
-                      Text(
-                        labels[i],
-                        style: TextStyle(
-                          color: selected ? _goldGlow : Colors.white,
-                          fontWeight:
-                              selected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 14,
-                          fontFamily: 'Jura',
-                        ),
-                      ),
-                      const Spacer(),
-                      if (selected)
-                        const Icon(CupertinoIcons.checkmark_alt,
-                            color: _goldGlow, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Side selection bottom sheet
-// ---------------------------------------------------------------------------
-class _SideSheet extends StatelessWidget {
-  final AppModel appModel;
-  const _SideSheet({required this.appModel});
-
-  @override
-  Widget build(BuildContext context) {
-    final options = [
-      (Player.player1, 'Trắng', CupertinoIcons.circle, 'Đi trước'),
-      (Player.player2, 'Đen', CupertinoIcons.circle_fill, 'Đi sau'),
-      (Player.random, 'Ngẫu nhiên', CupertinoIcons.shuffle, 'Hệ thống chọn'),
-    ];
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F3820),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 40),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SheetHandle(),
-          const SizedBox(height: 18),
-          const Text(
-            'Chọn Quân',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
-            ),
-          ),
-          const SizedBox(height: 20),
-          ...options.map((opt) {
-            final selected = appModel.selectedSide == opt.$1;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                onTap: () {
-                  appModel.setPlayerSide(opt.$1);
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _goldMid.withValues(alpha: 0.25)
-                        : const Color(0xFF1A5C38),
-                    borderRadius: BorderRadius.circular(12),
-                    border: selected
-                        ? Border.all(color: _goldMid, width: 1.5)
-                        : null,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(opt.$3,
-                          color: selected ? _goldGlow : Colors.white60,
-                          size: 22),
-                      const SizedBox(width: 14),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            opt.$2,
-                            style: TextStyle(
-                              color: selected ? _goldGlow : Colors.white,
-                              fontWeight: selected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              fontSize: 14,
-                              fontFamily: 'Jura',
-                            ),
-                          ),
-                          Text(
-                            opt.$4,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.45),
-                              fontSize: 11,
-                              fontFamily: 'Jura',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      if (selected)
-                        const Icon(CupertinoIcons.checkmark_alt,
-                            color: _goldGlow, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Sheet handle widget
-// ---------------------------------------------------------------------------
-class _SheetHandle extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 38,
-      height: 4,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        color: _goldMid.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(2),
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [_goldLight, _goldDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: _goldMid, width: 1.5),
+      ),
+      child: Center(
+        child: Text(
+          initial.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            fontFamily: 'Jura',
+          ),
+        ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Side chess-piece decorations
-// ---------------------------------------------------------------------------
-class _SidePieces extends StatelessWidget {
-  const _SidePieces();
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _IconBtn(
+      {required this.icon, required this.tooltip, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final h = MediaQuery.of(context).size.height;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Left — white queen
-        Positioned(
-          left: -28,
-          bottom: h * 0.10,
-          child: Opacity(
-            opacity: 0.15,
-            child: Image.asset(
-              'assets/images/pieces/classic/queen_white.png',
-              width: 170,
-              height: 170,
-            ),
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withValues(alpha: 0.08),
+            border:
+                Border.all(color: _goldMid.withValues(alpha: 0.35), width: 1.2),
           ),
+          child: Icon(icon, color: Colors.white70, size: 17),
         ),
-        // Right — black king
-        Positioned(
-          right: -28,
-          bottom: h * 0.10,
-          child: Opacity(
-            opacity: 0.15,
-            child: Image.asset(
-              'assets/images/pieces/classic/king_black.png',
-              width: 170,
-              height: 170,
-            ),
+      ),
+    );
+  }
+}
+
+// ─── Live Match List ──────────────────────────────────────────────────────────
+class _LiveMatchList extends StatelessWidget {
+  final List<_LiveMatch> matches;
+  final VoidCallback onRefresh;
+  final bool hasSavedGame;
+  final double bottomPadding;
+
+  const _LiveMatchList({
+    required this.matches,
+    required this.onRefresh,
+    required this.hasSavedGame,
+    required this.bottomPadding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        // ── Cupertino pull-to-refresh (works inside CupertinoApp) ──────
+        CupertinoSliverRefreshControl(
+          onRefresh: () async => onRefresh(),
+          builder: (context, mode, pulledExtent, threshold, snap) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: CupertinoActivityIndicator(color: _goldMid),
+              ),
+            );
+          },
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(14, 12, 14, bottomPadding),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // ── Section header ───────────────────────────────────────
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                        shape: BoxShape.circle, color: Color(0xFF4ADE80)),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'TRẬN ĐANG DIỄN RA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5,
+                      fontFamily: 'Jura',
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${matches.length}/10',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 12,
+                      fontFamily: 'Jura',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // ── Resume card ──────────────────────────────────────────
+              if (hasSavedGame) ...[
+                _SavedGameCard(),
+                const SizedBox(height: 8),
+              ],
+
+              // ── Match cards ──────────────────────────────────────────
+              ...matches.map((m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _LiveMatchCard(match: m),
+                  )),
+            ]),
           ),
         ),
       ],
@@ -918,107 +524,550 @@ class _SidePieces extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Corner knot decorations (painted arcs)
-// ---------------------------------------------------------------------------
-class _CornerKnots extends StatelessWidget {
-  const _CornerKnots();
-
+// ─── Saved Game Card ──────────────────────────────────────────────────────────
+class _SavedGameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _KnotPainter());
-  }
-}
-
-class _KnotPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _goldMid.withValues(alpha: 0.14)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-
-    _drawKnot(canvas, paint, Offset.zero, 60);
-    _drawKnot(canvas, paint, Offset(size.width, 0), 60, flipX: true);
-  }
-
-  void _drawKnot(
-    Canvas canvas,
-    Paint paint,
-    Offset origin,
-    double r, {
-    bool flipX = false,
-  }) {
-    final dx = flipX ? -1.0 : 1.0;
-    final cx = origin.dx + dx * r;
-    final cy = origin.dy + r;
-
-    for (int i = 1; i <= 4; i++) {
-      canvas.drawCircle(Offset(cx, cy), r * i * 0.28, paint);
-    }
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(cx, cy), width: r * 1.6, height: r * 1.6),
-      -math.pi / 4,
-      math.pi / 2,
-      false,
-      paint,
-    );
-    canvas.drawArc(
-      Rect.fromCenter(
-        center: Offset(cx - dx * r * 0.3, cy - r * 0.3),
-        width: r * 1.2,
-        height: r * 1.2,
+    final appModel = Provider.of<AppModel>(context, listen: false);
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        CupertinoPageRoute(
+            builder: (_) => ChessView(appModel, isResuming: true)),
       ),
-      math.pi - math.pi / 6,
-      -math.pi / 2,
-      false,
-      paint,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+          border:
+              Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.5)),
+        ),
+        child: const Row(
+          children: [
+            Icon(CupertinoIcons.arrow_counterclockwise_circle_fill,
+                color: Color(0xFFA855F7), size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Tiếp tục ván trước',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                fontFamily: 'Jura',
+              ),
+            ),
+            Spacer(),
+            Icon(CupertinoIcons.chevron_right, color: Colors.white38, size: 16),
+          ],
+        ),
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(_KnotPainter _) => false;
 }
 
-// ---------------------------------------------------------------------------
-// Orbit ring painter
-// ---------------------------------------------------------------------------
-class _OrbitPainter extends CustomPainter {
-  final double radius;
-  const _OrbitPainter({required this.radius});
+// ─── Live Match Card ──────────────────────────────────────────────────────────
+class _LiveMatchCard extends StatelessWidget {
+  final _LiveMatch match;
+  const _LiveMatchCard({required this.match});
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = _goldMid.withValues(alpha: 0.22)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      radius,
-      paint,
-    );
+  String _fmt(int secs) {
+    final m = secs ~/ 60;
+    final s = secs % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
-
-  @override
-  bool shouldRepaint(_OrbitPainter old) => old.radius != radius;
-}
-
-// ---------------------------------------------------------------------------
-// Banner slot (placeholder for ads)
-// ---------------------------------------------------------------------------
-class _BannerSlot extends StatelessWidget {
-  const _BannerSlot();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
-        border: Border.all(color: _goldMid.withValues(alpha: 0.3)),
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _goldMid.withValues(alpha: 0.18)),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          splashColor: _goldMid.withValues(alpha: 0.08),
+          onTap: () => _onTap(context),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Mini board preview
+                _MiniChessBoard(board: match.board),
+                const SizedBox(width: 12),
+                // Player info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _PlayerRow(player: match.white, label: '♔ Trắng'),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Text(
+                          'vs',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            fontSize: 10,
+                            fontFamily: 'Jura',
+                          ),
+                        ),
+                      ),
+                      _PlayerRow(player: match.black, label: '♚ Đen'),
+                    ],
+                  ),
+                ),
+                // Right stats
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // LIVE badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A).withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF4ADE80).withValues(alpha: 0.6)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fiber_manual_record,
+                              color: Color(0xFF4ADE80), size: 8),
+                          SizedBox(width: 3),
+                          Text(
+                            'LIVE',
+                            style: TextStyle(
+                              color: Color(0xFF4ADE80),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Jura',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${match.moveCount} nước',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.55),
+                          fontSize: 11,
+                          fontFamily: 'Jura'),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _fmt(match.elapsedSec),
+                      style: TextStyle(
+                          color: _goldLight.withValues(alpha: 0.7),
+                          fontSize: 11,
+                          fontFamily: 'Jura'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onTap(BuildContext context) {
+    showCupertinoDialog(
+      context: context,
+      builder: (_) => CupertinoAlertDialog(
+        title: const Text('Quan sát trận đấu',
+            style: TextStyle(fontFamily: 'Jura')),
+        content: const Text(
+          'Chế độ quan sát (observer) đang phát triển.',
+          style: TextStyle(fontFamily: 'Jura'),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK', style: TextStyle(fontFamily: 'Jura')),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlayerRow extends StatelessWidget {
+  final _MatchPlayer player;
+  final String label;
+  const _PlayerRow({required this.player, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 10,
+              fontFamily: 'Jura'),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            player.name,
+            style: TextStyle(
+              color: player.isBot ? const Color(0xFF22D3EE) : Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Jura',
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '(${player.elo})',
+          style: TextStyle(
+              color: _goldLight.withValues(alpha: 0.6),
+              fontSize: 10,
+              fontFamily: 'Jura'),
+        ),
+        if (player.isBot) ...[
+          const SizedBox(width: 3),
+          const Icon(CupertinoIcons.waveform_path_ecg,
+              color: Color(0xFF22D3EE), size: 10),
+        ],
+      ],
+    );
+  }
+}
+
+// ─── Mini chess board (8×8 dot preview) ─────────────────────────────────────
+class _MiniChessBoard extends StatelessWidget {
+  final List<List<bool>> board;
+  const _MiniChessBoard({required this.board});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _goldMid.withValues(alpha: 0.35), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: CustomPaint(painter: _MiniChessPainter(board: board)),
+      ),
+    );
+  }
+}
+
+class _MiniChessPainter extends CustomPainter {
+  final List<List<bool>> board;
+  const _MiniChessPainter({required this.board});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const n = 8;
+    final cw = size.width / n;
+    final ch = size.height / n;
+    final light = Paint()..color = const Color(0xFF8FAF7A);
+    final dark = Paint()..color = const Color(0xFF2D6A4F);
+    final pieceW = Paint()..color = Colors.white.withValues(alpha: 0.85);
+    final pieceB = Paint()..color = Colors.black.withValues(alpha: 0.7);
+
+    for (int r = 0; r < n; r++) {
+      for (int c = 0; c < n; c++) {
+        canvas.drawRect(
+          Rect.fromLTWH(c * cw, r * ch, cw, ch),
+          (r + c).isEven ? light : dark,
+        );
+        if (r < board.length && c < board[r].length && board[r][c]) {
+          final center = Offset(c * cw + cw / 2, r * ch + ch / 2);
+          canvas.drawCircle(
+              center, cw * 0.27, (r + c).isEven ? pieceB : pieceW);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MiniChessPainter old) => false;
+}
+
+// ─── Floating Quick Play Button ───────────────────────────────────────────────
+class _QuickPlayBtn extends StatefulWidget {
+  final bool hasSavedGame;
+  final VoidCallback onGameFinished;
+  const _QuickPlayBtn(
+      {required this.hasSavedGame, required this.onGameFinished});
+
+  @override
+  State<_QuickPlayBtn> createState() => _QuickPlayBtnState();
+}
+
+class _QuickPlayBtnState extends State<_QuickPlayBtn>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulse;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 0.97, end: 1.04)
+        .animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _scale,
+      builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
+      child: GestureDetector(
+        onTap: () => _start(context),
+        child: Container(
+          height: 52,
+          padding: const EdgeInsets.symmetric(horizontal: 36),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_goldGlow, _goldMid, _goldDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: _goldMid.withValues(alpha: 0.65),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+              const BoxShadow(
+                color: Colors.black38,
+                blurRadius: 6,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'CHƠI NHANH',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                  fontFamily: 'Jura',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _start(BuildContext context) async {
+    final appModel = Provider.of<AppModel>(context, listen: false);
+
+    // 1. Check connectivity
+    final online = await _checkOnline();
+    if (!mounted) return;
+
+    if (!online) {
+      // Offline → direct bot game (no matchmaking wait)
+      appModel.setPlayerCount(1);
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+      );
+      widget.onGameFinished();
+      return;
+    }
+
+    // 2. Online → show 15-second matchmaking countdown (Cupertino-safe)
+    final result = await showCupertinoModalPopup<_MatchResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _MatchmakingDialog(timeoutSeconds: 5),
+    );
+    if (!mounted) return;
+
+    if (result == null || result == _MatchResult.cancelled) return;
+
+    // result == timeout → fallback to bot (Phase 2: replace with real match)
+    appModel.setPlayerCount(1);
+    await Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+    );
+    widget.onGameFinished();
+  }
+}
+
+enum _MatchResult { timeout, cancelled }
+
+// ─── Matchmaking Dialog ───────────────────────────────────────────────────────
+class _MatchmakingDialog extends StatefulWidget {
+  final int timeoutSeconds;
+  const _MatchmakingDialog({required this.timeoutSeconds});
+
+  @override
+  State<_MatchmakingDialog> createState() => _MatchmakingDialogState();
+}
+
+class _MatchmakingDialogState extends State<_MatchmakingDialog> {
+  late int _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.timeoutSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        _timer?.cancel();
+        Navigator.pop(context, _MatchResult.timeout);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F3820),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Sheet handle
+          Container(
+            width: 38,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: _goldMid.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Countdown ring (Cupertino-friendly)
+          SizedBox(
+            width: 76,
+            height: 76,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CupertinoActivityIndicator(
+                  radius: 28,
+                  color: _goldMid,
+                ),
+                Text(
+                  '$_remaining',
+                  style: const TextStyle(
+                    color: _goldGlow,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Jura',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Đang tìm đối thủ...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Jura',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ghép trận theo ELO. Nếu hết thời gian\nsẽ tự động chuyển sang Bot.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 12,
+              fontFamily: 'Jura',
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 22),
+          GestureDetector(
+            onTap: () {
+              _timer?.cancel();
+              Navigator.pop(context, _MatchResult.cancelled);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: const Text(
+                'Hủy',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontFamily: 'Jura',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Fixed bottom banner ad ───────────────────────────────────────────────────
+class _BannerAd extends StatelessWidget {
+  final double bottomPad;
+  const _BannerAd({required this.bottomPad});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 50 + bottomPad,
+      padding: EdgeInsets.only(bottom: bottomPad),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        border:
+            Border(top: BorderSide(color: _goldMid.withValues(alpha: 0.15))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1039,52 +1088,76 @@ class _BannerSlot extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Small icon button in top bar
-// ---------------------------------------------------------------------------
-class _TopIconBtn extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _TopIconBtn({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
+// ─── Background: subtle checker pattern ──────────────────────────────────────
+class _BoardPattern extends StatelessWidget {
+  const _BoardPattern();
 
   @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.08),
-            border: Border.all(
-              color: _goldMid.withValues(alpha: 0.35),
-              width: 1.2,
-            ),
-          ),
-          child: Icon(icon, color: Colors.white70, size: 18),
-        ),
-      ),
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _BoardPatternPainter());
+}
+
+class _BoardPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.018)
+      ..style = PaintingStyle.fill;
+    const cell = 40.0;
+    final cols = (size.width / cell).ceil() + 1;
+    final rows = (size.height / cell).ceil() + 1;
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        if ((r + c).isEven) {
+          canvas.drawRect(Rect.fromLTWH(c * cell, r * cell, cell, cell), paint);
+        }
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BoardPatternPainter _) => false;
+}
+
+// ─── Background: corner knot decorations ─────────────────────────────────────
+class _CornerKnots extends StatelessWidget {
+  const _CornerKnots();
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(painter: _KnotPainter());
+}
+
+class _KnotPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = _goldMid.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    _drawKnot(canvas, paint, Offset.zero, 52);
+    _drawKnot(canvas, paint, Offset(size.width, 0), 52, flipX: true);
+  }
+
+  void _drawKnot(Canvas canvas, Paint paint, Offset origin, double r,
+      {bool flipX = false}) {
+    final dx = flipX ? -1.0 : 1.0;
+    final cx = origin.dx + dx * r;
+    final cy = origin.dy + r;
+    for (int i = 1; i <= 3; i++) {
+      canvas.drawCircle(Offset(cx, cy), r * i * 0.3, paint);
+    }
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(cx, cy), width: r * 1.6, height: r * 1.6),
+      -math.pi / 4,
+      math.pi / 2,
+      false,
+      paint,
     );
   }
+
+  @override
+  bool shouldRepaint(_KnotPainter _) => false;
 }
 
-// ---------------------------------------------------------------------------
-// Data class for satellite items
-// ---------------------------------------------------------------------------
-class _SatItem {
-  final IconData icon;
-  final String label;
-  final double angleDeg;
-  final VoidCallback onTap;
-
-  const _SatItem(this.icon, this.label, this.angleDeg, this.onTap);
-}
+// ignore_for_file: unused_import
+// Player import kept for future AI options integration

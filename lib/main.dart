@@ -45,7 +45,7 @@ class Chess extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoApp(
       debugShowCheckedModeBanner: false,
-      title: 'Chess',
+      title: 'Infinite Chess AI',
       theme: CupertinoThemeData(
         brightness: Brightness.dark,
         textTheme: CupertinoTextThemeData(
