@@ -1,0 +1,50 @@
+
+
+import 'package:flutter/material.dart';
+
+import '../../../model/app_model.dart';
+import 'toggle.dart';
+
+class Toggles extends StatelessWidget {
+  final AppModel appModel;
+
+  Toggles(this.appModel);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Toggle(
+          'Board Rotation (2P)',
+          toggle: appModel.enableRotation,
+          setFunc: appModel.setEnableRotation,
+        ),
+        Toggle(
+          'Show Hints',
+          toggle: appModel.showHints,
+          setFunc: appModel.setShowHints,
+        ),
+        Toggle(
+          'Show Notation',
+          toggle: appModel.showNotation,
+          setFunc: appModel.setShowNotation,
+        ),
+        Toggle(
+          'Allow Undo/Redo',
+          toggle: appModel.allowUndoRedo,
+          setFunc: appModel.setAllowUndoRedo,
+        ),
+        Toggle(
+          'Show Move History',
+          toggle: appModel.showMoveHistory,
+          setFunc: appModel.setShowMoveHistory,
+        ),
+        Toggle(
+          'Sound',
+          toggle: appModel.soundEnabled,
+          setFunc: appModel.setSoundEnabled,
+        ),
+      ],
+    );
+  }
+}
