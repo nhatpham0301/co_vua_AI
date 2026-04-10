@@ -14,12 +14,12 @@ import 'chess_view.dart';
 import 'settings_view.dart';
 
 // ─── Palette ────────────────────────────────────────────────────────────────
-const _bgMid = Color(0xFF1A5C38);
-const _bgEdge = Color(0xFF0C2C18);
-const _goldDark = Color(0xFF9A6C08);
+const _bgDark = Color(0xFF060D1F);
+const _bgMid = Color(0xFF0A1730);
+const _bgCard = Color(0xFF0E2244);
+const _primary = Color(0xFF00B4D8);
+const _primaryLight = Color(0xFF48CAE4);
 const _goldMid = Color(0xFFCC9518);
-const _goldLight = Color(0xFFEDBC50);
-const _goldGlow = Color(0xFFFFD86E);
 
 // ─── Connectivity helper ─────────────────────────────────────────────────────
 Future<bool> _checkOnline() async {
@@ -134,9 +134,10 @@ class MainMenuView extends StatefulWidget {
 
 class _MainMenuViewState extends State<MainMenuView> {
   // Auth state — Phase 2 will replace with real session check
-  bool _isLoggedIn = false;
-  final String _userName = 'Guest';
-  final int _elo = 1200;
+  bool _isLoggedIn = true;
+  final String _userName = 'Nguyễn Văn A';
+  final int _elo = 1850;
+  final String _rank = 'Grandmaster';
 
   bool _hasSavedGame = false;
   List<_LiveMatch> _matches = [];
@@ -170,14 +171,13 @@ class _MainMenuViewState extends State<MainMenuView> {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Đăng nhập', style: TextStyle(fontFamily: 'Jura')),
+        title: const Text('Đăng nhập'),
         content: const Text(
           'Tính năng đăng nhập đang được phát triển.\nSẽ ra mắt sớm!',
-          style: TextStyle(fontFamily: 'Jura'),
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK', style: TextStyle(fontFamily: 'Jura')),
+            child: const Text('OK'),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -192,17 +192,17 @@ class _MainMenuViewState extends State<MainMenuView> {
     const fabAreaHeight = 72.0;
 
     return Scaffold(
-      backgroundColor: _bgEdge,
+      backgroundColor: _bgDark,
       body: Stack(
         fit: StackFit.expand,
         children: [
           // ── Background ──────────────────────────────────────────────────
           Container(
             decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0, -0.3),
-                radius: 0.9,
-                colors: [_bgMid, _bgEdge],
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [_bgMid, _bgDark],
               ),
             ),
           ),
@@ -218,6 +218,7 @@ class _MainMenuViewState extends State<MainMenuView> {
                   isLoggedIn: _isLoggedIn,
                   userName: _userName,
                   elo: _elo,
+                  rank: _rank,
                   onLoginTap: _handleLogin,
                   onSettingsTap: () => Navigator.push(
                     context,
@@ -266,6 +267,7 @@ class _Header extends StatelessWidget {
   final bool isLoggedIn;
   final String userName;
   final int elo;
+  final String rank;
   final VoidCallback onLoginTap;
   final VoidCallback onSettingsTap;
   final VoidCallback onThemeTap;
@@ -274,6 +276,7 @@ class _Header extends StatelessWidget {
     required this.isLoggedIn,
     required this.userName,
     required this.elo,
+    required this.rank,
     required this.onLoginTap,
     required this.onSettingsTap,
     required this.onThemeTap,
@@ -282,11 +285,11 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
+        color: Colors.black.withValues(alpha: 0.3),
         border: Border(
-          bottom: BorderSide(color: _goldMid.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
       child: Row(
@@ -294,7 +297,7 @@ class _Header extends StatelessWidget {
           // ── Left: auth status ──────────────────────────────────────────
           if (isLoggedIn) ...[
             _AvatarCircle(initial: userName.isNotEmpty ? userName[0] : 'G'),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -302,25 +305,17 @@ class _Header extends StatelessWidget {
                   userName,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Jura',
                   ),
                 ),
-                Row(
-                  children: [
-                    const Icon(CupertinoIcons.star_fill,
-                        color: _goldMid, size: 11),
-                    const SizedBox(width: 3),
-                    Text(
-                      'ELO $elo',
-                      style: TextStyle(
-                        color: _goldLight.withValues(alpha: 0.9),
-                        fontSize: 11,
-                        fontFamily: 'Jura',
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  'ELO: $elo | $rank',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -331,26 +326,23 @@ class _Header extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_goldGlow, _goldMid]),
+                  color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                        color: _goldMid.withValues(alpha: 0.4), blurRadius: 8),
-                  ],
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2), width: 1),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(CupertinoIcons.person_fill,
-                        color: Colors.white, size: 14),
+                        color: Colors.white70, size: 14),
                     SizedBox(width: 6),
                     Text(
                       'Đăng nhập / Đăng ký',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: Colors.white70,
                         fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Jura',
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -359,16 +351,16 @@ class _Header extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          // ── Right: theme + settings ────────────────────────────────────
-          _IconBtn(
-              icon: CupertinoIcons.paintbrush_fill,
-              tooltip: 'Đổi giao diện',
-              onTap: onThemeTap),
-          const SizedBox(width: 8),
+          // ── Right: settings + theme ────────────────────────────────────
           _IconBtn(
               icon: CupertinoIcons.settings,
               tooltip: 'Cài đặt',
               onTap: onSettingsTap),
+          const SizedBox(width: 8),
+          _IconBtn(
+              icon: CupertinoIcons.paintbrush_fill,
+              tooltip: 'Đổi giao diện',
+              onTap: onThemeTap),
         ],
       ),
     );
@@ -382,16 +374,12 @@ class _AvatarCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [_goldLight, _goldDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: _goldMid, width: 1.5),
+        color: _bgCard,
+        border: Border.all(color: _primary.withValues(alpha: 0.6), width: 2),
       ),
       child: Center(
         child: Text(
@@ -400,7 +388,6 @@ class _AvatarCircle extends StatelessWidget {
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            fontFamily: 'Jura',
           ),
         ),
       ),
@@ -463,7 +450,7 @@ class _LiveMatchList extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: CupertinoActivityIndicator(color: _goldMid),
+                child: CupertinoActivityIndicator(color: _primary),
               ),
             );
           },
@@ -475,13 +462,6 @@ class _LiveMatchList extends StatelessWidget {
               // ── Section header ───────────────────────────────────────
               Row(
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                        shape: BoxShape.circle, color: Color(0xFF4ADE80)),
-                  ),
-                  const SizedBox(width: 8),
                   const Text(
                     'TRẬN ĐANG DIỄN RA',
                     style: TextStyle(
@@ -489,16 +469,25 @@ class _LiveMatchList extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
-                      fontFamily: 'Jura',
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    '${matches.length}/10',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.4),
-                      fontSize: 12,
-                      fontFamily: 'Jura',
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _primary.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(4),
+                      border:
+                          Border.all(color: _primary.withValues(alpha: 0.5)),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: _primaryLight,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -554,7 +543,6 @@ class _SavedGameCard extends StatelessWidget {
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                fontFamily: 'Jura',
               ),
             ),
             Spacer(),
@@ -581,95 +569,90 @@ class _LiveMatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
+        color: _bgCard,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _goldMid.withValues(alpha: 0.18)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-          splashColor: _goldMid.withValues(alpha: 0.08),
+          splashColor: _primary.withValues(alpha: 0.08),
           onTap: () => _onTap(context),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Row(
               children: [
                 // Mini board preview
                 _MiniChessBoard(board: match.board),
-                const SizedBox(width: 12),
-                // Player info
+                const SizedBox(width: 14),
+                // Middle: LIVE badge + player info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _PlayerRow(player: match.white, label: '♔ Trắng'),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Text(
-                          'vs',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.35),
-                            fontSize: 10,
-                            fontFamily: 'Jura',
-                          ),
-                        ),
-                      ),
-                      _PlayerRow(player: match.black, label: '♚ Đen'),
-                    ],
-                  ),
-                ),
-                // Right stats
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // LIVE badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16A34A).withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                            color:
-                                const Color(0xFF4ADE80).withValues(alpha: 0.6)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                      // Top row: LIVE badge + timer
+                      Row(
                         children: [
-                          Icon(Icons.fiber_manual_record,
-                              color: Color(0xFF4ADE80), size: 8),
-                          SizedBox(width: 3),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: _primary.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: _primary.withValues(alpha: 0.55)),
+                            ),
+                            child: const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: _primaryLight,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
                           Text(
-                            'LIVE',
-                            style: TextStyle(
-                              color: Color(0xFF4ADE80),
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Jura',
+                            _fmt(match.elapsedSec),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 10),
+                      // Player 1
+                      _PlayerRow(player: match.white),
+                      const SizedBox(height: 6),
+                      // Player 2
+                      _PlayerRow(player: match.black),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // XEM button
+                GestureDetector(
+                  onTap: () => _onTap(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _primary,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${match.moveCount} nước',
+                    child: const Text(
+                      'XEM',
                       style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          fontSize: 11,
-                          fontFamily: 'Jura'),
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _fmt(match.elapsedSec),
-                      style: TextStyle(
-                          color: _goldLight.withValues(alpha: 0.7),
-                          fontSize: 11,
-                          fontFamily: 'Jura'),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -683,15 +666,13 @@ class _LiveMatchCard extends StatelessWidget {
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Quan sát trận đấu',
-            style: TextStyle(fontFamily: 'Jura')),
+        title: const Text('Quan sát trận đấu'),
         content: const Text(
           'Chế độ quan sát (observer) đang phát triển.',
-          style: TextStyle(fontFamily: 'Jura'),
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK', style: TextStyle(fontFamily: 'Jura')),
+            child: const Text('OK'),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -702,45 +683,28 @@ class _LiveMatchCard extends StatelessWidget {
 
 class _PlayerRow extends StatelessWidget {
   final _MatchPlayer player;
-  final String label;
-  const _PlayerRow({required this.player, required this.label});
+  const _PlayerRow({required this.player});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
-              fontSize: 10,
-              fontFamily: 'Jura'),
-        ),
-        const SizedBox(width: 4),
         Flexible(
           child: Text(
-            player.name,
+            '${player.name} (${player.elo})',
             style: TextStyle(
-              color: player.isBot ? const Color(0xFF22D3EE) : Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
+              color: player.isBot
+                  ? Colors.white.withValues(alpha: 0.75)
+                  : Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 4),
-        Text(
-          '(${player.elo})',
-          style: TextStyle(
-              color: _goldLight.withValues(alpha: 0.6),
-              fontSize: 10,
-              fontFamily: 'Jura'),
-        ),
         if (player.isBot) ...[
-          const SizedBox(width: 3),
-          const Icon(CupertinoIcons.waveform_path_ecg,
-              color: Color(0xFF22D3EE), size: 10),
+          const SizedBox(width: 4),
+          const Icon(Icons.bolt_rounded, color: _primaryLight, size: 14),
         ],
       ],
     );
@@ -755,14 +719,14 @@ class _MiniChessBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 58,
-      height: 58,
+      width: 66,
+      height: 66,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _goldMid.withValues(alpha: 0.35), width: 1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _primary.withValues(alpha: 0.25), width: 1),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(7),
         child: CustomPaint(painter: _MiniChessPainter(board: board)),
       ),
     );
@@ -778,10 +742,10 @@ class _MiniChessPainter extends CustomPainter {
     const n = 8;
     final cw = size.width / n;
     final ch = size.height / n;
-    final light = Paint()..color = const Color(0xFF8FAF7A);
-    final dark = Paint()..color = const Color(0xFF2D6A4F);
+    final light = Paint()..color = const Color(0xFF1A3560);
+    final dark = Paint()..color = const Color(0xFF0D2040);
     final pieceW = Paint()..color = Colors.white.withValues(alpha: 0.85);
-    final pieceB = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    final pieceB = Paint()..color = const Color(0xFF00B4D8);
 
     for (int r = 0; r < n; r++) {
       for (int c = 0; c < n; c++) {
@@ -843,20 +807,20 @@ class _QuickPlayBtnState extends State<_QuickPlayBtn>
       child: GestureDetector(
         onTap: () => _start(context),
         child: Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 36),
+          height: 54,
+          padding: const EdgeInsets.symmetric(horizontal: 52),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_goldGlow, _goldMid, _goldDark],
+              colors: [Color(0xFF0082C8), Color(0xFF0050A0)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: _goldMid.withValues(alpha: 0.65),
+                color: Color(0xFF0082C8),
                 blurRadius: 20,
-                spreadRadius: 2,
+                spreadRadius: 1,
               ),
               const BoxShadow(
                 color: Colors.black38,
@@ -865,22 +829,14 @@ class _QuickPlayBtnState extends State<_QuickPlayBtn>
               ),
             ],
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.bolt_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'CHƠI NHANH',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  fontFamily: 'Jura',
-                ),
-              ),
-            ],
+          child: const Text(
+            'CHƠI',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2.5,
+            ),
           ),
         ),
       ),
@@ -964,7 +920,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0F3820),
+        color: Color(0xFF071428),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
@@ -977,7 +933,7 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
             height: 4,
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              color: _goldMid.withValues(alpha: 0.5),
+              color: _primary.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -990,15 +946,14 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
               children: [
                 CupertinoActivityIndicator(
                   radius: 28,
-                  color: _goldMid,
+                  color: _primary,
                 ),
                 Text(
                   '$_remaining',
                   style: const TextStyle(
-                    color: _goldGlow,
+                    color: _primaryLight,
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    fontFamily: 'Jura',
                   ),
                 ),
               ],
@@ -1011,7 +966,6 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              fontFamily: 'Jura',
             ),
           ),
           const SizedBox(height: 8),
@@ -1021,7 +975,6 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
               fontSize: 12,
-              fontFamily: 'Jura',
               height: 1.5,
             ),
           ),
@@ -1043,7 +996,6 @@ class _MatchmakingDialogState extends State<_MatchmakingDialog> {
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
-                  fontFamily: 'Jura',
                 ),
               ),
             ),
@@ -1065,9 +1017,9 @@ class _BannerAd extends StatelessWidget {
       height: 50 + bottomPad,
       padding: EdgeInsets.only(bottom: bottomPad),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
-        border:
-            Border(top: BorderSide(color: _goldMid.withValues(alpha: 0.15))),
+        color: Colors.black.withValues(alpha: 0.4),
+        border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1079,7 +1031,6 @@ class _BannerAd extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.18),
               fontSize: 11,
-              fontFamily: 'Jura',
             ),
           ),
         ],
@@ -1101,7 +1052,7 @@ class _BoardPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.018)
+      ..color = Colors.white.withValues(alpha: 0.012)
       ..style = PaintingStyle.fill;
     const cell = 40.0;
     final cols = (size.width / cell).ceil() + 1;
@@ -1131,7 +1082,7 @@ class _KnotPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = _goldMid.withValues(alpha: 0.12)
+      ..color = _primary.withValues(alpha: 0.07)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     _drawKnot(canvas, paint, Offset.zero, 52);

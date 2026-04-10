@@ -2,6 +2,7 @@ import 'package:flame/flame.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'logic/shared_functions.dart';
@@ -49,8 +50,8 @@ class Chess extends StatelessWidget {
       theme: CupertinoThemeData(
         brightness: Brightness.dark,
         textTheme: CupertinoTextThemeData(
-          textStyle: TextStyle(fontFamily: 'Jura', fontSize: 16),
-          pickerTextStyle: TextStyle(fontFamily: 'Jura'),
+          textStyle: GoogleFonts.inter(fontSize: 16),
+          pickerTextStyle: GoogleFonts.inter(),
         ),
       ),
       home: MainMenuView(),
