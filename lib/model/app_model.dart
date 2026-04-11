@@ -7,12 +7,14 @@ import '../logic/ad_service.dart';
 import '../logic/audio_service.dart';
 import '../logic/chess_piece.dart';
 import '../logic/dev_logger.dart';
+import '../logic/experimental_api_client.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
 import '../logic/move_calculation/move_classes/move_meta.dart';
 import '../logic/move_calculation/move_classes/move_stack_object.dart';
 import '../logic/shared_functions.dart';
 import '../logic/timer_service.dart';
+import 'api_models.dart';
 import 'app_themes.dart';
 import 'player.dart';
 import 'user_preferences.dart';
@@ -29,6 +31,20 @@ class AppModel extends ChangeNotifier {
   final AudioService audio = AudioService();
   final TimerService timerService = TimerService();
   final AdService adService = AdService.instance;
+  final ExperimentalApiClient apiClient =
+      ExperimentalApiClient(baseUrl: 'http://localhost:3000');
+
+  // ── Experimental API State ──
+  bool apiBusy = false;
+  String? apiLastError;
+  HomeOverview? homeOverviewSnapshot;
+  LiveMatchesResponse? liveMatchesSnapshot;
+  MonetizationConfig? monetizationConfigSnapshot;
+  QuickPlayResult? quickPlaySnapshot;
+  OnlineGameSnapshot? onlineGameSnapshot;
+  List<OnlineMoveRecord> onlineMoveHistory = [];
+  OnlineMoveSubmitResult? onlineMoveSubmitSnapshot;
+  Map<String, dynamic>? onlineUserGamesSnapshot;
 
   // ── Delegated Accessors (backward compatibility) ──
   int get timeLimit => timerService.timeLimit;
@@ -46,6 +62,7 @@ class AppModel extends ChangeNotifier {
   int get pieceThemeIndex => prefs.pieceThemeIndex;
   List<String> get pieceThemes => prefs.pieceThemes;
   Locale? get locale => prefs.locale;
+  String get apiBaseUrl => apiClient.baseUrl;
 
   ValueNotifier<Duration> get player1TimeLeft => timerService.player1TimeLeft;
   set player1TimeLeft(ValueNotifier<Duration> val) =>
@@ -95,6 +112,7 @@ class AppModel extends ChangeNotifier {
         );
       }
       audio.enabled = prefs.soundEnabled;
+      apiClient.setBaseUrl(prefs.apiBaseUrl);
       notifyListeners();
     };
     timerService.onExpired = () => endGame();
@@ -290,6 +308,205 @@ class AppModel extends ChangeNotifier {
   void setEnableRotation(bool enable) => prefs.setEnableRotation(enable);
   void setAllowUndoRedo(bool allow) => prefs.setAllowUndoRedo(allow);
   void setLocale(String? localeCode) => prefs.setLocale(localeCode);
+  Future<void> setApiBaseUrl(String url) async {
+    await prefs.setApiBaseUrl(url);
+    apiClient.setBaseUrl(url);
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      'API baseUrl updated to ${apiClient.baseUrl}',
+    );
+    notifyListeners();
+  }
+
+  // ── Experimental API Actions ──
+
+  Future<void> fetchHomeOverviewPreview() async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      homeOverviewSnapshot = await apiClient.fetchHomeOverview();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/home/overview OK | auth=${homeOverviewSnapshot?.authMode}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/home/overview ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchLiveMatchesPreview() async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      liveMatchesSnapshot = await apiClient.fetchHomeLiveMatches(limit: 10);
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/home/live-matches OK | items=${liveMatchesSnapshot?.items.length ?? 0}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/home/live-matches ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchMonetizationConfigPreview() async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      monetizationConfigSnapshot = await apiClient.fetchMonetizationConfig();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/monetization/config OK',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/monetization/config ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> quickPlayPreview() async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      quickPlaySnapshot = await apiClient.quickPlay();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'POST /api/home/quick-play OK | mode=${quickPlaySnapshot?.mode}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'POST /api/home/quick-play ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchOnlineGameSnapshotPreview(String gameId) async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      onlineGameSnapshot = await apiClient.fetchGameSnapshot(gameId);
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/games/$gameId OK | status=${onlineGameSnapshot?.status}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/games/$gameId ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchOnlineGameMovesPreview(String gameId) async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      onlineMoveHistory = await apiClient.fetchGameMoves(gameId);
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/games/$gameId/moves OK | count=${onlineMoveHistory.length}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/games/$gameId/moves ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> submitOnlineMovePreview({
+    required String gameId,
+    required String from,
+    required String to,
+    String? promotion,
+  }) async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      onlineMoveSubmitSnapshot = await apiClient.submitGameMove(
+        gameId: gameId,
+        from: from,
+        to: to,
+        promotion: promotion,
+      );
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'POST /api/games/$gameId/moves OK | type=${onlineMoveSubmitSnapshot?.type}',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'POST /api/games/$gameId/moves ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchUserGamesPreview(String userId) async {
+    apiBusy = true;
+    apiLastError = null;
+    notifyListeners();
+    try {
+      onlineUserGamesSnapshot = await apiClient.fetchUserGames(userId: userId);
+      final games = onlineUserGamesSnapshot?['games'];
+      final count = games is List ? games.length : 0;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/users/$userId/games OK | count=$count',
+      );
+    } catch (e) {
+      apiLastError = e.toString();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'GET /api/users/$userId/games ERROR | $apiLastError',
+      );
+    } finally {
+      apiBusy = false;
+      notifyListeners();
+    }
+  }
 
   // ── Developer Mode ──
 

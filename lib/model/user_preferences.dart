@@ -36,6 +36,7 @@ class UserPreferences {
   String? localeCode;
   int timeLimitMinutes = 30; // 0 = unlimited
   int moveTimeLimitSeconds = 30; // seconds per move, 0 = no per-move limit
+  String apiBaseUrl = 'http://localhost:3000';
 
   List<String> get pieceThemes => sortedPieceThemes;
 
@@ -100,6 +101,7 @@ class UserPreferences {
     } else {
       await _prefs!.setString('localeCode', code);
     }
+    apiBaseUrl = _prefs!.getString('apiBaseUrl') ?? 'http://localhost:3000';
     onChanged?.call();
   }
 
@@ -159,6 +161,13 @@ class UserPreferences {
     onChanged?.call();
   }
 
+  Future<void> setApiBaseUrl(String url) async {
+    apiBaseUrl = url;
+    _prefs ??= await SharedPreferences.getInstance();
+    _prefs!.setString('apiBaseUrl', url);
+    onChanged?.call();
+  }
+
   Future<void> resetToDefaults() async {
     themeName = 'Jargon Jade';
     pieceTheme = 'Classic';
@@ -171,6 +180,7 @@ class UserPreferences {
     localeCode = null;
     timeLimitMinutes = 30;
     moveTimeLimitSeconds = 30;
+    apiBaseUrl = 'http://localhost:3000';
 
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('themeName', themeName);
@@ -184,6 +194,7 @@ class UserPreferences {
     await _prefs!.remove('localeCode');
     await _prefs!.setInt('timeLimitMinutes', timeLimitMinutes);
     await _prefs!.setInt('moveTimeLimitSeconds', moveTimeLimitSeconds);
+    await _prefs!.setString('apiBaseUrl', apiBaseUrl);
     onChanged?.call();
   }
 }

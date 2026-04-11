@@ -10,9 +10,11 @@
 
 - [Authentication](#authentication)
 - [Users](#users)
+- [Home Integrated](#home-integrated)
 - [Games — Human vs Human](#games--human-vs-human)
 - [Games — vs AI](#games--vs-ai)
 - [Matchmaking](#matchmaking)
+- [Monetization](#monetization)
 - [Leaderboard](#leaderboard)
 - [Health](#health)
 - [Socket.io Events](#socketio-events)
@@ -297,6 +299,149 @@ Lịch sử ván đấu của user (có phân trang).
 
 ```json
 { "games": [], "total": 0 }
+```
+
+---
+
+## Home Integrated
+
+### GET `/api/home/overview`
+
+Lấy dữ liệu tổng hợp cho Home trong một lần gọi: trạng thái đăng nhập, thông tin user (nếu có), cấu hình live list và banner.
+
+**Auth:** Không bắt buộc. Nếu có Bearer token hợp lệ, trả về dữ liệu user.
+
+**Response `200 OK` (đã đăng nhập)**
+
+```json
+{
+  "auth": { "mode": "authenticated" },
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "username": "alice_chess",
+    "elo": 1342,
+    "rank": 47
+  },
+  "home": {
+    "targetCardCount": 10,
+    "quickPlayEnabled": true,
+    "settingsShortcutEnabled": true
+  },
+  "ads": {
+    "showBanner": true,
+    "placement": "home_footer"
+  }
+}
+```
+
+**Response `200 OK` (chưa đăng nhập)**
+
+```json
+{
+  "auth": { "mode": "anonymous" },
+  "user": null,
+  "home": {
+    "targetCardCount": 10,
+    "quickPlayEnabled": true,
+    "settingsShortcutEnabled": true
+  },
+  "ads": {
+    "showBanner": true,
+    "placement": "home_footer"
+  }
+}
+```
+
+---
+
+### GET `/api/home/live-matches`
+
+Lấy danh sách trận đang diễn ra để hiển thị Home cards.
+
+**Query Params**
+
+| Param         | Default | Max | Mô tả |
+| ------------- | ------- | --- | ----- |
+| `limit`       | 10      | 20  | Số card trả về |
+| `cursor`      | —       | —   | Dùng để phân trang |
+| `includeBots` | `true`  | —   | Cho phép thêm trận bot filler khi thiếu trận thật |
+
+**Response `200 OK`**
+
+```json
+{
+  "items": [
+    {
+      "gameId": "aaaa1111-0000-0000-0000-000000000001",
+      "white": { "id": "u1", "username": "alice", "elo": 1342 },
+      "black": { "id": "u2", "username": "bob", "elo": 1318 },
+      "status": "in_progress",
+      "timeControl": "blitz_5",
+      "fenPreview": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+      "spectatorCount": 21,
+      "sourceType": "human",
+      "startedAt": "2026-04-11T08:00:00.000Z"
+    },
+    {
+      "gameId": "bot-feed-1",
+      "white": { "id": null, "username": "Bot Alpha", "elo": 1500 },
+      "black": { "id": null, "username": "Bot Beta", "elo": 1500 },
+      "status": "in_progress",
+      "timeControl": "blitz_3",
+      "fenPreview": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 2 3",
+      "spectatorCount": 5,
+      "sourceType": "bot_filler",
+      "startedAt": "2026-04-11T08:00:10.000Z"
+    }
+  ],
+  "targetCardCount": 10,
+  "nextCursor": null
+}
+```
+
+> Với `includeBots=true`, backend nên ưu tiên trả đủ 10 card bằng cách thêm `sourceType=bot_filler` khi thiếu trận thật.
+
+---
+
+### POST `/api/home/quick-play` 🔒
+
+Nút **Chơi nhanh** một chạm.
+- Server tự vào matchmaking.
+- Nếu hết timeout mà chưa tìm được đối thủ, tự fallback sang AI (nếu bật fallback).
+
+**Request Body**
+
+```json
+{
+  "timeControl": "blitz_5",
+  "preferredSide": "random",
+  "fallbackToAi": true,
+  "fallbackTimeoutSec": 60,
+  "difficulty": "medium"
+}
+```
+
+**Response `200 OK` (ghép online thành công)**
+
+```json
+{
+  "mode": "online",
+  "matchmakingTicketId": "ticket-uuid",
+  "gameId": "aaaa1111-0000-0000-0000-000000000001",
+  "opponentId": "660f9511-f3ac-52e5-b827-557766551111"
+}
+```
+
+**Response `200 OK` (fallback AI)**
+
+```json
+{
+  "mode": "ai_fallback",
+  "fallbackReason": "MATCHMAKING_TIMEOUT",
+  "gameId": "bbbb2222-0000-0000-0000-000000000002",
+  "aiLevel": 5,
+  "aiColor": "black"
+}
 ```
 
 ---
@@ -754,6 +899,117 @@ Kiểm tra trạng thái hàng chờ hiện tại.
 
 ---
 
+### POST `/api/matchmaking/quick-play` 🔒
+
+Phiên bản dùng ngoài Home cho cùng logic **matchmaking -> timeout -> AI fallback**.
+
+**Request Body**
+
+```json
+{
+  "timeControl": "blitz_5",
+  "preferredSide": "random",
+  "fallbackToAi": true,
+  "fallbackTimeoutSec": 60,
+  "difficulty": "medium"
+}
+```
+
+**Response**: cùng format với `/api/home/quick-play`.
+
+---
+
+## Monetization
+
+### GET `/api/monetization/config` 🔒
+
+Lấy policy quảng cáo động từ server để đồng bộ với app.
+
+**Response `200 OK`**
+
+```json
+{
+  "interstitial": {
+    "firstGameFreePerDay": true,
+    "autoShowAfterGameOverSec": 1,
+    "preloadQueueTarget": 5,
+    "allowOfflineBypassWhenQueueEmpty": true,
+    "showBeforeNextGameWhenAbandoned": true
+  },
+  "banner": {
+    "homeFooterEnabled": true,
+    "liveMatchesFooterEnabled": true
+  },
+  "rewarded": {
+    "hintEnabled": true,
+    "hintLimitPerGame": 3,
+    "hintLimitPerDay": 10
+  }
+}
+```
+
+---
+
+### POST `/api/monetization/interstitial/decision` 🔒
+
+Server quyết định có nên hiện interstitial ở trigger hiện tại hay không (tùy chọn, dùng khi muốn policy tập trung ở backend).
+
+**Request Body**
+
+```json
+{
+  "trigger": "game_end",
+  "gameContext": {
+    "gameId": "aaaa1111-0000-0000-0000-000000000001",
+    "ended": true,
+    "abandoned": false
+  },
+  "clientState": {
+    "localDailyGameCount": 2,
+    "queueSize": 3,
+    "networkOnline": true
+  }
+}
+```
+
+**Response `200 OK`**
+
+```json
+{
+  "showInterstitial": true,
+  "reason": "DAILY_GAME_2_PLUS",
+  "maxWaitMs": 1500,
+  "fallbackAllowed": true
+}
+```
+
+---
+
+### POST `/api/monetization/interstitial/impression` 🔒
+
+Ghi nhận vòng đời hiển thị interstitial (analytics/reconciliation).
+
+**Request Body**
+
+```json
+{
+  "placement": "game_end",
+  "adUnitId": "ca-app-pub-xxxx/yyyy",
+  "requestId": "req-uuid",
+  "shownAt": "2026-04-11T09:15:10.000Z",
+  "closedAt": "2026-04-11T09:15:21.000Z",
+  "status": "closed"
+}
+```
+
+**Response `200 OK`**
+
+```json
+{ "success": true }
+```
+
+---
+
 ## Leaderboard
 
 ### GET `/api/leaderboard`
@@ -866,6 +1122,8 @@ const socket = io('http://localhost:3001/live', {
 | `game:resign`     | `{ gameId: string }`                                | Đầu hàng                           |
 | `game:draw:offer` | `{ gameId: string }`                                | Đề nghị hòa |
 | `game:draw:accept`| `{ gameId: string }`                                | Đồng ý hòa |
+| `home:live:subscribe` | `{ limit?: number }`                            | Subscribe feed Live Match trên Home |
+| `matchmaking:quickplay:start` | `{ timeControl, fallbackToAi, timeoutSec }` | Bắt đầu quick-play realtime |
 
 #### Spectate events
 
@@ -907,6 +1165,8 @@ const socket = io('http://localhost:3001/live', {
 | --------------- | --------------------------------------------- | ---------------------------------------- |
 | `match:found`   | `{ gameId: string, opponentId: string }`      | Tìm được đối thủ — nhận `opponentId` và `gameId` để join |
 | `match:timeout` | `{ message: string }`                         | Hết 60s không tìm được đối thủ           |
+| `match:fallback:ai_created` | `{ gameId: string, aiLevel: number }` | Timeout và đã tạo game AI fallback |
+| `home:live:update` | `{ items: LiveMatchCard[] }`               | Cập nhật danh sách trận live ở Home |
 
 #### Spectate events
 
@@ -1000,6 +1260,9 @@ socket.on('game:end', ({ status, winner }) => { /* show result */ });
 | `NOT_A_PLAYER`          | 403   | User không phải người chơi trong ván           |
 | `NOT_YOUR_TURN`         | 400   | Chưa đến lượt đi của user này                  |
 | `ILLEGAL_MOVE`          | 400   | Nước đi vi phạm luật cờ                        |
+| `MATCHMAKING_TIMEOUT`   | 200/409 | Hết thời gian chờ matchmaking (có thể fallback AI) |
+| `QUICK_PLAY_DISABLED`   | 403   | Tính năng chơi nhanh đang bị tắt               |
+| `AD_POLICY_BLOCKED`     | 403   | Yêu cầu ad bị từ chối theo policy              |
 
 ---
 

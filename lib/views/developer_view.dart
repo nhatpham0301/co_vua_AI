@@ -68,6 +68,7 @@ class _DeveloperViewState extends State<DeveloperView> {
             _Header(onBack: () => Navigator.pop(context)),
             _SimulationPanel(),
             _AdPanel(),
+            _ApiPanel(),
             _TabBar(
               selectedIndex: _tabIndex,
               onChanged: (i) => setState(() => _tabIndex = i),
@@ -244,6 +245,300 @@ class _AdPanel extends StatelessWidget {
                     context: context,
                   );
                   HapticFeedback.lightImpact();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── API Panel ───────────────────────────────────────────────────────────────
+class _ApiPanel extends StatefulWidget {
+  @override
+  State<_ApiPanel> createState() => _ApiPanelState();
+}
+
+class _ApiPanelState extends State<_ApiPanel> {
+  late final TextEditingController _baseUrlCtrl;
+  final TextEditingController _gameIdCtrl = TextEditingController();
+  final TextEditingController _userIdCtrl = TextEditingController();
+  final TextEditingController _fromCtrl = TextEditingController(text: 'e2');
+  final TextEditingController _toCtrl = TextEditingController(text: 'e4');
+
+  @override
+  void initState() {
+    super.initState();
+    final appModel = Provider.of<AppModel>(context, listen: false);
+    _baseUrlCtrl = TextEditingController(text: appModel.apiBaseUrl);
+  }
+
+  @override
+  void dispose() {
+    _baseUrlCtrl.dispose();
+    _gameIdCtrl.dispose();
+    _userIdCtrl.dispose();
+    _fromCtrl.dispose();
+    _toCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appModel = Provider.of<AppModel>(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border(
+          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionLabel('🌐 API thử nghiệm'),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _baseUrlCtrl,
+            placeholder: 'Base URL (vd: http://localhost:3000)',
+            style: const TextStyle(color: Colors.white),
+            placeholderStyle: const TextStyle(color: Colors.white38),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DevChip(
+                label: '💾 Lưu URL',
+                color: const Color(0xFF26C6DA),
+                onTap: () async {
+                  await appModel.setApiBaseUrl(_baseUrlCtrl.text);
+                  _toast(context, 'Base URL: ${appModel.apiBaseUrl}');
+                },
+              ),
+              _DevChip(
+                label: '🏠 Test Home',
+                color: const Color(0xFF66BB6A),
+                onTap: () async {
+                  await appModel.fetchHomeOverviewPreview();
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    final mode = appModel.homeOverviewSnapshot?.authMode;
+                    _toast(context, 'Home OK | auth=$mode');
+                  }
+                },
+              ),
+              _DevChip(
+                label: '📺 Test Live',
+                color: const Color(0xFF7E57C2),
+                onTap: () async {
+                  await appModel.fetchLiveMatchesPreview();
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    final count = appModel.liveMatchesSnapshot?.items.length;
+                    _toast(context, 'Live OK | items=$count');
+                  }
+                },
+              ),
+              _DevChip(
+                label: '📢 Test Ads',
+                color: const Color(0xFFFFA726),
+                onTap: () async {
+                  await appModel.fetchMonetizationConfigPreview();
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    final queue = appModel.monetizationConfigSnapshot
+                        ?.interstitial.preloadQueueTarget;
+                    _toast(context, 'Ads config OK | queue=$queue');
+                  }
+                },
+              ),
+              _DevChip(
+                label: '⚡ Test QuickPlay',
+                color: const Color(0xFFEF5350),
+                onTap: () async {
+                  await appModel.quickPlayPreview();
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    final mode = appModel.quickPlaySnapshot?.mode;
+                    _toast(context, 'QuickPlay OK | mode=$mode');
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appModel.apiBusy
+                ? 'Đang gọi API...'
+                : 'BaseURL hiện tại: ${appModel.apiBaseUrl}',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          const SizedBox(height: 10),
+          const _SectionLabel('🧩 Online persistence test'),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _gameIdCtrl,
+            placeholder: 'gameId',
+            style: const TextStyle(color: Colors.white),
+            placeholderStyle: const TextStyle(color: Colors.white38),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: CupertinoTextField(
+                  controller: _fromCtrl,
+                  placeholder: 'from',
+                  style: const TextStyle(color: Colors.white),
+                  placeholderStyle: const TextStyle(color: Colors.white38),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: CupertinoTextField(
+                  controller: _toCtrl,
+                  placeholder: 'to',
+                  style: const TextStyle(color: Colors.white),
+                  placeholderStyle: const TextStyle(color: Colors.white38),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          CupertinoTextField(
+            controller: _userIdCtrl,
+            placeholder: 'userId (for /users/:id/games)',
+            style: const TextStyle(color: Colors.white),
+            placeholderStyle: const TextStyle(color: Colors.white38),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DevChip(
+                label: '🎯 Test Game Snapshot',
+                color: const Color(0xFF29B6F6),
+                onTap: () async {
+                  final gameId = _gameIdCtrl.text.trim();
+                  if (gameId.isEmpty) {
+                    _toast(context, 'Nhập gameId trước');
+                    return;
+                  }
+                  await appModel.fetchOnlineGameSnapshotPreview(gameId);
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    _toast(
+                      context,
+                      'Snapshot OK | status=${appModel.onlineGameSnapshot?.status}',
+                    );
+                  }
+                },
+              ),
+              _DevChip(
+                label: '📜 Test Game Moves',
+                color: const Color(0xFFAB47BC),
+                onTap: () async {
+                  final gameId = _gameIdCtrl.text.trim();
+                  if (gameId.isEmpty) {
+                    _toast(context, 'Nhập gameId trước');
+                    return;
+                  }
+                  await appModel.fetchOnlineGameMovesPreview(gameId);
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    _toast(
+                      context,
+                      'Moves OK | count=${appModel.onlineMoveHistory.length}',
+                    );
+                  }
+                },
+              ),
+              _DevChip(
+                label: '♟️ Test Submit Move',
+                color: const Color(0xFFFF7043),
+                onTap: () async {
+                  final gameId = _gameIdCtrl.text.trim();
+                  if (gameId.isEmpty) {
+                    _toast(context, 'Nhập gameId trước');
+                    return;
+                  }
+                  await appModel.submitOnlineMovePreview(
+                    gameId: gameId,
+                    from: _fromCtrl.text.trim(),
+                    to: _toCtrl.text.trim(),
+                  );
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    _toast(
+                      context,
+                      'Submit OK | type=${appModel.onlineMoveSubmitSnapshot?.type}',
+                    );
+                  }
+                },
+              ),
+              _DevChip(
+                label: '👤 Test User Games',
+                color: const Color(0xFF66BB6A),
+                onTap: () async {
+                  final userId = _userIdCtrl.text.trim();
+                  if (userId.isEmpty) {
+                    _toast(context, 'Nhập userId trước');
+                    return;
+                  }
+                  await appModel.fetchUserGamesPreview(userId);
+                  if (appModel.apiLastError != null) {
+                    _toast(context, 'Lỗi: ${appModel.apiLastError}');
+                  } else {
+                    final games = appModel.onlineUserGamesSnapshot?['games'];
+                    final count = games is List ? games.length : 0;
+                    _toast(context, 'User games OK | count=$count');
+                  }
                 },
               ),
             ],
