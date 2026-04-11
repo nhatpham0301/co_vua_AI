@@ -7,8 +7,9 @@ import 'game_info_and_controls/timers.dart';
 
 class GameInfoAndControls extends StatefulWidget {
   final AppModel appModel;
+  final VoidCallback onNewGame;
 
-  GameInfoAndControls(this.appModel);
+  GameInfoAndControls(this.appModel, {required this.onNewGame});
 
   @override
   _GameInfoAndControlsState createState() => _GameInfoAndControlsState();
@@ -38,7 +39,7 @@ class _GameInfoAndControlsState extends State<GameInfoAndControls> {
         children: [
           Timers(widget.appModel),
           MovesUndoRedoRow(widget.appModel),
-          RestartExitButtons(widget.appModel),
+          RestartExitButtons(widget.appModel, onNewGame: widget.onNewGame),
         ],
       ),
     );

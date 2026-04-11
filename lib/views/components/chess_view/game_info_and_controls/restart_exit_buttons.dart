@@ -7,8 +7,9 @@ import 'rounded_alert_button.dart';
 
 class RestartExitButtons extends StatelessWidget {
   final AppModel appModel;
+  final VoidCallback onNewGame;
 
-  RestartExitButtons(this.appModel);
+  RestartExitButtons(this.appModel, {required this.onNewGame});
 
   @override
   Widget build(BuildContext context) {
@@ -18,8 +19,19 @@ class RestartExitButtons extends StatelessWidget {
           child: RoundedAlertButton(
             'Restart',
             onConfirm: () {
-              // Ad was shown at game end — start directly.
-              appModel.newGame();
+              if (!appModel.gameOver) {
+                appModel.adService.markGameAbandoned();
+                appModel.adService.showAdBeforeGame(
+                  () {
+                    appModel.newGame(notify: false);
+                    onNewGame();
+                  },
+                  context: context,
+                );
+              } else {
+                appModel.newGame(notify: false);
+                onNewGame();
+              }
             },
           ),
         ),

@@ -209,7 +209,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       const SizedBox(height: 10),
                       _ActionButtons(appModel),
                       const SizedBox(height: 10),
-                      _BottomButtons(appModel),
+                      _BottomButtons(appModel, onNewGame: _initFlameGame),
                       SizedBox(height: bottomPad + 8),
                     ],
                   ),
@@ -776,7 +776,8 @@ class _ActionBtn extends StatelessWidget {
 // ── Bottom buttons ────────────────────────────────────────────────────────────
 class _BottomButtons extends StatelessWidget {
   final AppModel appModel;
-  const _BottomButtons(this.appModel);
+  final VoidCallback onNewGame;
+  const _BottomButtons(this.appModel, {required this.onNewGame});
 
   @override
   Widget build(BuildContext context) {
@@ -824,8 +825,21 @@ class _BottomButtons extends StatelessWidget {
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(context);
-              // Ad was already shown at game end — start directly.
-              appModel.newGame();
+              if (!appModel.gameOver) {
+                // Game chưa kết thúc: đánh dấu bỏ dở → hiện ad → bắt đầu ván mới.
+                appModel.adService.markGameAbandoned();
+                appModel.adService.showAdBeforeGame(
+                  () {
+                    appModel.newGame(notify: false);
+                    onNewGame();
+                  },
+                  context: context,
+                );
+              } else {
+                // Game đã kết thúc: ad đã hiện tự động sau 1s → bắt đầu trực tiếp.
+                appModel.newGame(notify: false);
+                onNewGame();
+              }
             },
             child: const Text('Chơi lại'),
           ),

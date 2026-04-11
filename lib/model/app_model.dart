@@ -135,6 +135,8 @@ class AppModel extends ChangeNotifier {
   }
 
   void exitChessView() {
+    // Nếu game chưa kết thúc, đánh dấu cần hiện ad trước ván tiếp theo.
+    if (!gameOver) adService.markGameAbandoned();
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
@@ -142,6 +144,8 @@ class AppModel extends ChangeNotifier {
   }
 
   void saveAndExitChessView() {
+    // Nếu game chưa kết thúc, đánh dấu cần hiện ad trước ván tiếp theo.
+    if (!gameOver) adService.markGameAbandoned();
     saveGameState();
     gameController?.cancelAIMove();
     timerService.stop();

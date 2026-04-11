@@ -292,6 +292,14 @@ class AdService {
     DevLogger.instance.log(DevLogCategory.ad, 'DEV: Ad kế tiếp sẽ bị bỏ qua');
   }
 
+  /// Đánh dấu ván đấu bị bỏ dở (restart hoặc exit khi chưa kết thúc).
+  /// Đặt [_needsAd] = true ngay lập tức — sẽ được consume ở lần chơi tiếp theo.
+  void markGameAbandoned() {
+    _needsAd = true;
+    DevLogger.instance
+        .log(DevLogCategory.ad, 'Game bị bỏ dở — _needsAd = true');
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   String _todayString() {
