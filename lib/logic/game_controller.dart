@@ -10,8 +10,6 @@ import 'move_calculation/move_classes/move.dart';
 import 'move_calculation/move_classes/move_meta.dart';
 import 'shared_functions.dart';
 
-
-
 /// Handles game logic orchestration: move execution, AI, undo/redo, promotion.
 /// Separated from ChessGame (the view/rendering layer) for clean MVVM.
 class GameController {
@@ -170,6 +168,7 @@ class GameController {
     if (board.kingInCheck(oppositeTurn)) {
       meta.isCheck = true;
       checkHintTile = board.kingForPlayer(oppositeTurn)?.tile;
+      if (!undoing) appModel.checkAlert = true;
     }
 
     // Run synchronously to avoid expensive object graph serialization in Isolates

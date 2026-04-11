@@ -115,6 +115,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
               .addPostFrameCallback((_) => _showPromotionDialog(appModel));
         }
 
+        if (appModel.checkAlert && !appModel.gameOver) {
+          appModel.checkAlert = false;
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _showCheckAlert(context, appModel));
+        }
+
         if (appModel.gameOver && appModel.userWon) {
           _confettiController.play();
         } else {
@@ -216,6 +222,31 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       context: context,
       builder: (BuildContext context) {
         return PromotionDialog(appModel);
+      },
+    );
+  }
+
+  void _showCheckAlert(BuildContext context, AppModel appModel) {
+    final isPlayerChecked =
+        appModel.turn == appModel.playerSide || !appModel.playingWithAI;
+    final message = isPlayerChecked
+        ? 'Bạn đang bị chiếu tướng!'
+        : 'Đối thủ đang bị chiếu tướng!';
+
+    showCupertinoDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return CupertinoAlertDialog(
+          title: const Text('⚠️ Chiếu Tướng'),
+          content: Text(message),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
       },
     );
   }

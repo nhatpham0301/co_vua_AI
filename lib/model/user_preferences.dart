@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_themes.dart';
 
 const PIECE_THEMES = [
+  'Default',
   'Classic',
   'Angular',
   '8-Bit',
@@ -23,7 +24,7 @@ final List<String> sortedPieceThemes = () {
 class UserPreferences {
   SharedPreferences? _prefs;
 
-  String pieceTheme = 'Classic';
+  String pieceTheme = 'Default';
   String themeName = 'Jargon Jade';
   bool showMoveHistory = true;
   bool allowUndoRedo = true;

@@ -122,7 +122,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     final result = await showCupertinoModalPopup<MatchResult>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const MatchmakingDialog(timeoutSeconds: 5),
+      builder: (_) => const MatchmakingDialog(timeoutSeconds: 1),
     );
     if (!mounted) return;
 

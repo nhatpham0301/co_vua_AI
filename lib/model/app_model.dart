@@ -40,15 +40,18 @@ class AppModel extends ChangeNotifier {
   List<String> get pieceThemes => prefs.pieceThemes;
 
   ValueNotifier<Duration> get player1TimeLeft => timerService.player1TimeLeft;
-  set player1TimeLeft(ValueNotifier<Duration> val) => timerService.player1TimeLeft.value = val.value;
+  set player1TimeLeft(ValueNotifier<Duration> val) =>
+      timerService.player1TimeLeft.value = val.value;
   ValueNotifier<Duration> get player2TimeLeft => timerService.player2TimeLeft;
-  set player2TimeLeft(ValueNotifier<Duration> val) => timerService.player2TimeLeft.value = val.value;
+  set player2TimeLeft(ValueNotifier<Duration> val) =>
+      timerService.player2TimeLeft.value = val.value;
 
   // ── Game State ──
   GameController? gameController;
   bool gameOver = false;
   bool stalemate = false;
   bool promotionRequested = false;
+  bool checkAlert = false;
   bool moveListUpdated = false;
   bool userWon = false;
   Player turn = Player.player1;
@@ -93,12 +96,13 @@ class AppModel extends ChangeNotifier {
     timerService.configure(timeLimit);
     audio.enabled = prefs.soundEnabled;
     if (selectedSide == Player.random) {
-      playerSide =
-          math.Random.secure().nextInt(2) == 0 ? Player.player1 : Player.player2;
+      playerSide = math.Random.secure().nextInt(2) == 0
+          ? Player.player1
+          : Player.player2;
     } else {
       playerSide = selectedSide;
     }
-    
+
     // In a 2-player game, rotation is always relative to player1 being at the bottom.
     if (!playingWithAI) {
       playerSide = Player.player1;
@@ -110,7 +114,7 @@ class AppModel extends ChangeNotifier {
     if (isAIsTurn && !gameOver) {
       gameController!.triggerAIMove();
     }
-    
+
     // Disable animation on load, then enable it after the board is rendered.
     animateBoardRotation = false;
     Future.delayed(Duration(milliseconds: 50), () {
@@ -235,6 +239,7 @@ class AppModel extends ChangeNotifier {
     prefs.setSoundEnabled(enabled);
     audio.enabled = enabled;
   }
+
   void setShowHints(bool show) => prefs.setShowHints(show);
   void setShowNotation(bool show) => prefs.setShowNotation(show);
   void setEnableRotation(bool enable) => prefs.setEnableRotation(enable);
@@ -277,16 +282,18 @@ class AppModel extends ChangeNotifier {
     gameController = GameController(this);
     final moves = GameStateStorage.parseMoves(state);
     for (var move in moves) {
-      var meta = gameController!.board.push(move,
-          getMeta: true, promotionType: move.promotionType);
+      var meta = gameController!.board
+          .push(move, getMeta: true, promotionType: move.promotionType);
       moveMetaList.add(meta);
       turn = oppositePlayer(turn);
     }
     gameController!.snapSprites();
 
     // Restore timer durations
-    player1TimeLeft.value = Duration(milliseconds: state['player1TimeLeftMs'] as int);
-    player2TimeLeft.value = Duration(milliseconds: state['player2TimeLeftMs'] as int);
+    player1TimeLeft.value =
+        Duration(milliseconds: state['player1TimeLeftMs'] as int);
+    player2TimeLeft.value =
+        Duration(milliseconds: state['player2TimeLeftMs'] as int);
 
     // Restore game over / stalemate state
     gameOver = state['gameOver'] as bool;
@@ -297,13 +304,12 @@ class AppModel extends ChangeNotifier {
       gameController!.latestMove = moveMetaList.last.move;
       var oppositeTurn = oppositePlayer(turn);
       if (gameController!.board.kingInCheck(oppositeTurn)) {
-        gameController!.checkHintTile = gameController!.board.kingForPlayer(oppositeTurn)?.tile;
+        gameController!.checkHintTile =
+            gameController!.board.kingForPlayer(oppositeTurn)?.tile;
       }
     }
 
     timerService.start(() => turn, () => gameOver);
-
-
 
     notifyListeners();
 
