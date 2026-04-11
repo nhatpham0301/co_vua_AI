@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../logic/ad_service.dart';
 import '../logic/audio_service.dart';
+import '../logic/dev_logger.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
 import '../logic/move_calculation/move_classes/move_meta.dart';
@@ -23,6 +26,7 @@ class AppModel extends ChangeNotifier {
   final UserPreferences prefs = UserPreferences();
   final AudioService audio = AudioService();
   final TimerService timerService = TimerService();
+  final AdService adService = AdService.instance;
 
   // ── Delegated Accessors (backward compatibility) ──
   int get timeLimit => timerService.timeLimit;
@@ -110,6 +114,9 @@ class AppModel extends ChangeNotifier {
     gameController = GameController(this);
     timerService.start(() => turn, () => gameOver);
 
+    // Preload ads into queue so they're ready for the next game start.
+    adService.fillQueue();
+
     // Trigger AI move if it's AI's turn natively for standard games
     if (isAIsTurn && !gameOver) {
       gameController!.triggerAIMove();
@@ -179,6 +186,7 @@ class AppModel extends ChangeNotifier {
     );
 
     GameStateStorage.clearGameState();
+    unawaited(adService.onGameEnded());
     if (!silent) notifyListeners();
   }
 
@@ -244,6 +252,60 @@ class AppModel extends ChangeNotifier {
   void setShowNotation(bool show) => prefs.setShowNotation(show);
   void setEnableRotation(bool enable) => prefs.setEnableRotation(enable);
   void setAllowUndoRedo(bool allow) => prefs.setAllowUndoRedo(allow);
+
+  // ── Developer Mode ──
+
+  /// Force the game to end with the user winning.
+  void devSimulateWin() {
+    if (!gameOver) {
+      DevLogger.instance.log(DevLogCategory.system, 'DEV: Simulating user WIN');
+      gameOver = true;
+      userWon = true;
+      stalemate = false;
+      GameStateStorage.clearGameState();
+      unawaited(adService.onGameEnded());
+      notifyListeners();
+    }
+  }
+
+  /// Force the game to end with the user losing.
+  void devSimulateLose() {
+    if (!gameOver) {
+      DevLogger.instance
+          .log(DevLogCategory.system, 'DEV: Simulating user LOSE');
+      gameOver = true;
+      userWon = false;
+      stalemate = false;
+      GameStateStorage.clearGameState();
+      unawaited(adService.onGameEnded());
+      notifyListeners();
+    }
+  }
+
+  /// Force the game to end as a draw/stalemate.
+  void devSimulateDraw() {
+    if (!gameOver) {
+      DevLogger.instance.log(DevLogCategory.system, 'DEV: Simulating DRAW');
+      gameOver = true;
+      userWon = false;
+      stalemate = true;
+      GameStateStorage.clearGameState();
+      unawaited(adService.onGameEnded());
+      notifyListeners();
+    }
+  }
+
+  /// Skip the interstitial ad requirement for the next game.
+  void devSkipAd() {
+    DevLogger.instance.log(DevLogCategory.ad, 'DEV: Ad requirement cleared');
+    adService.devSkipAd();
+  }
+
+  /// Force-trigger interstitial ad requirement (for testing).
+  void devTriggerAd() {
+    DevLogger.instance.log(DevLogCategory.ad, 'DEV: Ad requirement forced');
+    adService.devForceAdRequired();
+  }
 
   Future<void> resetSettingsToDefaults() async {
     await prefs.resetToDefaults();

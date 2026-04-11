@@ -8,7 +8,7 @@ import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import 'components/main_menu_view/mm_background.dart';
-import 'components/main_menu_view/mm_banner_ad.dart';
+import 'components/main_menu_view/mm_banner_ad.dart' show GameBannerAd;
 import 'components/main_menu_view/mm_header.dart';
 import 'components/main_menu_view/mm_live_match_list.dart';
 import 'components/main_menu_view/mm_models.dart';
@@ -122,7 +122,7 @@ class _MainMenuViewState extends State<MainMenuView> {
                   bottomPadding: fabAreaHeight + bannerHeight + bottomPad + 12,
                 ),
               ),
-              BannerAd(bottomPad: bottomPad),
+              GameBannerAd(bottomPad: bottomPad),
             ],
           ),
           Positioned(

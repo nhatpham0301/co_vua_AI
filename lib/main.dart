@@ -3,6 +3,7 @@ import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 import 'logic/shared_functions.dart';
@@ -13,6 +14,7 @@ import 'views/main_menu_view.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await MobileAds.instance.initialize();
   await _loadFlameAssets();
   runApp(
     ChangeNotifierProvider(

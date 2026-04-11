@@ -18,6 +18,7 @@ class RestartExitButtons extends StatelessWidget {
           child: RoundedAlertButton(
             'Restart',
             onConfirm: () {
+              // Ad was shown at game end — start directly.
               appModel.newGame();
             },
           ),

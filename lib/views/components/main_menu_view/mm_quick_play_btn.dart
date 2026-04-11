@@ -40,6 +40,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulse;
   late Animation<double> _scale;
+  bool _isStarting = false;
 
   @override
   void initState() {
@@ -64,7 +65,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       animation: _scale,
       builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
       child: GestureDetector(
-        onTap: () => _start(context),
+        onTap: _isStarting ? null : () => _start(context),
         child: Container(
           height: 54,
           padding: const EdgeInsets.symmetric(horizontal: 52),
@@ -88,16 +89,18 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               ),
             ],
           ),
-          child: const Center(
-            child: Text(
-              'CHƠI',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2.5,
-              ),
-            ),
+          child: Center(
+            child: _isStarting
+                ? const CupertinoActivityIndicator(color: Colors.white)
+                : const Text(
+                    'CHƠI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2.5,
+                    ),
+                  ),
           ),
         ),
       ),
@@ -105,35 +108,53 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
   }
 
   Future<void> _start(BuildContext context) async {
-    final appModel = Provider.of<AppModel>(context, listen: false);
-    final online = await _checkOnline();
     if (!mounted) return;
+    setState(() => _isStarting = true);
+    try {
+      final appModel = Provider.of<AppModel>(context, listen: false);
+      final online = await _checkOnline();
+      if (!mounted) return;
 
-    if (!online) {
-      appModel.setPlayerCount(1);
-      await Navigator.push(
-        context,
-        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+      if (!online) {
+        appModel.setPlayerCount(1);
+        await appModel.adService.showAdBeforeGame(
+          () async {
+            if (!mounted) return;
+            await Navigator.push(
+              context,
+              CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+            );
+            widget.onGameFinished();
+          },
+          context: context,
+        );
+        return;
+      }
+
+      final result = await showCupertinoModalPopup<MatchResult>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const MatchmakingDialog(timeoutSeconds: 1),
       );
-      widget.onGameFinished();
-      return;
+      if (!mounted) return;
+
+      if (result == null || result == MatchResult.cancelled) return;
+
+      appModel.setPlayerCount(1);
+      await appModel.adService.showAdBeforeGame(
+        () async {
+          if (!mounted) return;
+          await Navigator.push(
+            context,
+            CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+          );
+          widget.onGameFinished();
+        },
+        context: context,
+      );
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
     }
-
-    final result = await showCupertinoModalPopup<MatchResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const MatchmakingDialog(timeoutSeconds: 1),
-    );
-    if (!mounted) return;
-
-    if (result == null || result == MatchResult.cancelled) return;
-
-    appModel.setPlayerCount(1);
-    await Navigator.push(
-      context,
-      CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-    );
-    widget.onGameFinished();
   }
 }
 

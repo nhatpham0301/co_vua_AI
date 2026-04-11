@@ -9,6 +9,7 @@ import 'components/settings_view/piece_theme_picker.dart';
 import 'components/settings_view/toggles.dart';
 import 'components/shared/bottom_padding.dart';
 import 'components/shared/rounded_button.dart';
+import 'developer_view.dart';
 
 class SettingsView extends StatelessWidget {
   void _showResetConfirmation(BuildContext context, AppModel appModel) {
@@ -123,7 +124,8 @@ class SettingsView extends StatelessWidget {
                           PieceThemePicker(),
                           SizedBox(height: 10),
                           Consumer<AppModel>(
-                            builder: (context, appModel, child) => Toggles(appModel),
+                            builder: (context, appModel, child) =>
+                                Toggles(appModel),
                           ),
                         ],
                       ),
@@ -136,6 +138,8 @@ class SettingsView extends StatelessWidget {
                       Navigator.pop(context);
                     },
                   ),
+                  const SizedBox(height: 12),
+                  const _DevTapTarget(),
                   BottomPadding(),
                 ],
               ),
@@ -157,6 +161,65 @@ class SettingsView extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Secret Developer Mode Entry ──────────────────────────────────────────────
+// Tap the version label 5 times to open the Developer panel.
+class _DevTapTarget extends StatefulWidget {
+  const _DevTapTarget();
+
+  @override
+  State<_DevTapTarget> createState() => _DevTapTargetState();
+}
+
+class _DevTapTargetState extends State<_DevTapTarget> {
+  int _taps = 0;
+  static const _kRequired = 5;
+
+  void _onTap() {
+    setState(() => _taps++);
+    if (_taps >= _kRequired) {
+      _taps = 0;
+      Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => const DeveloperView()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _kRequired - _taps;
+    return GestureDetector(
+      onTap: _onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          children: [
+            Text(
+              'v1.0.2+3',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.15),
+                fontSize: 11,
+              ),
+            ),
+            if (_taps > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Còn $remaining lần nữa để mở chế độ Dev',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    fontSize: 10,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

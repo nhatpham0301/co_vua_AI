@@ -5,6 +5,7 @@ import '../model/app_model.dart';
 
 import 'chess_board.dart';
 import 'chess_piece.dart';
+import 'dev_logger.dart';
 import 'move_calculation/ai_move_calculation.dart';
 import 'move_calculation/move_classes/move.dart';
 import 'move_calculation/move_classes/move_meta.dart';
@@ -48,6 +49,10 @@ class GameController {
       validMoves = [];
       var meta =
           board.push(Move(selectedPiece?.tile ?? 0, tile), getMeta: true);
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        'Player move: ${selectedPiece?.type.name ?? "?"} ${selectedPiece?.tile} → $tile',
+      );
       appModel.audio.playMovedSound();
       if (meta.promotion) {
         appModel.requestPromotion();
@@ -71,10 +76,16 @@ class GameController {
     );
     aiOperation?.value.then((move) {
       if (move == null || appModel.gameOver) {
+        DevLogger.instance
+            .log(DevLogCategory.game, 'AI has no valid moves — ending game');
         appModel.endGame();
       } else {
         validMoves = [];
         var meta = board.push(move, getMeta: true);
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          'AI move: ${move.from} → ${move.to}${meta.took ? " (capture)" : ""}${meta.isCheck ? " +" : ""}${meta.isCheckmate ? " #" : ""}',
+        );
         appModel.audio.playMovedSound();
         _moveCompletion(meta, changeTurn: !meta.promotion);
         if (meta.promotion) {
@@ -95,6 +106,7 @@ class GameController {
   // ── Undo / Redo ──
 
   void undoMove() {
+    DevLogger.instance.log(DevLogCategory.game, 'Undo 1 move');
     board.redoStack.add(board.pop());
     if (appModel.moveMetaList.length > 1) {
       var meta = appModel.moveMetaList[appModel.moveMetaList.length - 2];
@@ -106,6 +118,7 @@ class GameController {
   }
 
   void undoTwoMoves() {
+    DevLogger.instance.log(DevLogCategory.game, 'Undo 2 moves');
     board.redoStack.add(board.pop());
     board.redoStack.add(board.pop());
     appModel.popMoveMeta();
@@ -168,7 +181,11 @@ class GameController {
     if (board.kingInCheck(oppositeTurn)) {
       meta.isCheck = true;
       checkHintTile = board.kingForPlayer(oppositeTurn)?.tile;
-      if (!undoing) appModel.checkAlert = true;
+      if (!undoing) {
+        appModel.checkAlert = true;
+        DevLogger.instance.log(DevLogCategory.game,
+            'CHECK on ${oppositeTurn.name} king at tile $checkHintTile');
+      }
     }
 
     // Run synchronously to avoid expensive object graph serialization in Isolates
@@ -177,6 +194,9 @@ class GameController {
       if (!meta.isCheck) {
         appModel.stalemate = true;
         meta.isStalemate = true;
+        DevLogger.instance.log(DevLogCategory.game, 'STALEMATE');
+      } else {
+        DevLogger.instance.log(DevLogCategory.game, 'CHECKMATE — game over');
       }
       meta.isCheck = false;
       meta.isCheckmate = true;

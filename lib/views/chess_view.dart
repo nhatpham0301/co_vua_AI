@@ -39,6 +39,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   ChessGame? chessGame;
   late ConfettiController _confettiController;
 
+  // Tracks the previous gameOver state to detect the transition false → true
+  // and trigger the post-game ad exactly once.
+  bool _wasGameOver = false;
+  bool _gameEndAdScheduled = false;
+
   _ChessViewState(this.appModel);
 
   @override
@@ -119,6 +124,21 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           appModel.checkAlert = false;
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _showCheckAlert(context, appModel));
+        }
+
+        // Detect transition: game just ended → schedule ad after 1 second
+        if (appModel.gameOver && !_wasGameOver && !_gameEndAdScheduled) {
+          _wasGameOver = true;
+          _gameEndAdScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.delayed(const Duration(seconds: 1), () {
+              if (!mounted) return;
+              _gameEndAdScheduled = false;
+              appModel.adService.showGameEndAd(context);
+            });
+          });
+        } else if (!appModel.gameOver) {
+          _wasGameOver = false;
         }
 
         if (appModel.gameOver && appModel.userWon) {
@@ -804,6 +824,7 @@ class _BottomButtons extends StatelessWidget {
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(context);
+              // Ad was already shown at game end — start directly.
               appModel.newGame();
             },
             child: const Text('Chơi lại'),
