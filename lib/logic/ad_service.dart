@@ -41,11 +41,42 @@ class AdService {
   AdService._();
   static final AdService instance = AdService._();
 
+  // ── Test device IDs ────────────────────────────────────────────────────────
+  // 'GADSimulatorID' covers iOS simulator; Android emulators are auto-detected
+  // when this list is passed to RequestConfiguration.
+  // Add physical device IDs here (printed in logcat on first ad request).
+  List<String> get testDeviceIds => const [
+        'GADSimulatorID', // iOS Simulator
+        // Add your physical test device IDs below, e.g.:
+        // 'ABCDEF012345...',
+      ];
+
   // ── Ad Queue ───────────────────────────────────────────────────────────────
   final List<InterstitialAd> _adQueue = [];
   bool _isLoadingAd = false;
   Timer? _retryLoadTimer;
   int _retryAttempt = 0;
+
+  // ── SDK init guard ─────────────────────────────────────────────────────────
+  bool _sdkReady = false;
+  Completer<void>? _initCompleter;
+
+  /// Call once after MobileAds.instance.initialize() completes.
+  void markSdkReady() {
+    _sdkReady = true;
+    _initCompleter?.complete();
+    _initCompleter = null;
+    DevLogger.instance.log(DevLogCategory.ad, 'AdMob SDK ready');
+  }
+
+  /// Await this before any ad operation to ensure the SDK is initialised.
+  Future<void> ensureInitialized() {
+    if (_sdkReady) return Future.value();
+    _initCompleter ??= Completer<void>();
+    return _initCompleter!.future;
+  }
+
+  bool get sdkReady => _sdkReady;
 
   // ── State ──────────────────────────────────────────────────────────────────
   /// True khi một ván đã kết thúc và cần hiện ad.
@@ -89,8 +120,15 @@ class AdService {
 
   // ── Banner ──────────────────────────────────────────────────────────────────
 
-  BannerAd createBannerAd(
+  BannerAd? createBannerAd(
       {BannerAdListener listener = const BannerAdListener()}) {
+    if (!_sdkReady) {
+      DevLogger.instance.log(
+        DevLogCategory.ad,
+        'SDK not ready — skipping banner creation',
+      );
+      return null;
+    }
     return BannerAd(
       adUnitId: _bannerId,
       size: AdSize.banner,
@@ -102,7 +140,16 @@ class AdService {
   // ── Queue Management ────────────────────────────────────────────────────────
 
   /// Nạp quảng cáo vào hàng đợi cho đến khi đầy [kAdQueueMaxSize].
-  void fillQueue() => _loadNextAdIfNeeded();
+  void fillQueue() {
+    if (!_sdkReady) {
+      DevLogger.instance.log(
+        DevLogCategory.ad,
+        'SDK not ready — deferring fillQueue',
+      );
+      return;
+    }
+    _loadNextAdIfNeeded();
+  }
 
   void _loadNextAdIfNeeded() {
     _retryLoadTimer?.cancel();
@@ -144,10 +191,20 @@ class AdService {
     );
   }
 
+  static const int _kMaxRetryAttempts = 5;
+
   void _scheduleRetryAfterLoadFailure(LoadAdError error) {
     if (_adQueue.length >= kAdQueueMaxSize || _retryLoadTimer != null) return;
 
     _retryAttempt++;
+    if (_retryAttempt > _kMaxRetryAttempts) {
+      DevLogger.instance.log(
+        DevLogCategory.ad,
+        'Max retry attempts ($_kMaxRetryAttempts) reached — stop retrying',
+      );
+      return;
+    }
+
     final seconds = switch (error.code) {
       3 => (_retryAttempt * 5).clamp(5, 30),
       _ => (_retryAttempt * 3).clamp(3, 20),
@@ -215,6 +272,7 @@ class AdService {
   /// Không nhận callback — người dùng xem xong và tiếp tục tự trong app.
   Future<void> showGameEndAd(BuildContext context) async {
     if (!_needsAd) return;
+    await ensureInitialized();
 
     if (_devSkipNextAd) {
       _devSkipNextAd = false;
@@ -289,6 +347,8 @@ class AdService {
       await onComplete();
       return;
     }
+
+    await ensureInitialized();
 
     // Dev mode
     if (DevLogger.instance.devModeEnabled &&

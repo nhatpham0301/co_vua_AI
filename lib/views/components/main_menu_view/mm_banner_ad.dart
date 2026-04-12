@@ -38,6 +38,11 @@ class _GameBannerAdState extends State<GameBannerAd> {
         },
       ),
     );
+    // SDK not ready yet — schedule retry
+    if (_bannerAd == null) {
+      _retryTimer ??=
+          Timer.periodic(const Duration(seconds: 8), (_) => _loadBanner());
+    }
   }
 
   @override

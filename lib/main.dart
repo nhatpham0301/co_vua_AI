@@ -42,7 +42,17 @@ void main() async {
 }
 
 Future<void> _warmUpServices() async {
-  await MobileAds.instance.initialize();
+  final initStatus = await MobileAds.instance.initialize();
+
+  // Register emulator + physical test devices so test ad units get filled.
+  await MobileAds.instance.updateRequestConfiguration(
+    RequestConfiguration(testDeviceIds: AdService.instance.testDeviceIds),
+  );
+
+  debugPrint('[Ads] SDK init done: '
+      '${initStatus.adapterStatuses.entries.map((e) => '${e.key}: ${e.value.state}').join(', ')}');
+
+  AdService.instance.markSdkReady();
   AdService.instance.fillQueue();
   await _loadFlameAssets();
 }
