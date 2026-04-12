@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../logic/dev_logger.dart';
 import '../model/app_model.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
@@ -130,6 +131,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
     setState(() => _taps++);
     if (_taps >= _kRequired) {
       _taps = 0;
+      DevLogger.instance.setDevMode(true);
       Navigator.push(
         context,
         CupertinoPageRoute(builder: (_) => const DeveloperView()),

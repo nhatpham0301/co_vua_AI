@@ -144,6 +144,14 @@ class ActionButtonsPanel extends StatelessWidget {
                 },
                 context: context,
               );
+            } else if (appModel.adService.needsAd) {
+              appModel.adService.showAdBeforeGame(
+                () {
+                  appModel.newGame(notify: false);
+                  onNewGame();
+                },
+                context: context,
+              );
             } else {
               appModel.newGame(notify: false);
               onNewGame();
@@ -214,6 +222,14 @@ class BottomButtonsPanel extends StatelessWidget {
           onPressed: () {
             if (!appModel.gameOver) {
               appModel.adService.markGameAbandoned();
+              appModel.adService.showAdBeforeGame(
+                () {
+                  appModel.newGame(notify: false);
+                  onNewGame();
+                },
+                context: context,
+              );
+            } else if (appModel.adService.needsAd) {
               appModel.adService.showAdBeforeGame(
                 () {
                   appModel.newGame(notify: false);

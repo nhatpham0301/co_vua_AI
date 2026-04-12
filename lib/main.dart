@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame/flame.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/cupertino.dart';
@@ -10,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
 
+import 'logic/ad_service.dart';
 import 'logic/shared_functions.dart';
 import 'model/app_model.dart';
 import 'model/user_preferences.dart';
@@ -17,16 +20,31 @@ import 'views/main_menu_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: 'assets/env/config.env');
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  await MobileAds.instance.initialize();
-  await _loadFlameAssets();
+
+  // Env is tiny (<1 KB asset file) and must be ready before ad widgets read
+  // unit IDs, so keep it synchronous.
+  await dotenv.load(fileName: 'assets/env/config.env');
+
+  // Render first frame immediately — no more awaiting MobileAds.init here.
   runApp(
     ChangeNotifierProvider(
       create: (context) => AppModel(),
       child: Chess(),
     ),
   );
+
+  // Heavy work in background after UI is visible:
+  // 1. Initialize Mobile Ads SDK (500 ms – 2 s on Android)
+  // 2. Pre-load interstitial ad queue
+  // 3. Pre-load Flame images & audio
+  unawaited(_warmUpServices());
+}
+
+Future<void> _warmUpServices() async {
+  await MobileAds.instance.initialize();
+  AdService.instance.fillQueue();
+  await _loadFlameAssets();
 }
 
 Future<void> _loadFlameAssets() async {

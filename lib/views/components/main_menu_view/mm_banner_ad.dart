@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart' as gma;
 import 'package:provider/provider.dart';
@@ -17,25 +19,36 @@ class GameBannerAd extends StatefulWidget {
 class _GameBannerAdState extends State<GameBannerAd> {
   gma.BannerAd? _bannerAd;
   bool _adLoaded = false;
+  Timer? _retryTimer;
 
-  @override
-  void initState() {
-    super.initState();
+  void _loadBanner() {
+    _bannerAd?.dispose();
     final adService = Provider.of<AppModel>(context, listen: false).adService;
     _bannerAd = adService.createBannerAd(
       listener: gma.BannerAdListener(
         onAdLoaded: (_) {
+          _retryTimer?.cancel();
           if (mounted) setState(() => _adLoaded = true);
         },
-        onAdFailedToLoad: (_, __) {
+        onAdFailedToLoad: (ad, __) {
+          ad.dispose();
           if (mounted) setState(() => _adLoaded = false);
+          _retryTimer ??=
+              Timer.periodic(const Duration(seconds: 8), (_) => _loadBanner());
         },
       ),
     );
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadBanner();
+  }
+
+  @override
   void dispose() {
+    _retryTimer?.cancel();
     _bannerAd?.dispose();
     super.dispose();
   }
