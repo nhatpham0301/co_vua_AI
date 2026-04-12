@@ -7,11 +7,15 @@ import '../../../model/app_model.dart';
 class ChessBoardWidget extends StatelessWidget {
   final AppModel appModel;
   final ChessGame chessGame;
+  final double? boardSize;
 
-  ChessBoardWidget(this.appModel, this.chessGame);
+  ChessBoardWidget(this.appModel, this.chessGame, {this.boardSize});
 
   @override
   Widget build(BuildContext context) {
+    final resolvedBoardSize =
+        boardSize ?? MediaQuery.of(context).size.width - 68;
+
     return Stack(
       children: [
         AnimatedRotation(
@@ -40,21 +44,22 @@ class ChessBoardWidget extends StatelessWidget {
               borderRadius: appModel.theme.name != 'Video Chess'
                   ? BorderRadius.circular(4)
                   : BorderRadius.zero,
-              child: Container(
-                width: MediaQuery.of(context).size.width - 68,
-                height: MediaQuery.of(context).size.width - 68,
+              child: SizedBox(
+                width: resolvedBoardSize,
+                height: resolvedBoardSize,
                 child: GameWidget(game: chessGame),
               ),
             ),
           ),
         ),
         if (appModel.showNotation)
-          Container(
-            width: MediaQuery.of(context).size.width - 68,
-            height: MediaQuery.of(context).size.width - 68,
+          SizedBox(
+            width: resolvedBoardSize,
+            height: resolvedBoardSize,
             child: _NotationOverlay(
               appModel.theme.notation,
               isRotated: appModel.isBoardInverted,
+              boardSize: resolvedBoardSize,
             ),
           ),
       ],
@@ -65,8 +70,13 @@ class ChessBoardWidget extends StatelessWidget {
 class _NotationOverlay extends StatefulWidget {
   final Color color;
   final bool isRotated;
+  final double boardSize;
 
-  const _NotationOverlay(this.color, {required this.isRotated});
+  const _NotationOverlay(
+    this.color, {
+    required this.isRotated,
+    required this.boardSize,
+  });
 
   @override
   _NotationOverlayState createState() => _NotationOverlayState();
@@ -116,9 +126,9 @@ class _NotationOverlayState extends State<_NotationOverlay> {
             // Files (Letters)
             for (int i = 0; i < 8; i++)
               Positioned(
-                left: (i * (MediaQuery.of(context).size.width - 68) / 8),
+                left: (i * widget.boardSize / 8),
                 bottom: 1,
-                width: (MediaQuery.of(context).size.width - 68) / 8,
+                width: widget.boardSize / 8,
                 child: Text(
                   String.fromCharCode(
                       (_visibleRotated ? 'h' : 'a').codeUnitAt(0) +
@@ -134,9 +144,9 @@ class _NotationOverlayState extends State<_NotationOverlay> {
             // Ranks (Numbers)
             for (int i = 0; i < 8; i++)
               Positioned(
-                top: (i * (MediaQuery.of(context).size.width - 68) / 8) + 2,
+                top: (i * widget.boardSize / 8) + 2,
                 left: 6,
-                height: (MediaQuery.of(context).size.width - 68) / 8,
+                height: widget.boardSize / 8,
                 child: Text(
                   (_visibleRotated ? i + 1 : 8 - i).toString(),
                   style: TextStyle(

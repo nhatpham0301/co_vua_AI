@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/audio_service.dart';
+import '../logic/chess_piece.dart';
 import '../logic/dev_logger.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
 import '../logic/move_calculation/move_classes/move_meta.dart';
+import '../logic/move_calculation/move_classes/move_stack_object.dart';
 import '../logic/shared_functions.dart';
 import '../logic/timer_service.dart';
 import 'app_themes.dart';
@@ -60,6 +62,8 @@ class AppModel extends ChangeNotifier {
   bool userWon = false;
   Player turn = Player.player1;
   List<MoveMeta> moveMetaList = [];
+  List<ChessPieceType> capturedWhite = [];
+  List<ChessPieceType> capturedBlack = [];
 
   // ── Computed Properties ──
   Player get aiTurn => oppositePlayer(playerSide);
@@ -97,6 +101,8 @@ class AppModel extends ChangeNotifier {
     userWon = false;
     turn = Player.player1;
     moveMetaList = [];
+    capturedWhite = [];
+    capturedBlack = [];
     timerService.configure(timeLimit);
     audio.enabled = prefs.soundEnabled;
     if (selectedSide == Player.random) {
@@ -156,6 +162,7 @@ class AppModel extends ChangeNotifier {
 
   void pushMoveMeta(MoveMeta meta, {bool silent = false}) {
     moveMetaList.add(meta);
+    refreshCapturedPieces();
     moveListUpdated = true;
     if (!silent) notifyListeners();
     saveGameState();
@@ -163,6 +170,7 @@ class AppModel extends ChangeNotifier {
 
   void popMoveMeta({bool silent = false}) {
     moveMetaList.removeLast();
+    refreshCapturedPieces();
     moveListUpdated = true;
     if (!silent) notifyListeners();
     saveGameState();
@@ -317,6 +325,68 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void refreshCapturedPieces() {
+    capturedWhite = [];
+    capturedBlack = [];
+
+    final moveStack = gameController?.board.moveStack;
+    if (moveStack == null) return;
+
+    for (final MoveStackObject stackObject in moveStack) {
+      final takenPiece = stackObject.takenPiece ??
+          (stackObject.enPassant ? stackObject.enPassantPiece : null);
+      if (takenPiece == null) continue;
+
+      final normalizedType = takenPiece.type == ChessPieceType.promotion
+          ? ChessPieceType.pawn
+          : takenPiece.type;
+
+      if (takenPiece.player == Player.player1) {
+        capturedWhite.add(normalizedType);
+      } else {
+        capturedBlack.add(normalizedType);
+      }
+    }
+
+    capturedWhite.sort(_compareCapturedPieceTypes);
+    capturedBlack.sort(_compareCapturedPieceTypes);
+  }
+
+  int capturedMaterialFor(Player player) {
+    final capturedList =
+        player == Player.player1 ? capturedWhite : capturedBlack;
+    return capturedList.fold<int>(
+      0,
+      (sum, type) => sum + _materialDisplayScore(type),
+    );
+  }
+
+  int materialAdvantageFor(Player player) {
+    return capturedMaterialFor(oppositePlayer(player)) -
+        capturedMaterialFor(player);
+  }
+
+  int _compareCapturedPieceTypes(ChessPieceType left, ChessPieceType right) {
+    return _materialDisplayScore(right).compareTo(_materialDisplayScore(left));
+  }
+
+  int _materialDisplayScore(ChessPieceType type) {
+    switch (type) {
+      case ChessPieceType.pawn:
+        return 1;
+      case ChessPieceType.knight:
+      case ChessPieceType.bishop:
+        return 3;
+      case ChessPieceType.rook:
+        return 5;
+      case ChessPieceType.queen:
+        return 9;
+      case ChessPieceType.king:
+      case ChessPieceType.promotion:
+        return 0;
+    }
+  }
+
   // ── Utilities ──
 
   void update() {
@@ -353,6 +423,7 @@ class AppModel extends ChangeNotifier {
       moveMetaList.add(meta);
       turn = oppositePlayer(turn);
     }
+    refreshCapturedPieces();
     gameController!.snapSprites();
 
     // Restore timer durations
