@@ -6,110 +6,36 @@ import '../../../l10n/app_localizations.dart';
 import '../../../logic/chess_piece.dart';
 import '../../../logic/shared_functions.dart';
 import '../../../model/app_model.dart';
-import '../../../model/app_themes.dart';
 import '../../../model/player.dart';
-import '../shared/rounded_button.dart';
+import '../shared/app_dialog.dart';
 
 void showExitDialog(BuildContext context) {
   final l = AppLocalizations.of(context)!;
-  showGeneralDialog<void>(
+  final appModel = context.read<AppModel>();
+
+  showAppDialog<void>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.5),
-    barrierDismissible: true,
-    barrierLabel: '',
-    transitionDuration: const Duration(milliseconds: 250),
-    pageBuilder: (dialogContext, anim1, anim2) {
-      return Selector<AppModel, AppTheme>(
-        selector: (_, model) => model.theme,
-        builder: (dialogContext, theme, child) => Center(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 340),
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                gradient: theme.background,
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    l.leaveGameTitle,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontFamily: 'Jura',
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    l.leaveGameSubtitle,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontFamily: 'Jura',
-                      color: Colors.white70,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 15),
-                  Consumer<AppModel>(
-                    builder: (context, appModel, child) => RoundedButton(
-                      l.saveAndExit,
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        appModel.saveAndExitChessView();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  Consumer<AppModel>(
-                    builder: (context, appModel, child) => RoundedButton(
-                      l.exit,
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                        appModel.exitChessView();
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  RoundedButton(
-                    l.cancel,
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-    transitionBuilder: (context, anim1, anim2, child) {
-      return Transform.scale(
-        scale: 0.95 + 0.05 * anim1.value,
-        child: FadeTransition(
-          opacity: anim1,
-          child: child,
-        ),
-      );
-    },
+    title: l.leaveGameTitle,
+    message: l.leaveGameSubtitle,
+    actions: [
+      AppDialogAction(
+        label: l.saveAndExit,
+        isPrimary: true,
+        onPressed: () {
+          appModel.saveAndExitChessView();
+          Navigator.of(context).pop();
+        },
+      ),
+      AppDialogAction(
+        label: l.exit,
+        isDestructive: true,
+        onPressed: () {
+          appModel.exitChessView();
+          Navigator.of(context).pop();
+        },
+      ),
+      AppDialogAction(label: l.cancel),
+    ],
   );
 }
 

@@ -48,14 +48,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get start => 'Start';
 
   @override
-  String get loginRegister => 'Login / Register';
+  String get loginRegister => 'Login';
 
   @override
   String get loginTitle => 'Login';
 
   @override
+  String get registerTitle => 'Register';
+
+  @override
   String get loginComingSoon =>
       'Login feature is under development.\nComing soon!';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get password => 'Password';
+
+  @override
+  String get confirmPassword => 'Confirm Password';
+
+  @override
+  String get forgotPassword => 'Forgot password?';
+
+  @override
+  String get loginButton => 'Log In';
+
+  @override
+  String get registerButton => 'Create Account';
+
+  @override
+  String get continueGuest => 'Continue as Guest';
 
   @override
   String get settingsTooltip => 'Settings';

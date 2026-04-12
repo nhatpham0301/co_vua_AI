@@ -24,20 +24,9 @@ class GameAppBar extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xAA32452B), Color(0xAA1A2128)],
-        ),
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.black.withValues(alpha: 0.32),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.24),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -46,7 +35,9 @@ class GameAppBar extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF355B3D).withValues(alpha: 0.32),
+              color: bgCard,
+              border:
+                  Border.all(color: primary.withValues(alpha: 0.5), width: 1.2),
             ),
             child: const Icon(Icons.shield_rounded, color: goldMid, size: 18),
           ),
@@ -108,12 +99,9 @@ class _IconBtn extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x553C4A37), Color(0x33161B22)],
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            color: Colors.white.withValues(alpha: 0.08),
+            border:
+                Border.all(color: goldMid.withValues(alpha: 0.35), width: 1.2),
           ),
           child: Icon(icon, color: Colors.white70, size: 17),
         ),

@@ -1,8 +1,9 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
+import '../main_menu_view/mm_palette.dart';
+import '../shared/app_dialog.dart';
 import 'chess_dialogs.dart';
 
 class ActionButtonsPanel extends StatelessWidget {
@@ -57,11 +58,7 @@ class ActionButtonsPanel extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0x552F3D2A), Color(0x55161B22)],
-        ),
+        color: bgCard.withValues(alpha: 0.38),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
@@ -129,38 +126,32 @@ class ActionButtonsPanel extends StatelessWidget {
   }
 
   void _showRestartDialog(BuildContext context, AppLocalizations l) {
-    showCupertinoDialog<void>(
+    showAppDialog<void>(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(l.newGameTitle),
-        content: Text(l.newGameConfirm),
-        actions: [
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(context);
-              if (!appModel.gameOver) {
-                appModel.adService.markGameAbandoned();
-                appModel.adService.showAdBeforeGame(
-                  () {
-                    appModel.newGame(notify: false);
-                    onNewGame();
-                  },
-                  context: context,
-                );
-              } else {
-                appModel.newGame(notify: false);
-                onNewGame();
-              }
-            },
-            child: Text(l.yes),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
-          ),
-        ],
-      ),
+      title: l.newGameTitle,
+      message: l.newGameConfirm,
+      actions: [
+        AppDialogAction(
+          label: l.yes,
+          isDestructive: true,
+          onPressed: () {
+            if (!appModel.gameOver) {
+              appModel.adService.markGameAbandoned();
+              appModel.adService.showAdBeforeGame(
+                () {
+                  appModel.newGame(notify: false);
+                  onNewGame();
+                },
+                context: context,
+              );
+            } else {
+              appModel.newGame(notify: false);
+              onNewGame();
+            }
+          },
+        ),
+        AppDialogAction(label: l.cancel),
+      ],
     );
   }
 }
@@ -212,38 +203,32 @@ class BottomButtonsPanel extends StatelessWidget {
 
   void _showRestartDialog(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    showCupertinoDialog<void>(
+    showAppDialog<void>(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(l.restartTitle),
-        content: Text(l.newGameConfirm),
-        actions: [
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              Navigator.pop(context);
-              if (!appModel.gameOver) {
-                appModel.adService.markGameAbandoned();
-                appModel.adService.showAdBeforeGame(
-                  () {
-                    appModel.newGame(notify: false);
-                    onNewGame();
-                  },
-                  context: context,
-                );
-              } else {
-                appModel.newGame(notify: false);
-                onNewGame();
-              }
-            },
-            child: Text(l.restartConfirm),
-          ),
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l.cancel),
-          ),
-        ],
-      ),
+      title: l.restartTitle,
+      message: l.newGameConfirm,
+      actions: [
+        AppDialogAction(
+          label: l.restartConfirm,
+          isDestructive: true,
+          onPressed: () {
+            if (!appModel.gameOver) {
+              appModel.adService.markGameAbandoned();
+              appModel.adService.showAdBeforeGame(
+                () {
+                  appModel.newGame(notify: false);
+                  onNewGame();
+                },
+                context: context,
+              );
+            } else {
+              appModel.newGame(notify: false);
+              onNewGame();
+            }
+          },
+        ),
+        AppDialogAction(label: l.cancel),
+      ],
     );
   }
 }

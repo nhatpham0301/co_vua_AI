@@ -15,7 +15,9 @@ import 'components/chess_view/chess_dialogs.dart';
 import 'components/chess_view/game_app_bar.dart';
 import 'components/chess_view/players_header_row.dart';
 import 'components/chess_view/promotion_dialog.dart';
+import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
+import 'components/shared/app_dialog.dart';
 
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
 
@@ -125,19 +127,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         appModel.turn == appModel.playerSide || !appModel.playingWithAI;
     final message = isPlayerChecked ? l.checkAlertYou : l.checkAlertOpponent;
 
-    showCupertinoDialog<void>(
+    showAppDialog<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(l.checkAlertTitle),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l.ok),
-          ),
-        ],
-      ),
+      title: l.checkAlertTitle,
+      message: message,
+      actions: [AppDialogAction(label: l.ok, isPrimary: true)],
     );
   }
 
@@ -206,88 +200,71 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           },
           child: Scaffold(
             backgroundColor: bgDark,
-            body: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF1C241D),
-                    Color(0xFF111721),
-                    Color(0xFF080B10),
-                  ],
-                  stops: [0.0, 0.5, 1.0],
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [bgMid, bgDark],
+                    ),
+                  ),
                 ),
-              ),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: const Alignment(0, -0.15),
-                          radius: 1.0,
-                          colors: [
-                            const Color(0xFF3A5A40).withValues(alpha: 0.18),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SafeArea(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final boardSize = _boardSizeFor(constraints);
+                const BoardBackground(),
+                const CornerKnots(),
+                SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final boardSize = _boardSizeFor(constraints);
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // AppBar with rank and settings button
-                            GameAppBar(rankName: rankName, appModel: appModel),
-                            // Players info row
-                            _playerRow(
-                                isAI: isAI,
-                                diff: diff,
-                                botElo: botElo,
-                                context: context),
-                            // Chess board stage
-                            Expanded(
-                              child: BoardStage(
-                                appModel: appModel,
-                                chessGame: chessGame!,
-                                boardSize: boardSize,
-                              ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // AppBar with rank and settings button
+                          GameAppBar(rankName: rankName, appModel: appModel),
+                          // Players info row
+                          _playerRow(
+                              isAI: isAI,
+                              diff: diff,
+                              botElo: botElo,
+                              context: context),
+                          // Chess board stage
+                          Expanded(
+                            child: BoardStage(
+                              appModel: appModel,
+                              chessGame: chessGame!,
+                              boardSize: boardSize,
                             ),
-                            const SizedBox(height: 8),
-                            // Action buttons panel
-                            ActionButtonsPanel(
-                              appModel,
-                              onNewGame: _initFlameGame,
-                            ),
-                            // SizedBox(height: bottomPad + 6),
-                          ],
-                        );
-                      },
-                    ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Action buttons panel
+                          ActionButtonsPanel(
+                            appModel,
+                            onNewGame: _initFlameGame,
+                          ),
+                          // SizedBox(height: bottomPad + 6),
+                        ],
+                      );
+                    },
                   ),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: ConfettiWidget(
-                      confettiController: _confettiController,
-                      blastDirectionality: BlastDirectionality.explosive,
-                      shouldLoop: false,
-                      colors: [
-                        theme.lightTile,
-                        theme.darkTile,
-                        theme.moveHint,
-                        theme.latestMove,
-                      ],
-                    ),
+                ),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    colors: [
+                      theme.lightTile,
+                      theme.darkTile,
+                      theme.moveHint,
+                      theme.latestMove,
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );

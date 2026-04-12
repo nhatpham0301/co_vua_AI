@@ -94,7 +94,7 @@ class _PlayerCompactCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isActive
-        ? const Color(0xFF8FCB81).withValues(alpha: 0.45)
+        ? primaryLight.withValues(alpha: 0.55)
         : Colors.white.withValues(alpha: 0.08);
 
     return Material(
@@ -110,8 +110,8 @@ class _PlayerCompactCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF20272F).withValues(alpha: 0.9),
-                const Color(0xFF151A20).withValues(alpha: 0.95),
+                bgCard.withValues(alpha: 0.9),
+                const Color(0xFF0A1730).withValues(alpha: 0.92),
               ],
             ),
             border: Border.all(color: borderColor),
@@ -133,10 +133,10 @@ class _PlayerCompactCard extends StatelessWidget {
                     height: 28,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF2B3C33).withValues(alpha: 0.7),
+                      color: bgMid.withValues(alpha: 0.82),
                       border: Border.all(
                         color: isActive
-                            ? const Color(0xFFA7DA85).withValues(alpha: 0.7)
+                            ? primaryLight.withValues(alpha: 0.7)
                             : Colors.white.withValues(alpha: 0.14),
                       ),
                     ),
@@ -231,8 +231,8 @@ class _CompactTimerPill extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isActive
               ? [
-                  const Color(0xFF3D6F49).withValues(alpha: 0.95),
-                  const Color(0xFF253A2D),
+                  primary.withValues(alpha: 0.35),
+                  bgCard,
                 ]
               : [
                   Colors.white.withValues(alpha: 0.08),
@@ -241,7 +241,7 @@ class _CompactTimerPill extends StatelessWidget {
         ),
         border: Border.all(
           color: isActive
-              ? const Color(0xFFA5D47D).withValues(alpha: 0.62)
+              ? primaryLight.withValues(alpha: 0.62)
               : Colors.white.withValues(alpha: 0.12),
         ),
       ),

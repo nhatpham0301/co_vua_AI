@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -322,22 +323,81 @@ class AdService {
   }
 
   Future<void> _showDevSimulatedAd(BuildContext context) async {
-    await showCupertinoDialog<void>(
+    await showGeneralDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('📢 Quảng cáo [DEV]'),
-        content: const Text(
-          'Giả lập quảng cáo interstitial.\n\n'
-          'Trong môi trường production, quảng cáo thật từ AdMob sẽ xuất hiện ở đây.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: const Text('× Đóng quảng cáo'),
-            onPressed: () => Navigator.of(ctx).pop(),
+      barrierColor: Colors.black.withValues(alpha: 0.56),
+      barrierLabel: '',
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 340),
+            margin: const EdgeInsets.symmetric(horizontal: 22),
+            padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF0E2244).withValues(alpha: 0.96),
+                  const Color(0xFF060D1F).withValues(alpha: 0.96),
+                ],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  '📢 Quảng cáo [DEV]',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontFamily: 'Jura',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Giả lập quảng cáo interstitial.\n\n'
+                  'Trong môi trường production, quảng cáo thật từ AdMob sẽ xuất hiện ở đây.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.72),
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF00B4D8),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text(
+                    '× Đóng quảng cáo',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return Transform.scale(
+          scale: 0.96 + (0.04 * animation.value),
+          child: FadeTransition(opacity: animation, child: child),
+        );
+      },
     );
   }
 }

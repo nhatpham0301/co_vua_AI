@@ -179,7 +179,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginRegister.
   ///
   /// In en, this message translates to:
-  /// **'Login / Register'**
+  /// **'Login'**
   String get loginRegister;
 
   /// No description provided for @loginTitle.
@@ -188,11 +188,59 @@ abstract class AppLocalizations {
   /// **'Login'**
   String get loginTitle;
 
+  /// No description provided for @registerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerTitle;
+
   /// No description provided for @loginComingSoon.
   ///
   /// In en, this message translates to:
   /// **'Login feature is under development.\nComing soon!'**
   String get loginComingSoon;
+
+  /// No description provided for @email.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get email;
+
+  /// No description provided for @password.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get password;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get confirmPassword;
+
+  /// No description provided for @forgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get forgotPassword;
+
+  /// No description provided for @loginButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Log In'**
+  String get loginButton;
+
+  /// No description provided for @registerButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Account'**
+  String get registerButton;
+
+  /// No description provided for @continueGuest.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue as Guest'**
+  String get continueGuest;
 
   /// No description provided for @settingsTooltip.
   ///

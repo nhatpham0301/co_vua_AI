@@ -1,8 +1,10 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
+import '../main_menu_view/mm_palette.dart';
 import '../shared/text_variable.dart';
 
 class LanguagePicker extends StatelessWidget {
@@ -17,7 +19,12 @@ class LanguagePicker extends StatelessWidget {
         final selectedLocale = appModel.locale?.languageCode ?? 'vi';
 
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(15),
+            color: bgCard.withValues(alpha: 0.42),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
           child: Row(
             children: [
               Expanded(child: TextRegular(l.language)),

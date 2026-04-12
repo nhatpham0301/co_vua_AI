@@ -1,9 +1,11 @@
 import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
+import '../main_menu_view/mm_palette.dart';
 import '../shared/text_variable.dart';
 import 'piece_preview.dart';
 
@@ -53,7 +55,11 @@ class _PieceThemePickerState extends State<PieceThemePicker> {
               borderRadius: BorderRadius.all(Radius.circular(15)),
               child: Container(
                 height: 120,
-                decoration: BoxDecoration(color: Color(0x20000000)),
+                decoration: BoxDecoration(
+                  color: bgCard.withValues(alpha: 0.42),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -61,7 +67,7 @@ class _PieceThemePickerState extends State<PieceThemePicker> {
                         scrollController: _scrollController,
                         selectionOverlay:
                             CupertinoPickerDefaultSelectionOverlay(
-                          background: Color(0x20000000),
+                          background: primary.withValues(alpha: 0.08),
                         ),
                         itemExtent: 50,
                         onSelectedItemChanged: appModel.setPieceTheme,

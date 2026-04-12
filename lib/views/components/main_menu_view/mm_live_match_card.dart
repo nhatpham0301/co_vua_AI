@@ -1,7 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../shared/app_dialog.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
 
@@ -79,20 +79,13 @@ class LiveMatchCard extends StatelessWidget {
 
   void _onTap(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    showCupertinoDialog(
+    showAppDialog<void>(
       context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(l.watchMatchTitle),
-        content: Text(
-          l.watchMatchComingSoon,
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(l.ok),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
+      title: l.watchMatchTitle,
+      message: l.watchMatchComingSoon,
+      actions: [
+        AppDialogAction(label: l.ok, isPrimary: true),
+      ],
     );
   }
 }

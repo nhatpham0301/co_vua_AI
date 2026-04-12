@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../l10n/app_localizations.dart';
 import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
@@ -15,6 +14,7 @@ import 'components/main_menu_view/mm_live_match_list.dart';
 import 'components/main_menu_view/mm_models.dart';
 import 'components/main_menu_view/mm_palette.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
+import 'login_view.dart';
 import 'settings_view.dart';
 
 class MainMenuView extends StatefulWidget {
@@ -56,19 +56,9 @@ class _MainMenuViewState extends State<MainMenuView> {
   void _refreshMatches() => setState(() => _matches = MatchGen.generateTen());
 
   void _handleLogin() {
-    final l = AppLocalizations.of(context)!;
-    showCupertinoDialog(
-      context: context,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(l.loginTitle),
-        content: Text(l.loginComingSoon),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(l.ok),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => const LoginView()),
     );
   }
 

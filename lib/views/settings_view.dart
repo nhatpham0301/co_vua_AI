@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../model/app_model.dart';
-import '../model/app_themes.dart';
+import 'components/main_menu_view/mm_background.dart';
+import 'components/main_menu_view/mm_palette.dart';
 import 'components/settings_view/app_theme_picker.dart';
 import 'components/settings_view/language_picker.dart';
 import 'components/settings_view/piece_theme_picker.dart';
 import 'components/settings_view/toggles.dart';
+import 'components/shared/app_dialog.dart';
 import 'components/shared/bottom_padding.dart';
 import 'components/shared/rounded_button.dart';
 import 'developer_view.dart';
@@ -16,159 +18,96 @@ import 'developer_view.dart';
 class SettingsView extends StatelessWidget {
   void _showResetConfirmation(BuildContext context, AppModel appModel) {
     final l = AppLocalizations.of(context)!;
-    showGeneralDialog(
+    showAppDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      barrierDismissible: true,
-      barrierLabel: '',
-      transitionDuration: Duration(milliseconds: 250),
-      pageBuilder: (dialogContext, anim1, anim2) {
-        return Selector<AppModel, AppTheme>(
-          selector: (_, m) => m.theme,
-          builder: (dialogContext, theme, child) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                constraints: BoxConstraints(maxWidth: 340),
-                padding: EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  gradient: theme.background,
-                  borderRadius: BorderRadius.circular(25),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                      offset: Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l.resetSettingsTitle,
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontFamily: 'Jura',
-                        color: Colors.white,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 15),
-                    Text(
-                      l.resetSettingsConfirm,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontFamily: 'Jura',
-                        color: Colors.white70,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 35),
-                    Consumer<AppModel>(
-                      builder: (context, appModel, child) => RoundedButton(
-                        l.reset,
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          appModel.resetSettingsToDefaults();
-                        },
-                      ),
-                    ),
-                    SizedBox(height: 15),
-                    RoundedButton(
-                      l.cancel,
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return Transform.scale(
-          scale: 0.95 + 0.05 * anim1.value,
-          child: FadeTransition(
-            opacity: anim1,
-            child: child,
-          ),
-        );
-      },
+      title: l.resetSettingsTitle,
+      message: l.resetSettingsConfirm,
+      actions: [
+        AppDialogAction(
+          label: l.reset,
+          isPrimary: true,
+          onPressed: appModel.resetSettingsToDefaults,
+        ),
+        AppDialogAction(label: l.cancel),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Selector<AppModel, AppTheme>(
-      selector: (_, m) => m.theme,
-      builder: (context, theme, child) => Container(
-        decoration: BoxDecoration(gradient: theme.background),
-        child: Stack(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(30),
-              child: Column(
-                children: [
-                  SizedBox(height: MediaQuery.of(context).padding.top),
-                  Expanded(
-                    child: CupertinoScrollbar(
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        physics: ClampingScrollPhysics(),
-                        children: [
-                          AppThemePicker(),
-                          SizedBox(height: 10),
-                          PieceThemePicker(),
-                          SizedBox(height: 10),
-                          const LanguagePicker(),
-                          SizedBox(height: 10),
-                          Consumer<AppModel>(
-                            builder: (context, appModel, child) =>
-                                Toggles(appModel),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  RoundedButton(
-                    l.back,
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  const _DevTapTarget(),
-                  BottomPadding(),
-                ],
+    return Scaffold(
+      backgroundColor: bgDark,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [bgMid, bgDark],
               ),
             ),
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 30,
-              right: 30,
-              child: Consumer<AppModel>(
-                builder: (context, appModel, child) => CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  onPressed: () {
-                    _showResetConfirmation(context, appModel);
-                  },
-                  child: Icon(
-                    Icons.settings_backup_restore_rounded,
-                    color: const Color(0x99FFFFFF), // semi-transparent white
-                    size: 28,
+          ),
+          const BoardBackground(),
+          const CornerKnots(),
+          Padding(
+            padding: EdgeInsets.all(30),
+            child: Column(
+              children: [
+                SizedBox(height: MediaQuery.of(context).padding.top),
+                Expanded(
+                  child: CupertinoScrollbar(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      physics: ClampingScrollPhysics(),
+                      children: [
+                        AppThemePicker(),
+                        SizedBox(height: 10),
+                        PieceThemePicker(),
+                        SizedBox(height: 10),
+                        const LanguagePicker(),
+                        SizedBox(height: 10),
+                        Consumer<AppModel>(
+                          builder: (context, appModel, child) =>
+                              Toggles(appModel),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+                SizedBox(height: 20),
+                RoundedButton(
+                  l.back,
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(height: 12),
+                const _DevTapTarget(),
+                BottomPadding(),
+              ],
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 30,
+            right: 30,
+            child: Consumer<AppModel>(
+              builder: (context, appModel, child) => CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () {
+                  _showResetConfirmation(context, appModel);
+                },
+                child: Icon(
+                  Icons.settings_backup_restore_rounded,
+                  color: const Color(0x99FFFFFF), // semi-transparent white
+                  size: 28,
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

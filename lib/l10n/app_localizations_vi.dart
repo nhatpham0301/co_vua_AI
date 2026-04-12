@@ -48,14 +48,38 @@ class AppLocalizationsVi extends AppLocalizations {
   String get start => 'Bắt đầu';
 
   @override
-  String get loginRegister => 'Đăng nhập / Đăng ký';
+  String get loginRegister => 'Đăng nhập';
 
   @override
   String get loginTitle => 'Đăng nhập';
 
   @override
+  String get registerTitle => 'Đăng ký';
+
+  @override
   String get loginComingSoon =>
       'Tính năng đăng nhập đang được phát triển.\nSẽ ra mắt sớm!';
+
+  @override
+  String get email => 'Email';
+
+  @override
+  String get password => 'Mật khẩu';
+
+  @override
+  String get confirmPassword => 'Xác nhận mật khẩu';
+
+  @override
+  String get forgotPassword => 'Quên mật khẩu?';
+
+  @override
+  String get loginButton => 'Đăng nhập';
+
+  @override
+  String get registerButton => 'Tạo tài khoản';
+
+  @override
+  String get continueGuest => 'Tiếp tục với tư cách khách';
 
   @override
   String get settingsTooltip => 'Cài đặt';
