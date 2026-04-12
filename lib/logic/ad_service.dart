@@ -1,14 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dev_logger.dart';
 
 // ─── Ad Unit IDs ──────────────────────────────────────────────────────────────
-// TODO: Replace test IDs with your real AdMob ad unit IDs before release.
+// Replace test IDs with your real AdMob ad unit IDs before release.
 const _kAndroidBannerId = 'ca-app-pub-3940256099942544/6300978111';
 const _kIosBannerId = 'ca-app-pub-3940256099942544/2934735716';
 const _kAndroidInterstitialId = 'ca-app-pub-3940256099942544/1033173712';

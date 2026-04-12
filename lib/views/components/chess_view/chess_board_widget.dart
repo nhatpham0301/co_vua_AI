@@ -9,45 +9,59 @@ class ChessBoardWidget extends StatelessWidget {
   final ChessGame chessGame;
   final double? boardSize;
 
-  ChessBoardWidget(this.appModel, this.chessGame, {this.boardSize});
+  const ChessBoardWidget(this.appModel, this.chessGame,
+      {super.key, this.boardSize});
 
   @override
   Widget build(BuildContext context) {
     final resolvedBoardSize =
         boardSize ?? MediaQuery.of(context).size.width - 68;
+    final isVideoTheme = appModel.theme.name == 'Video Chess';
+
+    // Adaptive frame keeps the board readable on small screens and avoids heavy padding.
+    final frameWidth = isVideoTheme
+        ? 0.0
+        : (resolvedBoardSize * 0.009).clamp(1.5, 3.0).toDouble();
+    final outerRadius = isVideoTheme
+        ? 0.0
+        : (resolvedBoardSize * 0.024).clamp(6.0, 10.0).toDouble();
 
     return Stack(
       children: [
-        AnimatedRotation(
-          turns: appModel.isBoardInverted ? 0.5 : 0,
-          duration: appModel.animateBoardRotation
-              ? Duration(milliseconds: 600)
-              : Duration.zero,
-          curve: Curves.easeInOut,
-          child: Container(
-            decoration: appModel.theme.name != 'Video Chess'
-                ? BoxDecoration(
-                    border: Border.all(
-                      color: appModel.theme.border,
-                      width: 4,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 10,
-                        color: Color(0x88000000),
+        SizedBox(
+          width: resolvedBoardSize,
+          height: resolvedBoardSize,
+          child: AnimatedRotation(
+            turns: appModel.isBoardInverted ? 0.5 : 0,
+            duration: appModel.animateBoardRotation
+                ? const Duration(milliseconds: 600)
+                : Duration.zero,
+            curve: Curves.easeInOut,
+            child: DecoratedBox(
+              decoration: isVideoTheme
+                  ? const BoxDecoration()
+                  : BoxDecoration(
+                      border: Border.all(
+                        color: appModel.theme.border,
+                        width: frameWidth,
                       ),
-                    ],
-                  )
-                : BoxDecoration(),
-            child: ClipRRect(
-              borderRadius: appModel.theme.name != 'Video Chess'
-                  ? BorderRadius.circular(4)
-                  : BorderRadius.zero,
-              child: SizedBox(
-                width: resolvedBoardSize,
-                height: resolvedBoardSize,
-                child: GameWidget(game: chessGame),
+                      borderRadius: BorderRadius.circular(outerRadius),
+                      boxShadow: const [
+                        BoxShadow(
+                          blurRadius: 6,
+                          spreadRadius: -1,
+                          offset: Offset(0, 0),
+                          color: Color(0x55000000),
+                        ),
+                      ],
+                    ),
+              child: ClipRRect(
+                borderRadius: isVideoTheme
+                    ? BorderRadius.zero
+                    : BorderRadius.circular(outerRadius),
+                child: SizedBox.expand(
+                  child: GameWidget(game: chessGame),
+                ),
               ),
             ),
           ),
