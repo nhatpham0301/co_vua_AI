@@ -1,17 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'dev_logger.dart';
 
 // ─── Ad Unit IDs ──────────────────────────────────────────────────────────────
-// Replace test IDs with your real AdMob ad unit IDs before release.
-const _kAndroidBannerId = 'ca-app-pub-3940256099942544/6300978111';
-const _kIosBannerId = 'ca-app-pub-3940256099942544/2934735716';
-const _kAndroidInterstitialId = 'ca-app-pub-3940256099942544/1033173712';
-const _kIosInterstitialId = 'ca-app-pub-3940256099942544/4411468910';
+// Ad IDs are read from env only (assets/env/config.env).
 
 // ─── Ad Policy Config ─────────────────────────────────────────────────────────
 /// Số lượng quảng cáo interstitial tối đa được preload và giữ trong hàng đợi.
@@ -45,11 +42,29 @@ class AdService {
   bool _devForceAd = false;
   bool _devSkipNextAd = false;
 
-  String get _bannerId =>
-      Platform.isAndroid ? _kAndroidBannerId : _kIosBannerId;
+  String get _androidBannerId => _envRequired('ADMOB_ANDROID_BANNER_ID');
+
+  String get _iosBannerId => _envRequired('ADMOB_IOS_BANNER_ID');
+
+  String get _androidInterstitialId =>
+      _envRequired('ADMOB_ANDROID_INTERSTITIAL_ID');
+
+  String get _iosInterstitialId => _envRequired('ADMOB_IOS_INTERSTITIAL_ID');
+
+  String get _bannerId => Platform.isAndroid ? _androidBannerId : _iosBannerId;
 
   String get _interstitialId =>
-      Platform.isAndroid ? _kAndroidInterstitialId : _kIosInterstitialId;
+      Platform.isAndroid ? _androidInterstitialId : _iosInterstitialId;
+
+  String _envRequired(String key) {
+    final value = dotenv.env[key]?.trim();
+    if (value == null || value.isEmpty) {
+      throw StateError(
+        'Missing env key: $key. Configure assets/env/config.env before running ads.',
+      );
+    }
+    return value;
+  }
 
   // ── Banner ──────────────────────────────────────────────────────────────────
 
