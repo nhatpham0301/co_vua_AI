@@ -56,6 +56,9 @@
   "sideRandom": "Random",
   "timeLimit": "Time Limit",
   "timeLimitNone": "None",
+  "timeMoveLimit": "Time per Move",
+  "timeMoveLimitNone": "None",
+  "timerSettings": "Timer",
 
   "appTheme": "App Theme",
   "pieceTheme": "Piece Theme",
@@ -71,6 +74,8 @@
   "movesCopied": "Moves copied to clipboard",
   "resetSettingsTitle": "Reset Settings?",
   "resetSettingsConfirm": "Are you sure you want to reset all settings to their defaults?",
+  "devModeLabel": "Developer Mode",
+  "openDevPanel": "Open Dev Panel",
   "devModeHint": "{remaining} more taps to open Dev mode",
   "@devModeHint": {
     "placeholders": {
@@ -153,7 +158,7 @@
   "blackTurn": "Black's turn",
   "stalemate": "Stalemate",
   "youWin": "You Win!",
-  "youLose": "You Lose :(",
+  "youLose": "You Lose",
   "blackWins": "Black wins!",
   "whiteWins": "White wins!",
 

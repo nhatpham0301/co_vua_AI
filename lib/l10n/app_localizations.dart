@@ -356,6 +356,24 @@ abstract class AppLocalizations {
   /// **'None'**
   String get timeLimitNone;
 
+  /// No description provided for @timeMoveLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Time per Move'**
+  String get timeMoveLimit;
+
+  /// No description provided for @timeMoveLimitNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get timeMoveLimitNone;
+
+  /// No description provided for @timerSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer'**
+  String get timerSettings;
+
   /// No description provided for @appTheme.
   ///
   /// In en, this message translates to:
@@ -439,6 +457,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Are you sure you want to reset all settings to their defaults?'**
   String get resetSettingsConfirm;
+
+  /// No description provided for @devModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Developer Mode'**
+  String get devModeLabel;
+
+  /// No description provided for @openDevPanel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Dev Panel'**
+  String get openDevPanel;
 
   /// No description provided for @devModeHint.
   ///
@@ -707,7 +737,7 @@ abstract class AppLocalizations {
   /// No description provided for @youLose.
   ///
   /// In en, this message translates to:
-  /// **'You Lose :('**
+  /// **'You Lose'**
   String get youLose;
 
   /// No description provided for @blackWins.

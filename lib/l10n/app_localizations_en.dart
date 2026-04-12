@@ -142,6 +142,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get timeLimitNone => 'None';
 
   @override
+  String get timeMoveLimit => 'Time per Move';
+
+  @override
+  String get timeMoveLimitNone => 'None';
+
+  @override
+  String get timerSettings => 'Timer';
+
+  @override
   String get appTheme => 'App Theme';
 
   @override
@@ -183,6 +192,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get resetSettingsConfirm =>
       'Are you sure you want to reset all settings to their defaults?';
+
+  @override
+  String get devModeLabel => 'Developer Mode';
+
+  @override
+  String get openDevPanel => 'Open Dev Panel';
 
   @override
   String devModeHint(int remaining) {
@@ -329,7 +344,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get youWin => 'You Win!';
 
   @override
-  String get youLose => 'You Lose :(';
+  String get youLose => 'You Lose';
 
   @override
   String get blackWins => 'Black wins!';

@@ -182,7 +182,7 @@ class GameController {
       meta.isCheck = true;
       checkHintTile = board.kingForPlayer(oppositeTurn)?.tile;
       if (!undoing) {
-        appModel.checkAlert = true;
+        appModel.audio.playCheckFeedback();
         DevLogger.instance.log(DevLogCategory.game,
             'CHECK on ${oppositeTurn.name} king at tile $checkHintTile');
       }
@@ -210,6 +210,8 @@ class GameController {
     }
     if (changeTurn) {
       appModel.changeTurn(silent: true);
+      // Reset move clock for the player who just received the turn
+      if (!undoing) appModel.timerService.resetMoveTimer();
     }
     selectedPiece = null;
     // Single rebuild for all the state changes above

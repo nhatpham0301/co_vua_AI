@@ -143,6 +143,15 @@ class AppLocalizationsVi extends AppLocalizations {
   String get timeLimitNone => 'Không giới hạn';
 
   @override
+  String get timeMoveLimit => 'Thời gian/nước';
+
+  @override
+  String get timeMoveLimitNone => 'Không';
+
+  @override
+  String get timerSettings => 'Đồng hồ';
+
+  @override
   String get appTheme => 'Giao diện';
 
   @override
@@ -184,6 +193,12 @@ class AppLocalizationsVi extends AppLocalizations {
   @override
   String get resetSettingsConfirm =>
       'Bạn có chắc muốn đặt lại toàn bộ cài đặt về mặc định?';
+
+  @override
+  String get devModeLabel => 'Chế độ nhà phát triển';
+
+  @override
+  String get openDevPanel => 'Mở bảng Dev';
 
   @override
   String devModeHint(int remaining) {
@@ -330,7 +345,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get youWin => 'Bạn thắng!';
 
   @override
-  String get youLose => 'Bạn thua :(';
+  String get youLose => 'Bạn thua';
 
   @override
   String get blackWins => 'Đen thắng!';

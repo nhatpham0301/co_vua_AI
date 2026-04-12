@@ -32,6 +32,7 @@ class AppModel extends ChangeNotifier {
 
   // ── Delegated Accessors (backward compatibility) ──
   int get timeLimit => timerService.timeLimit;
+  int get moveTimeLimit => timerService.moveTimeLimitSeconds;
   String get pieceTheme => prefs.pieceTheme;
   String get themeName => prefs.themeName;
   bool get showMoveHistory => prefs.showMoveHistory;
@@ -52,6 +53,7 @@ class AppModel extends ChangeNotifier {
   ValueNotifier<Duration> get player2TimeLeft => timerService.player2TimeLeft;
   set player2TimeLeft(ValueNotifier<Duration> val) =>
       timerService.player2TimeLeft.value = val.value;
+  ValueNotifier<Duration> get moveTimeLeft => timerService.moveTimeLeft;
 
   // ── Game State ──
   GameController? gameController;
@@ -84,7 +86,17 @@ class AppModel extends ChangeNotifier {
 
   AppModel() {
     // Wire up service callbacks
-    prefs.onChanged = () => notifyListeners();
+    prefs.onChanged = () {
+      // Re-apply timer config from prefs when settings change (only outside game)
+      if (gameController == null) {
+        timerService.configure(
+          prefs.timeLimitMinutes,
+          moveTimeLimitSeconds: prefs.moveTimeLimitSeconds,
+        );
+      }
+      audio.enabled = prefs.soundEnabled;
+      notifyListeners();
+    };
     timerService.onExpired = () => endGame();
     audio.enabled = prefs.soundEnabled;
 
@@ -104,7 +116,8 @@ class AppModel extends ChangeNotifier {
     moveMetaList = [];
     capturedWhite = [];
     capturedBlack = [];
-    timerService.configure(timeLimit);
+    timerService.configure(prefs.timeLimitMinutes,
+        moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
     audio.enabled = prefs.soundEnabled;
     if (selectedSide == Player.random) {
       playerSide = math.Random.secure().nextInt(2) == 0
@@ -244,9 +257,20 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  void setTimeLimit(int? duration) {
-    if (duration != null) {
-      timerService.configure(duration);
+  void setTimeLimit(int? minutes) {
+    if (minutes != null) {
+      prefs.setTimeLimitMinutes(minutes);
+      timerService.configure(minutes,
+          moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
+      notifyListeners();
+    }
+  }
+
+  void setMoveTimeLimit(int? seconds) {
+    if (seconds != null) {
+      prefs.setMoveTimeLimitSeconds(seconds);
+      timerService.configure(prefs.timeLimitMinutes,
+          moveTimeLimitSeconds: seconds);
       notifyListeners();
     }
   }

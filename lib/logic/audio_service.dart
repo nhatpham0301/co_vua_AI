@@ -1,4 +1,5 @@
 import 'package:flame_audio/flame_audio.dart';
+import 'package:flutter/services.dart';
 
 import '../model/player.dart';
 
@@ -14,6 +15,10 @@ class AudioService {
 
   void playMovedSound() {
     if (_enabled) FlameAudio.play('piece_moved.mp3');
+  }
+
+  void playCheckFeedback() {
+    if (_enabled) HapticFeedback.heavyImpact();
   }
 
   void playGameEndSound({

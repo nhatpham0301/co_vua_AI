@@ -17,7 +17,6 @@ import 'components/chess_view/players_header_row.dart';
 import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
-import 'components/shared/app_dialog.dart';
 
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
 
@@ -121,20 +120,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     );
   }
 
-  void _showCheckAlert(BuildContext context, AppModel appModel) {
-    final l = AppLocalizations.of(context)!;
-    final isPlayerChecked =
-        appModel.turn == appModel.playerSide || !appModel.playingWithAI;
-    final message = isPlayerChecked ? l.checkAlertYou : l.checkAlertOpponent;
-
-    showAppDialog<void>(
-      context: context,
-      title: l.checkAlertTitle,
-      message: message,
-      actions: [AppDialogAction(label: l.ok, isPrimary: true)],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(
@@ -153,12 +138,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           appModel.promotionRequested = false;
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _showPromotionDialog(appModel));
-        }
-
-        if (appModel.checkAlert && !appModel.gameOver) {
-          appModel.checkAlert = false;
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _showCheckAlert(context, appModel));
         }
 
         if (appModel.gameOver && !_wasGameOver && !_gameEndAdScheduled) {
@@ -287,10 +266,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         gameOver: appModel.gameOver,
         isAIsTurn: appModel.isAIsTurn,
         timeLimitMinutes: appModel.timeLimit,
+        moveTimeLimitSeconds: appModel.moveTimeLimit,
         player1MaterialDelta: appModel.materialAdvantageFor(Player.player1),
         player2MaterialDelta: appModel.materialAdvantageFor(Player.player2),
         player1TimeLeft: appModel.player1TimeLeft,
         player2TimeLeft: appModel.player2TimeLeft,
+        moveTimeLeft: appModel.moveTimeLeft,
         onTapPlayer1: () => showCapturedPiecesSheet(
           context,
           appModel,

@@ -50,6 +50,9 @@
   "sideRandom": "Ngẫu nhiên",
   "timeLimit": "Giới hạn thời gian",
   "timeLimitNone": "Không giới hạn",
+  "timeMoveLimit": "Thời gian/nước",
+  "timeMoveLimitNone": "Không",
+  "timerSettings": "Đồng hồ",
 
   "appTheme": "Giao diện",
   "pieceTheme": "Bộ quân cờ",
@@ -65,6 +68,8 @@
   "movesCopied": "Đã sao chép danh sách nước đi",
   "resetSettingsTitle": "Đặt lại cài đặt?",
   "resetSettingsConfirm": "Bạn có chắc muốn đặt lại toàn bộ cài đặt về mặc định?",
+  "devModeLabel": "Chế độ nhà phát triển",
+  "openDevPanel": "Mở bảng Dev",
   "devModeHint": "Còn {remaining} lần nữa để mở chế độ Dev",
 
   "matchArena": "ĐẤU TRƯỜNG CỜ",
@@ -116,7 +121,7 @@
   "blackTurn": "Lượt Đen",
   "stalemate": "Hòa cờ thế",
   "youWin": "Bạn thắng!",
-  "youLose": "Bạn thua :(",
+  "youLose": "Bạn thua",
   "blackWins": "Đen thắng!",
   "whiteWins": "Trắng thắng!",
 

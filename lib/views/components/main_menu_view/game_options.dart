@@ -4,6 +4,7 @@ import '../../../model/app_model.dart';
 import 'game_options/ai_difficulty_picker.dart';
 import 'game_options/game_mode_picker.dart';
 import 'game_options/side_picker.dart';
+import 'game_options/time_increment_picker.dart';
 import 'game_options/time_limit_picker.dart';
 
 class GameOptions extends StatelessWidget {
@@ -42,6 +43,11 @@ class GameOptions extends StatelessWidget {
           TimeLimitPicker(
             selectedTime: appModel.timeLimit,
             setTime: appModel.setTimeLimit,
+          ),
+          SizedBox(height: 20),
+          TimeMoveLimitPicker(
+            selectedLimit: appModel.moveTimeLimit,
+            setLimit: appModel.setMoveTimeLimit,
           ),
         ],
       ),

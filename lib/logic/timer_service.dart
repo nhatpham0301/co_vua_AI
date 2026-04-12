@@ -6,23 +6,32 @@ import '../model/player.dart';
 
 const TIMER_ACCURACY_MS = 100;
 
-/// Isolated timer management for chess game clocks.
-/// Extracted from AppModel to follow single-responsibility principle.
+/// Two-clock chess timer:
+/// 1. **Total clock** — each player has [_timeLimit] minutes for the whole game.
+/// 2. **Move clock**  — the active player must move within [_moveTimeLimitSeconds].
+///
+/// Either clock reaching zero calls [onExpired]. Both are independent countdowns.
 class TimerService {
   async.Timer? _timer;
   ValueNotifier<Duration> player1TimeLeft = ValueNotifier(Duration.zero);
   ValueNotifier<Duration> player2TimeLeft = ValueNotifier(Duration.zero);
-  int _timeLimit = 0;
+  ValueNotifier<Duration> moveTimeLeft = ValueNotifier(Duration.zero);
 
-  /// Called when a player's time runs out.
+  int _timeLimit = 30; // minutes — 0 = no total limit
+  int _moveTimeLimitSeconds = 30; // seconds per move — 0 = no per-move limit
+
+  /// Called when any clock reaches zero.
   VoidCallback? onExpired;
 
   int get timeLimit => _timeLimit;
+  int get moveTimeLimitSeconds => _moveTimeLimitSeconds;
 
-  void configure(int timeLimitMinutes) {
+  void configure(int timeLimitMinutes, {int moveTimeLimitSeconds = 30}) {
     _timeLimit = timeLimitMinutes;
+    _moveTimeLimitSeconds = moveTimeLimitSeconds;
     player1TimeLeft.value = Duration(minutes: timeLimitMinutes);
     player2TimeLeft.value = Duration(minutes: timeLimitMinutes);
+    moveTimeLeft.value = Duration(seconds: moveTimeLimitSeconds);
   }
 
   Player Function()? _getCurrentTurn;
@@ -31,28 +40,51 @@ class TimerService {
   void start(Player Function() getCurrentTurn, bool Function() isGameOver) {
     _getCurrentTurn = getCurrentTurn;
     _isGameOver = isGameOver;
-    if (_timeLimit == 0) return;
+    if (_timeLimit == 0 && _moveTimeLimitSeconds == 0)
+      return; // fully unlimited
     _startPeriodicTimer();
   }
 
   void _startPeriodicTimer() {
     _timer?.cancel();
-    _timer = async.Timer.periodic(Duration(milliseconds: TIMER_ACCURACY_MS), (_) {
+    _timer =
+        async.Timer.periodic(Duration(milliseconds: TIMER_ACCURACY_MS), (_) {
       if (_isGameOver?.call() ?? true) {
         stop();
         return;
       }
-      var turn = _getCurrentTurn?.call() ?? Player.player1;
-      if (turn == Player.player1) {
-        _decrementPlayer1();
-      } else {
-        _decrementPlayer2();
+      final turn = _getCurrentTurn?.call() ?? Player.player1;
+
+      // ── Total clock ────────────────────────────────────────────────────────
+      if (_timeLimit > 0) {
+        if (turn == Player.player1) {
+          _decrementPlayer1();
+        } else {
+          _decrementPlayer2();
+        }
+        if (player1TimeLeft.value == Duration.zero ||
+            player2TimeLeft.value == Duration.zero) {
+          onExpired?.call();
+          return;
+        }
       }
-      if (player1TimeLeft.value == Duration.zero ||
-          player2TimeLeft.value == Duration.zero) {
-        onExpired?.call();
+
+      // ── Move clock ─────────────────────────────────────────────────────────
+      if (_moveTimeLimitSeconds > 0) {
+        _decrementMove();
+        if (moveTimeLeft.value == Duration.zero) {
+          onExpired?.call();
+        }
       }
     });
+  }
+
+  /// Reset the per-move clock for the next player's turn.
+  /// Call this immediately after [changeTurn] in the game controller.
+  void resetMoveTimer() {
+    if (_moveTimeLimitSeconds > 0) {
+      moveTimeLeft.value = Duration(seconds: _moveTimeLimitSeconds);
+    }
   }
 
   void pause() {
@@ -61,8 +93,8 @@ class TimerService {
   }
 
   void resume() {
-    if (_timeLimit > 0 && _timer == null && _getCurrentTurn != null && _isGameOver != null) {
-      _startPeriodicTimer();
+    if (_timer == null && _getCurrentTurn != null && _isGameOver != null) {
+      if (_timeLimit > 0 || _moveTimeLimitSeconds > 0) _startPeriodicTimer();
     }
   }
 
@@ -77,19 +109,29 @@ class TimerService {
     pause();
     player1TimeLeft.value = Duration(minutes: _timeLimit);
     player2TimeLeft.value = Duration(minutes: _timeLimit);
+    moveTimeLeft.value = Duration(seconds: _moveTimeLimitSeconds);
   }
 
   void _decrementPlayer1() {
     if (player1TimeLeft.value.inMilliseconds > 0) {
       player1TimeLeft.value = Duration(
-          milliseconds: player1TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+          milliseconds:
+              player1TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
     }
   }
 
   void _decrementPlayer2() {
     if (player2TimeLeft.value.inMilliseconds > 0) {
       player2TimeLeft.value = Duration(
-          milliseconds: player2TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+          milliseconds:
+              player2TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+    }
+  }
+
+  void _decrementMove() {
+    if (moveTimeLeft.value.inMilliseconds > 0) {
+      moveTimeLeft.value = Duration(
+          milliseconds: moveTimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
     }
   }
 }

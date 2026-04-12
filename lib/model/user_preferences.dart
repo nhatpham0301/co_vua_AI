@@ -34,6 +34,8 @@ class UserPreferences {
   bool showNotation = false;
   bool enableRotation = true;
   String? localeCode;
+  int timeLimitMinutes = 30; // 0 = unlimited
+  int moveTimeLimitSeconds = 30; // seconds per move, 0 = no per-move limit
 
   List<String> get pieceThemes => sortedPieceThemes;
 
@@ -71,6 +73,22 @@ class UserPreferences {
     enableRotation = _prefs!.getBool('enableRotation') ?? true;
     allowUndoRedo = _prefs!.getBool('allowUndoRedo') ?? true;
     localeCode = _prefs!.getString('localeCode');
+    timeLimitMinutes = _prefs!.getInt('timeLimitMinutes') ?? 30;
+    moveTimeLimitSeconds = _prefs!.getInt('moveTimeLimitSeconds') ?? 30;
+    onChanged?.call();
+  }
+
+  Future<void> setTimeLimitMinutes(int minutes) async {
+    timeLimitMinutes = minutes;
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setInt('timeLimitMinutes', minutes);
+    onChanged?.call();
+  }
+
+  Future<void> setMoveTimeLimitSeconds(int seconds) async {
+    moveTimeLimitSeconds = seconds;
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setInt('moveTimeLimitSeconds', seconds);
     onChanged?.call();
   }
 
@@ -151,6 +169,8 @@ class UserPreferences {
     enableRotation = true;
     allowUndoRedo = true;
     localeCode = null;
+    timeLimitMinutes = 30;
+    moveTimeLimitSeconds = 30;
 
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('themeName', themeName);
@@ -162,6 +182,8 @@ class UserPreferences {
     await _prefs!.setBool('enableRotation', enableRotation);
     await _prefs!.setBool('allowUndoRedo', allowUndoRedo);
     await _prefs!.remove('localeCode');
+    await _prefs!.setInt('timeLimitMinutes', timeLimitMinutes);
+    await _prefs!.setInt('moveTimeLimitSeconds', moveTimeLimitSeconds);
     onChanged?.call();
   }
 }
