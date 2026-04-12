@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import '../../../model/app_themes.dart';
 import '../shared/text_variable.dart';
@@ -29,6 +30,7 @@ class _AppThemePickerState extends State<AppThemePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Selector<AppModel, int>(
       selector: (_, m) => m.themeIndex,
       builder: (context, themeIndex, child) {
@@ -44,7 +46,7 @@ class _AppThemePickerState extends State<AppThemePicker> {
           children: [
             Container(
               alignment: Alignment.center,
-              child: TextRegular('App Theme'),
+              child: TextRegular(l.appTheme),
               padding: EdgeInsets.symmetric(vertical: 10),
             ),
             Container(
@@ -59,7 +61,8 @@ class _AppThemePickerState extends State<AppThemePicker> {
                   background: Color(0x20000000),
                 ),
                 itemExtent: 50,
-                onSelectedItemChanged: Provider.of<AppModel>(context, listen: false).setTheme,
+                onSelectedItemChanged:
+                    Provider.of<AppModel>(context, listen: false).setTheme,
                 children: themeList
                     .map(
                       (theme) => Container(

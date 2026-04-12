@@ -3,9 +3,12 @@ import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
+
+import 'l10n/app_localizations.dart';
 
 import 'logic/shared_functions.dart';
 import 'model/app_model.dart';
@@ -48,17 +51,32 @@ Future<void> _loadFlameAssets() async {
 class Chess extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Infinite Chess AI',
-      theme: CupertinoThemeData(
-        brightness: Brightness.dark,
-        textTheme: CupertinoTextThemeData(
-          textStyle: GoogleFonts.inter(fontSize: 16),
-          pickerTextStyle: GoogleFonts.inter(),
-        ),
-      ),
-      home: MainMenuView(),
+    return Consumer<AppModel>(
+      builder: (context, appModel, _) {
+        return CupertinoApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Infinite Chess AI',
+          locale: appModel.locale,
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('vi'),
+          ],
+          theme: CupertinoThemeData(
+            brightness: Brightness.dark,
+            textTheme: CupertinoTextThemeData(
+              textStyle: GoogleFonts.inter(fontSize: 16),
+              pickerTextStyle: GoogleFonts.inter(),
+            ),
+          ),
+          home: MainMenuView(),
+        );
+      },
     );
   }
 }

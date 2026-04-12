@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import 'picker.dart';
 
 class TimeLimitPicker extends StatelessWidget {
@@ -8,20 +9,19 @@ class TimeLimitPicker extends StatelessWidget {
 
   TimeLimitPicker({this.selectedTime, this.setTime});
 
-  final Map<int, Text> timeOptions = const <int, Text>{
-    0: Text('None'),
-    15: Text('15m'),
-    30: Text('30m'),
-    60: Text('1h'),
-    90: Text('1.5h'),
-    120: Text('2h')
-  };
-
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Picker<int>(
-      label: 'Time Limit',
-      options: timeOptions,
+      label: l.timeLimit,
+      options: <int, Text>{
+        0: Text(l.timeLimitNone),
+        15: const Text('15m'),
+        30: const Text('30m'),
+        60: const Text('1h'),
+        90: const Text('1.5h'),
+        120: const Text('2h'),
+      },
       selection: selectedTime,
       setFunc: setTime,
     );

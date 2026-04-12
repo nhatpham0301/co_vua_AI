@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../../l10n/app_localizations.dart';
 import '../../../../../logic/chess_piece.dart';
 import '../../../../../logic/move_calculation/move_classes/move_meta.dart';
 import '../../../../../logic/shared_functions.dart';
@@ -23,6 +24,7 @@ class MoveList extends StatelessWidget {
   }
 
   void _showCopiedOverlay(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -37,7 +39,7 @@ class MoveList extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              'Moves copied to clipboard',
+              l.movesCopied,
               style: TextStyle(
                 color: CupertinoColors.white,
                 fontFamily: 'Jura',

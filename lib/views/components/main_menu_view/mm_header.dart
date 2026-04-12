@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'mm_palette.dart';
 
 // ─── Top header bar ───────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ class MenuHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
@@ -52,7 +54,7 @@ class MenuHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'ELO: $elo | $rank',
+                  l.eloRank(elo, rank),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                     fontSize: 12,
@@ -72,14 +74,14 @@ class MenuHeader extends StatelessWidget {
                   border: Border.all(
                       color: Colors.white.withValues(alpha: 0.2), width: 1),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(CupertinoIcons.person_fill,
+                    const Icon(CupertinoIcons.person_fill,
                         color: Colors.white70, size: 14),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
-                      'Đăng nhập / Đăng ký',
+                      l.loginRegister,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -94,7 +96,7 @@ class MenuHeader extends StatelessWidget {
           const Spacer(),
           MenuIconBtn(
               icon: CupertinoIcons.settings,
-              tooltip: 'Cài đặt',
+              tooltip: l.settingsTooltip,
               onTap: onSettingsTap),
         ],
       ),

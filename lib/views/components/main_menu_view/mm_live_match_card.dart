@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
 
@@ -77,16 +78,17 @@ class LiveMatchCard extends StatelessWidget {
   }
 
   void _onTap(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Quan sát trận đấu'),
-        content: const Text(
-          'Chế độ quan sát (observer) đang phát triển.',
+        title: Text(l.watchMatchTitle),
+        content: Text(
+          l.watchMatchComingSoon,
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK'),
+            child: Text(l.ok),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -99,6 +101,7 @@ class LiveMatchCard extends StatelessWidget {
 class _LiveBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -106,8 +109,8 @@ class _LiveBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: primary.withValues(alpha: 0.55)),
       ),
-      child: const Text(
-        'LIVE',
+      child: Text(
+        l.live,
         style: TextStyle(
           color: primaryLight,
           fontSize: 11,
@@ -125,6 +128,7 @@ class _WatchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -133,8 +137,8 @@ class _WatchButton extends StatelessWidget {
           color: primary,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Text(
-          'XEM',
+        child: Text(
+          l.watch,
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,

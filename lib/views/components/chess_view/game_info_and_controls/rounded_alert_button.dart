@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../../../model/app_model.dart';
 import '../../shared/rounded_button.dart';
 
@@ -20,6 +21,7 @@ class RoundedAlertButton extends StatelessWidget {
         barrierLabel: '',
         transitionDuration: Duration(milliseconds: 250),
         pageBuilder: (context, anim1, anim2) {
+          final l = AppLocalizations.of(context)!;
           return Consumer<AppModel>(
             builder: (context, appModel, child) => Center(
               child: Material(
@@ -56,7 +58,7 @@ class RoundedAlertButton extends StatelessWidget {
                       ),
                       SizedBox(height: 15),
                       Text(
-                        'Are you sure you want to ${label.toLowerCase()}?',
+                        l.restartConfirmMsg(label.toLowerCase()),
                         style: TextStyle(
                           fontSize: 16,
                           fontFamily: 'Jura',
@@ -74,7 +76,7 @@ class RoundedAlertButton extends StatelessWidget {
                       ),
                       SizedBox(height: 15),
                       RoundedButton(
-                        'Cancel',
+                        l.cancel,
                         onPressed: () {
                           Navigator.pop(context);
                         },

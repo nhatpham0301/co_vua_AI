@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../logic/chess_constants.dart';
 import '../../../model/app_model.dart';
 import 'promotion_option.dart';
@@ -36,7 +37,7 @@ class PromotionDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Promote Pawn',
+              AppLocalizations.of(context)!.promotePawn,
               style: TextStyle(
                 fontSize: 28,
                 fontFamily: 'Jura',

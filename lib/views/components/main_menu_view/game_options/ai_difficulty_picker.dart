@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import 'picker.dart';
 
 class AIDifficultyPicker extends StatelessWidget {
@@ -18,8 +19,9 @@ class AIDifficultyPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Picker<int>(
-      label: 'AI Difficulty',
+      label: l.aiDifficulty,
       options: difficultyOptions,
       selection: aiDifficulty,
       setFunc: setFunc,

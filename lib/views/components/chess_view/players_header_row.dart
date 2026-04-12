@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../main_menu_view/mm_palette.dart';
 
 class PlayersHeaderRow extends StatelessWidget {
@@ -36,11 +37,12 @@ class PlayersHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Row(
       children: [
         Expanded(
           child: _PlayerCompactCard(
-            name: 'BẠN',
+            name: l.youPlayer,
             subtitle: '2145 ELO',
             isBot: false,
             isActive: !isAIsTurn && !gameOver,
@@ -53,8 +55,8 @@ class PlayersHeaderRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: _PlayerCompactCard(
-            name: isAI ? 'BOT LV.$diff' : 'ĐỐI THỦ',
-            subtitle: '$botElo ELO',
+            name: isAI ? l.botLevel(diff) : l.opponent,
+            subtitle: l.eloLabel(botElo),
             isBot: isAI,
             isActive: isAIsTurn && !gameOver,
             timeLimitMinutes: timeLimitMinutes,

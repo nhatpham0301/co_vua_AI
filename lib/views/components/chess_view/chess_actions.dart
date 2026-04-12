@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import 'chess_dialogs.dart';
 
@@ -50,6 +51,7 @@ class ActionButtonsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.all(8),
@@ -77,7 +79,7 @@ class ActionButtonsPanel extends StatelessWidget {
               icon: Icons.redo_rounded,
               enabled: _redoOk,
               onTap: _redoOk ? _redo : null,
-              tooltip: 'Redo',
+              tooltip: l.redo,
             ),
           ),
           const SizedBox(width: 8),
@@ -86,8 +88,8 @@ class ActionButtonsPanel extends StatelessWidget {
               icon: Icons.add_circle_outline_rounded,
               enabled: true,
               isActive: false,
-              tooltip: 'Icon new game',
-              onTap: () => _showRestartDialog(context),
+              tooltip: l.newGameTitle,
+              onTap: () => _showRestartDialog(context, l),
             ),
           ),
           const SizedBox(width: 8),
@@ -98,7 +100,7 @@ class ActionButtonsPanel extends StatelessWidget {
                   : Icons.visibility_off_rounded,
               enabled: true,
               isActive: appModel.showHints,
-              tooltip: 'Ẩn/hiện gợi ý',
+              tooltip: l.toggleHints,
               onTap: () async {
                 await appModel.prefs.setShowHints(!appModel.showHints);
                 appModel.update();
@@ -110,7 +112,7 @@ class ActionButtonsPanel extends StatelessWidget {
             child: _ActionBtn(
               icon: Icons.exit_to_app_rounded,
               enabled: true,
-              tooltip: 'Rời bàn',
+              tooltip: l.exitTooltip,
               onTap: () {
                 if (appModel.gameOver) {
                   appModel.exitChessView();
@@ -126,12 +128,12 @@ class ActionButtonsPanel extends StatelessWidget {
     );
   }
 
-  void _showRestartDialog(BuildContext context) {
+  void _showRestartDialog(BuildContext context, AppLocalizations l) {
     showCupertinoDialog<void>(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Game mới'),
-        content: const Text('Bạn có chắc muốn bắt đầu ván mới?'),
+        title: Text(l.newGameTitle),
+        content: Text(l.newGameConfirm),
         actions: [
           CupertinoDialogAction(
             isDestructiveAction: true,
@@ -151,11 +153,11 @@ class ActionButtonsPanel extends StatelessWidget {
                 onNewGame();
               }
             },
-            child: const Text('Có'),
+            child: Text(l.yes),
           ),
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(l.cancel),
           ),
         ],
       ),
@@ -182,7 +184,7 @@ class BottomButtonsPanel extends StatelessWidget {
           Expanded(
             child: _BottomBtn(
               icon: Icons.replay_rounded,
-              label: 'CHƠI LẠI',
+              label: AppLocalizations.of(context)!.replayBtn,
               isPrimary: true,
               onTap: () => _showRestartDialog(context),
             ),
@@ -191,7 +193,7 @@ class BottomButtonsPanel extends StatelessWidget {
           Expanded(
             child: _BottomBtn(
               icon: Icons.exit_to_app_rounded,
-              label: 'RỜI BÀN',
+              label: AppLocalizations.of(context)!.exitBtn,
               isPrimary: false,
               onTap: () {
                 if (appModel.gameOver) {
@@ -209,11 +211,12 @@ class BottomButtonsPanel extends StatelessWidget {
   }
 
   void _showRestartDialog(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     showCupertinoDialog<void>(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Chơi lại?'),
-        content: const Text('Bạn có chắc muốn bắt đầu ván mới?'),
+        title: Text(l.restartTitle),
+        content: Text(l.newGameConfirm),
         actions: [
           CupertinoDialogAction(
             isDestructiveAction: true,
@@ -233,11 +236,11 @@ class BottomButtonsPanel extends StatelessWidget {
                 onNewGame();
               }
             },
-            child: const Text('Chơi lại'),
+            child: Text(l.restartConfirm),
           ),
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
+            child: Text(l.cancel),
           ),
         ],
       ),

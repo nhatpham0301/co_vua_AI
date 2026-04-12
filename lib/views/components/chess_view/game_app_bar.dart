@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import '../../settings_view.dart';
 import '../main_menu_view/mm_palette.dart';
@@ -17,6 +18,7 @@ class GameAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       height: 54,
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
@@ -54,8 +56,8 @@ class GameAppBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'MATCH ARENA',
+                Text(
+                  l.matchArena,
                   style: TextStyle(
                     color: Colors.white54,
                     fontSize: 10,

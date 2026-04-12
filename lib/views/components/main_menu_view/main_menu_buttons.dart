@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../logic/game_state_storage.dart';
 import '../../../model/app_model.dart';
 import '../../chess_view.dart';
@@ -35,13 +36,14 @@ class _MainMenuButtonsState extends State<MainMenuButtons> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       width: double.infinity,
       child: Column(
         children: [
           if (_hasSavedGame) ...[
             RoundedButton(
-              'Resume Game',
+              l.resumeGame,
               onPressed: () {
                 Navigator.push(
                   context,
@@ -56,7 +58,7 @@ class _MainMenuButtonsState extends State<MainMenuButtons> {
             SizedBox(height: 10),
           ],
           RoundedButton(
-            'Start',
+            l.start,
             onPressed: () {
               Navigator.push(
                 context,
@@ -73,7 +75,7 @@ class _MainMenuButtonsState extends State<MainMenuButtons> {
             children: [
               Expanded(
                 child: RoundedButton(
-                  'Settings',
+                  l.settings,
                   onPressed: () {
                     Navigator.push(
                       context,

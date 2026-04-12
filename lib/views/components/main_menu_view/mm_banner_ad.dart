@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart' as gma;
 import 'package:provider/provider.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../../../model/app_model.dart';
 
 // ─── Real Google Mobile Ads banner ───────────────────────────────────────────
@@ -41,6 +42,7 @@ class _GameBannerAdState extends State<GameBannerAd> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       height: 50 + widget.bottomPad,
       padding: EdgeInsets.only(bottom: widget.bottomPad),
@@ -58,7 +60,7 @@ class _GameBannerAdState extends State<GameBannerAd> {
                 const Icon(Icons.ad_units, color: Colors.white24, size: 16),
                 const SizedBox(width: 8),
                 Text(
-                  'QUẢNG CÁO',
+                  l.adLabel,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.18),
                     fontSize: 11,

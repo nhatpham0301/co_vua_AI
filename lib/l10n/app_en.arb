@@ -1,0 +1,168 @@
+{
+  "@@locale": "en",
+
+  "ok": "OK",
+  "cancel": "Cancel",
+  "yes": "Yes",
+  "back": "Back",
+  "exit": "Exit",
+  "reset": "Reset",
+  "restart": "Restart",
+  "live": "LIVE",
+
+  "appTitle": "Infinite Chess AI",
+
+  "play": "PLAY",
+  "settings": "Settings",
+  "resumeGame": "Resume Game",
+  "start": "Start",
+  "loginRegister": "Login / Register",
+  "loginTitle": "Login",
+  "loginComingSoon": "Login feature is under development.\nComing soon!",
+  "settingsTooltip": "Settings",
+  "adLabel": "ADVERTISEMENT",
+
+  "eloRank": "ELO: {elo} | {rank}",
+  "@eloRank": {
+    "placeholders": {
+      "elo": { "type": "int" },
+      "rank": { "type": "String" }
+    }
+  },
+
+  "liveMatchesTitle": "LIVE MATCHES",
+  "watch": "WATCH",
+  "watchMatchTitle": "Watch Match",
+  "watchMatchComingSoon": "Observer mode is under development.",
+
+  "matchmakingTitle": "Finding opponent...",
+  "matchmakingSubtitle": "Matching by ELO. If time runs out,\nwill automatically switch to Bot.",
+
+  "gameMode": "Game Mode",
+  "onePlayer": "One Player",
+  "twoPlayer": "Two Player",
+  "aiDifficulty": "AI Difficulty",
+  "side": "Side",
+  "sideWhite": "White",
+  "sideBlack": "Black",
+  "sideRandom": "Random",
+  "timeLimit": "Time Limit",
+  "timeLimitNone": "None",
+
+  "appTheme": "App Theme",
+  "pieceTheme": "Piece Theme",
+  "language": "Language",
+  "english": "English",
+  "vietnamese": "Vietnamese",
+  "boardRotation": "Board Rotation (2P)",
+  "showHints": "Show Hints",
+  "showNotation": "Show Notation",
+  "allowUndoRedo": "Allow Undo/Redo",
+  "showMoveHistory": "Show Move History",
+  "sound": "Sound",
+  "movesCopied": "Moves copied to clipboard",
+  "resetSettingsTitle": "Reset Settings?",
+  "resetSettingsConfirm": "Are you sure you want to reset all settings to their defaults?",
+  "devModeHint": "{remaining} more taps to open Dev mode",
+  "@devModeHint": {
+    "placeholders": {
+      "remaining": { "type": "int" }
+    }
+  },
+
+  "matchArena": "MATCH ARENA",
+  "rankName1": "Apprentice",
+  "rankName2": "Intermediate",
+  "rankName3": "Advanced",
+  "rankName4": "Expert",
+  "rankName5": "Grandmaster",
+  "youPlayer": "YOU",
+  "opponent": "OPPONENT",
+  "botLevel": "BOT LV.{level}",
+  "@botLevel": {
+    "placeholders": {
+      "level": { "type": "int" }
+    }
+  },
+  "eloLabel": "{elo} ELO",
+  "@eloLabel": {
+    "placeholders": {
+      "elo": { "type": "int" }
+    }
+  },
+
+  "capturedYourPieces": "Your lost pieces",
+  "capturedBotPieces": "Bot's lost pieces",
+  "capturedOpponentPieces": "Opponent's lost pieces",
+  "noPiecesCaptured": "No pieces lost yet.",
+  "materialBalance": "Material balance",
+  "materialLead": "{leader} leads by +{amount}",
+  "@materialLead": {
+    "placeholders": {
+      "leader": { "type": "String" },
+      "amount": { "type": "int" }
+    }
+  },
+  "materialLeadYou": "You",
+  "materialLeadBot": "Bot",
+  "materialLeadWhite": "White",
+  "materialLeadBlack": "Black",
+
+  "redo": "Redo",
+  "toggleHints": "Toggle hints",
+  "exitTooltip": "Leave table",
+  "newGameTitle": "New Game",
+  "newGameConfirm": "Are you sure you want to start a new game?",
+  "replayBtn": "REPLAY",
+  "exitBtn": "LEAVE",
+  "restartTitle": "Play again?",
+  "restartConfirm": "Play again",
+
+  "leaveGameTitle": "Leave Game?",
+  "leaveGameSubtitle": "Would you like to save your progress?",
+  "saveAndExit": "Save & Exit",
+  "restartConfirmMsg": "Are you sure you want to {action}?",
+  "@restartConfirmMsg": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+
+  "checkAlertTitle": "⚠️ Check!",
+  "checkAlertYou": "You are in check!",
+  "checkAlertOpponent": "Opponent is in check!",
+
+  "promotePawn": "Promote Pawn",
+
+  "aiThinking": "AI [Level {level}] is thinking ",
+  "@aiThinking": {
+    "placeholders": {
+      "level": { "type": "int" }
+    }
+  },
+  "yourTurn": "Your turn",
+  "whiteTurn": "White's turn",
+  "blackTurn": "Black's turn",
+  "stalemate": "Stalemate",
+  "youWin": "You Win!",
+  "youLose": "You Lose :(",
+  "blackWins": "Black wins!",
+  "whiteWins": "White wins!",
+
+  "devModeTitle": "🛠 Developer Mode",
+  "devSimulateResult": "🎭 Simulate match result",
+  "devWin": "🏆 Win",
+  "devLose": "💀 Lose",
+  "devDraw": "🤝 Draw",
+  "devToastWin": "Simulated: Player WINS",
+  "devToastLose": "Simulated: Player LOSES",
+  "devToastDraw": "Simulated: DRAW",
+  "devAds": "📢 Ads",
+  "devSkipAd": "⏭ Skip Ad",
+  "devForceAd": "🔔 Force Ad",
+  "devTestAd": "▶ Test Ad Now",
+  "devToastSkipAd": "Ad request removed",
+  "devToastForceAd": "Ad request enabled",
+  "devToastAdDone": "Ad done — continue game",
+  "devNoLogs": "No logs yet."
+}

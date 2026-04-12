@@ -2,6 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import '../shared/text_variable.dart';
 import 'piece_preview.dart';
@@ -30,6 +31,7 @@ class _PieceThemePickerState extends State<PieceThemePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Consumer<AppModel>(
       builder: (context, appModel, child) {
         if (_scrollController.hasClients &&
@@ -44,7 +46,7 @@ class _PieceThemePickerState extends State<PieceThemePicker> {
           children: [
             Container(
               alignment: Alignment.center,
-              child: TextRegular('Piece Theme'),
+              child: TextRegular(l.pieceTheme),
               padding: EdgeInsets.symmetric(vertical: 10),
             ),
             ClipRRect(
@@ -57,7 +59,8 @@ class _PieceThemePickerState extends State<PieceThemePicker> {
                     Expanded(
                       child: CupertinoPicker(
                         scrollController: _scrollController,
-                        selectionOverlay: CupertinoPickerDefaultSelectionOverlay(
+                        selectionOverlay:
+                            CupertinoPickerDefaultSelectionOverlay(
                           background: Color(0x20000000),
                         ),
                         itemExtent: 50,

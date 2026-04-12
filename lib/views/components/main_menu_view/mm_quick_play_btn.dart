@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import '../../chess_view.dart';
 import 'mm_models.dart';
@@ -61,6 +62,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return AnimatedBuilder(
       animation: _scale,
       builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
@@ -92,8 +94,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
           child: Center(
             child: _isStarting
                 ? const CupertinoActivityIndicator(color: Colors.white)
-                : const Text(
-                    'CHƠI',
+                : Text(
+                    l.play,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -193,6 +195,7 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF071428),
@@ -230,8 +233,8 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Đang tìm đối thủ...',
+          Text(
+            l.matchmakingTitle,
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -240,7 +243,7 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Ghép trận theo ELO. Nếu hết thời gian\nsẽ tự động chuyển sang Bot.',
+            l.matchmakingSubtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
@@ -261,8 +264,8 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.white24),
               ),
-              child: const Text(
-                'Hủy',
+              child: Text(
+                l.cancel,
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ),

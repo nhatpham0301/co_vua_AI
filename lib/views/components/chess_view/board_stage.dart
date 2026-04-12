@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../logic/chess_game.dart';
 import '../../../model/app_model.dart';
 import '../main_menu_view/mm_palette.dart';
@@ -92,23 +93,24 @@ class _TurnBar extends StatelessWidget {
         over: model.gameOver,
         draw: model.stalemate,
       ),
-      builder: (_, state, __) {
+      builder: (context, state, __) {
+        final l = AppLocalizations.of(context)!;
         final String label;
         final Color dotColor;
 
         if (state.over) {
           if (state.draw) {
-            label = 'HÒA';
+            label = l.stalemate;
             dotColor = Colors.orangeAccent;
           } else if (state.isAI) {
-            label = 'BẠN THẮNG';
+            label = l.youWin;
             dotColor = Colors.greenAccent;
           } else {
-            label = 'BẠN THUA';
+            label = l.youLose;
             dotColor = Colors.redAccent;
           }
         } else {
-          label = state.isAI ? 'AI ĐANG SUY NGHĨ...' : 'LƯỢT CỦA BẠN';
+          label = state.isAI ? l.aiThinking(appModel.aiDifficulty) : l.yourTurn;
           dotColor = state.isAI ? Colors.white38 : primary;
         }
 

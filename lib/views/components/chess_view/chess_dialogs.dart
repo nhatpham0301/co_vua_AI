@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../logic/chess_piece.dart';
 import '../../../logic/shared_functions.dart';
 import '../../../model/app_model.dart';
@@ -10,6 +11,7 @@ import '../../../model/player.dart';
 import '../shared/rounded_button.dart';
 
 void showExitDialog(BuildContext context) {
+  final l = AppLocalizations.of(context)!;
   showGeneralDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
@@ -44,9 +46,9 @@ void showExitDialog(BuildContext context) {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Leave Game?',
-                    style: TextStyle(
+                  Text(
+                    l.leaveGameTitle,
+                    style: const TextStyle(
                       fontSize: 32,
                       fontFamily: 'Jura',
                       color: Colors.white,
@@ -54,9 +56,9 @@ void showExitDialog(BuildContext context) {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 15),
-                  const Text(
-                    'Would you like to save your progress?',
-                    style: TextStyle(
+                  Text(
+                    l.leaveGameSubtitle,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontFamily: 'Jura',
                       color: Colors.white70,
@@ -66,7 +68,7 @@ void showExitDialog(BuildContext context) {
                   const SizedBox(height: 15),
                   Consumer<AppModel>(
                     builder: (context, appModel, child) => RoundedButton(
-                      'Save & Exit',
+                      l.saveAndExit,
                       onPressed: () {
                         Navigator.pop(dialogContext);
                         appModel.saveAndExitChessView();
@@ -77,7 +79,7 @@ void showExitDialog(BuildContext context) {
                   const SizedBox(height: 15),
                   Consumer<AppModel>(
                     builder: (context, appModel, child) => RoundedButton(
-                      'Exit',
+                      l.exit,
                       onPressed: () {
                         Navigator.pop(dialogContext);
                         appModel.exitChessView();
@@ -87,7 +89,7 @@ void showExitDialog(BuildContext context) {
                   ),
                   const SizedBox(height: 15),
                   RoundedButton(
-                    'Cancel',
+                    l.cancel,
                     onPressed: () {
                       Navigator.pop(dialogContext);
                     },
@@ -150,12 +152,13 @@ class _CapturedPiecesSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final lostPieces = player == Player.player1
         ? appModel.capturedWhite
         : appModel.capturedBlack;
     final groupedPieces = _groupCapturedPieces(lostPieces);
     final lead = appModel.materialAdvantageFor(Player.player1);
-    final leadLabel = _materialLeadLabel(appModel, lead);
+    final leadLabel = _materialLeadLabel(appModel, lead, l);
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Container(
@@ -219,10 +222,10 @@ class _CapturedPiecesSheet extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.04),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
               ),
-              child: const Text(
-                'Chưa mất quân nào.',
+              child: Text(
+                l.noPiecesCaptured,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -325,16 +328,17 @@ Map<ChessPieceType, int> _groupCapturedPieces(List<ChessPieceType> pieces) {
   return Map<ChessPieceType, int>.fromEntries(entries);
 }
 
-String _materialLeadLabel(AppModel appModel, int whiteLead) {
+String _materialLeadLabel(
+    AppModel appModel, int whiteLead, AppLocalizations l) {
   if (whiteLead == 0) {
-    return 'Cân bằng vật chất';
+    return l.materialBalance;
   }
 
   final leader = whiteLead > 0 ? Player.player1 : Player.player2;
   final leaderLabel = appModel.playingWithAI
-      ? (leader == Player.player1 ? 'Bạn' : 'Bot')
-      : (leader == Player.player1 ? 'Trắng' : 'Đen');
-  return '$leaderLabel đang hơn +${whiteLead.abs()}';
+      ? (leader == Player.player1 ? l.materialLeadYou : l.materialLeadBot)
+      : (leader == Player.player1 ? l.materialLeadWhite : l.materialLeadBlack);
+  return l.materialLead(leaderLabel, whiteLead.abs());
 }
 
 int _capturedPieceScore(ChessPieceType type) {

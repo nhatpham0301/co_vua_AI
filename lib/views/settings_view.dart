@@ -2,9 +2,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import 'components/settings_view/app_theme_picker.dart';
+import 'components/settings_view/language_picker.dart';
 import 'components/settings_view/piece_theme_picker.dart';
 import 'components/settings_view/toggles.dart';
 import 'components/shared/bottom_padding.dart';
@@ -13,6 +15,7 @@ import 'developer_view.dart';
 
 class SettingsView extends StatelessWidget {
   void _showResetConfirmation(BuildContext context, AppModel appModel) {
+    final l = AppLocalizations.of(context)!;
     showGeneralDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.5),
@@ -46,7 +49,7 @@ class SettingsView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Reset Settings?',
+                      l.resetSettingsTitle,
                       style: TextStyle(
                         fontSize: 32,
                         fontFamily: 'Jura',
@@ -56,7 +59,7 @@ class SettingsView extends StatelessWidget {
                     ),
                     SizedBox(height: 15),
                     Text(
-                      'Are you sure you want to reset all settings to their defaults?',
+                      l.resetSettingsConfirm,
                       style: TextStyle(
                         fontSize: 16,
                         fontFamily: 'Jura',
@@ -67,7 +70,7 @@ class SettingsView extends StatelessWidget {
                     SizedBox(height: 35),
                     Consumer<AppModel>(
                       builder: (context, appModel, child) => RoundedButton(
-                        'Reset',
+                        l.reset,
                         onPressed: () {
                           Navigator.pop(dialogContext);
                           appModel.resetSettingsToDefaults();
@@ -76,7 +79,7 @@ class SettingsView extends StatelessWidget {
                     ),
                     SizedBox(height: 15),
                     RoundedButton(
-                      'Cancel',
+                      l.cancel,
                       onPressed: () {
                         Navigator.pop(dialogContext);
                       },
@@ -102,6 +105,7 @@ class SettingsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Selector<AppModel, AppTheme>(
       selector: (_, m) => m.theme,
       builder: (context, theme, child) => Container(
@@ -123,6 +127,8 @@ class SettingsView extends StatelessWidget {
                           SizedBox(height: 10),
                           PieceThemePicker(),
                           SizedBox(height: 10),
+                          const LanguagePicker(),
+                          SizedBox(height: 10),
                           Consumer<AppModel>(
                             builder: (context, appModel, child) =>
                                 Toggles(appModel),
@@ -133,7 +139,7 @@ class SettingsView extends StatelessWidget {
                   ),
                   SizedBox(height: 20),
                   RoundedButton(
-                    'Back',
+                    l.back,
                     onPressed: () {
                       Navigator.pop(context);
                     },
@@ -194,6 +200,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final remaining = _kRequired - _taps;
     return GestureDetector(
       onTap: _onTap,
@@ -213,7 +220,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'Còn $remaining lần nữa để mở chế độ Dev',
+                  l.devModeHint(remaining),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.35),
                     fontSize: 10,

@@ -44,6 +44,7 @@ class AppModel extends ChangeNotifier {
   int get themeIndex => prefs.themeIndex;
   int get pieceThemeIndex => prefs.pieceThemeIndex;
   List<String> get pieceThemes => prefs.pieceThemes;
+  Locale? get locale => prefs.locale;
 
   ValueNotifier<Duration> get player1TimeLeft => timerService.player1TimeLeft;
   set player1TimeLeft(ValueNotifier<Duration> val) =>
@@ -264,6 +265,7 @@ class AppModel extends ChangeNotifier {
   void setShowNotation(bool show) => prefs.setShowNotation(show);
   void setEnableRotation(bool enable) => prefs.setEnableRotation(enable);
   void setAllowUndoRedo(bool allow) => prefs.setAllowUndoRedo(allow);
+  void setLocale(String? localeCode) => prefs.setLocale(localeCode);
 
   // ── Developer Mode ──
 

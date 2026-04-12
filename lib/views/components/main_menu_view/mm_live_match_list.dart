@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import 'mm_live_match_card.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
@@ -65,10 +66,11 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Row(
       children: [
-        const Text(
-          'TRẬN ĐANG DIỄN RA',
+        Text(
+          l.liveMatchesTitle,
           style: TextStyle(
             color: Colors.white,
             fontSize: 13,
@@ -84,8 +86,8 @@ class _SectionHeader extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: primary.withValues(alpha: 0.5)),
           ),
-          child: const Text(
-            'LIVE',
+          child: Text(
+            l.live,
             style: TextStyle(
               color: primaryLight,
               fontSize: 10,

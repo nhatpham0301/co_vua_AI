@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_themes.dart';
@@ -32,6 +33,7 @@ class UserPreferences {
   bool showHints = true;
   bool showNotation = false;
   bool enableRotation = true;
+  String? localeCode;
 
   List<String> get pieceThemes => sortedPieceThemes;
 
@@ -49,6 +51,12 @@ class UserPreferences {
     return idx >= 0 ? idx : 0;
   }
 
+  Locale? get locale {
+    final code = localeCode;
+    if (code == null || code.isEmpty) return null;
+    return Locale(code);
+  }
+
   /// Called after any preference changes.
   void Function()? onChanged;
 
@@ -62,6 +70,18 @@ class UserPreferences {
     showNotation = _prefs!.getBool('showNotation') ?? false;
     enableRotation = _prefs!.getBool('enableRotation') ?? true;
     allowUndoRedo = _prefs!.getBool('allowUndoRedo') ?? true;
+    localeCode = _prefs!.getString('localeCode');
+    onChanged?.call();
+  }
+
+  Future<void> setLocale(String? code) async {
+    localeCode = code;
+    _prefs ??= await SharedPreferences.getInstance();
+    if (code == null || code.isEmpty) {
+      await _prefs!.remove('localeCode');
+    } else {
+      await _prefs!.setString('localeCode', code);
+    }
     onChanged?.call();
   }
 
@@ -130,6 +150,7 @@ class UserPreferences {
     showNotation = false;
     enableRotation = true;
     allowUndoRedo = true;
+    localeCode = null;
 
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('themeName', themeName);
@@ -140,6 +161,7 @@ class UserPreferences {
     await _prefs!.setBool('showNotation', showNotation);
     await _prefs!.setBool('enableRotation', enableRotation);
     await _prefs!.setBool('allowUndoRedo', allowUndoRedo);
+    await _prefs!.remove('localeCode');
     onChanged?.call();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../../../model/app_model.dart';
 import '../../../../model/player.dart';
 import '../../shared/text_variable.dart';
@@ -27,48 +28,51 @@ class GameStatus extends StatelessWidget {
         stalemate: m.stalemate,
         aiDifficulty: m.aiDifficulty,
       ),
-      builder: (context, state, child) => Row(
-        children: [
-          TextRegular(_getStatus(state)),
-          !state.gameOver && state.playerCount == 1 && state.isAIsTurn
-              ? CupertinoActivityIndicator(radius: 12)
-              : Container()
-        ],
-        mainAxisAlignment: MainAxisAlignment.center,
-      ),
+      builder: (context, state, child) {
+        final l = AppLocalizations.of(context)!;
+        return Row(
+          children: [
+            TextRegular(_getStatus(state, l)),
+            !state.gameOver && state.playerCount == 1 && state.isAIsTurn
+                ? CupertinoActivityIndicator(radius: 12)
+                : Container()
+          ],
+          mainAxisAlignment: MainAxisAlignment.center,
+        );
+      },
     );
   }
 
-  String _getStatus(_StatusState s) {
+  String _getStatus(_StatusState s, AppLocalizations l) {
     if (!s.gameOver) {
       if (s.playerCount == 1) {
         if (s.isAIsTurn) {
-          return 'AI [Level ${s.aiDifficulty}] is thinking ';
+          return l.aiThinking(s.aiDifficulty);
         } else {
-          return 'Your turn';
+          return l.yourTurn;
         }
       } else {
         if (s.turn == Player.player1) {
-          return 'White\'s turn';
+          return l.whiteTurn;
         } else {
-          return 'Black\'s turn';
+          return l.blackTurn;
         }
       }
     } else {
       if (s.stalemate) {
-        return 'Stalemate';
+        return l.stalemate;
       } else {
         if (s.playerCount == 1) {
           if (s.isAIsTurn) {
-            return 'You Win!';
+            return l.youWin;
           } else {
-            return 'You Lose :(';
+            return l.youLose;
           }
         } else {
           if (s.turn == Player.player1) {
-            return 'Black wins!';
+            return l.blackWins;
           } else {
-            return 'White wins!';
+            return l.whiteWins;
           }
         }
       }

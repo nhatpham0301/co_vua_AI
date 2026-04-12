@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
@@ -55,16 +56,15 @@ class _MainMenuViewState extends State<MainMenuView> {
   void _refreshMatches() => setState(() => _matches = MatchGen.generateTen());
 
   void _handleLogin() {
+    final l = AppLocalizations.of(context)!;
     showCupertinoDialog(
       context: context,
       builder: (_) => CupertinoAlertDialog(
-        title: const Text('Đăng nhập'),
-        content: const Text(
-          'Tính năng đăng nhập đang được phát triển.\nSẽ ra mắt sớm!',
-        ),
+        title: Text(l.loginTitle),
+        content: Text(l.loginComingSoon),
         actions: [
           CupertinoDialogAction(
-            child: const Text('OK'),
+            child: Text(l.ok),
             onPressed: () => Navigator.pop(context),
           ),
         ],

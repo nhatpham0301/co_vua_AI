@@ -1,13 +1,9 @@
 import 'package:flutter/cupertino.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import 'picker.dart';
 
 class GameModePicker extends StatelessWidget {
-  final Map<int, Text> playerCountOptions = const <int, Text>{
-    1: Text('One Player'),
-    2: Text('Two Player')
-  };
-
   final int playerCount;
   final Function(int?) setFunc;
 
@@ -15,9 +11,13 @@ class GameModePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Picker<int>(
-      label: 'Game Mode',
-      options: playerCountOptions,
+      label: l.gameMode,
+      options: <int, Text>{
+        1: Text(l.onePlayer),
+        2: Text(l.twoPlayer),
+      },
       selection: playerCount,
       setFunc: setFunc,
     );

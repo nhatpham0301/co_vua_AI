@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import '../../chess_view.dart';
 
@@ -11,6 +12,7 @@ class SavedGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final appModel = Provider.of<AppModel>(context, listen: false);
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -26,21 +28,22 @@ class SavedGameCard extends StatelessWidget {
           border:
               Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.5)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(CupertinoIcons.arrow_counterclockwise_circle_fill,
+            const Icon(CupertinoIcons.arrow_counterclockwise_circle_fill,
                 color: Color(0xFFA855F7), size: 22),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Text(
-              'Tiếp tục ván trước',
+              l.resumeGame,
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
             ),
-            Spacer(),
-            Icon(CupertinoIcons.chevron_right, color: Colors.white38, size: 16),
+            const Spacer(),
+            const Icon(CupertinoIcons.chevron_right,
+                color: Colors.white38, size: 16),
           ],
         ),
       ),

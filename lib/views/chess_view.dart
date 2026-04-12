@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/chess_game.dart';
 import '../model/app_model.dart';
 import '../model/player.dart';
@@ -16,16 +17,24 @@ import 'components/chess_view/players_header_row.dart';
 import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_palette.dart';
 
-const _kRankNames = [
-  '',
-  'Tập sự',
-  'Trung cấp',
-  'Cao cấp',
-  'Chuyên gia',
-  'Đại kiện tướng',
-];
-
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
+
+String _rankName(int level, AppLocalizations l) {
+  switch (level) {
+    case 1:
+      return l.rankName1;
+    case 2:
+      return l.rankName2;
+    case 3:
+      return l.rankName3;
+    case 4:
+      return l.rankName4;
+    case 5:
+      return l.rankName5;
+    default:
+      return '';
+  }
+}
 
 class ChessView extends StatefulWidget {
   final AppModel appModel;
@@ -111,22 +120,21 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   void _showCheckAlert(BuildContext context, AppModel appModel) {
+    final l = AppLocalizations.of(context)!;
     final isPlayerChecked =
         appModel.turn == appModel.playerSide || !appModel.playingWithAI;
-    final message = isPlayerChecked
-        ? 'Bạn đang bị chiếu tướng!'
-        : 'Đối thủ đang bị chiếu tướng!';
+    final message = isPlayerChecked ? l.checkAlertYou : l.checkAlertOpponent;
 
     showCupertinoDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (context) => CupertinoAlertDialog(
-        title: const Text('⚠️ Chiếu Tướng'),
+        title: Text(l.checkAlertTitle),
         content: Text(message),
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(l.ok),
           ),
         ],
       ),
@@ -179,8 +187,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           _confettiController.stop();
         }
 
+        final l = AppLocalizations.of(context)!;
         final diff = appModel.aiDifficulty.clamp(1, 5);
-        final rankName = _kRankNames[diff];
+        final rankName = _rankName(diff, l);
         final botElo = _kRankElos[diff];
         final isAI = appModel.playingWithAI;
 
@@ -238,7 +247,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             // AppBar with rank and settings button
                             GameAppBar(rankName: rankName, appModel: appModel),
                             // Players info row
-                            _playerRow(isAI: isAI, diff: diff, botElo: botElo),
+                            _playerRow(
+                                isAI: isAI,
+                                diff: diff,
+                                botElo: botElo,
+                                context: context),
                             // Chess board stage
                             Expanded(
                               child: BoardStage(
@@ -283,7 +296,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   Widget _playerRow(
-      {required bool isAI, required int diff, required int botElo}) {
+      {required bool isAI,
+      required int diff,
+      required int botElo,
+      required BuildContext context}) {
+    final l = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
       child: PlayersHeaderRow(
@@ -301,13 +318,13 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           context,
           appModel,
           Player.player1,
-          'Quân của bạn đã mất',
+          l.capturedYourPieces,
         ),
         onTapPlayer2: () => showCapturedPiecesSheet(
           context,
           appModel,
           Player.player2,
-          isAI ? 'Quân Bot đã mất' : 'Quân đối thủ đã mất',
+          isAI ? l.capturedBotPieces : l.capturedOpponentPieces,
         ),
       ),
     );

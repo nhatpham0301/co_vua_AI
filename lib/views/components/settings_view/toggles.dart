@@ -1,7 +1,6 @@
-
-
 import 'package:flutter/material.dart';
 
+import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
 import 'toggle.dart';
 
@@ -12,35 +11,36 @@ class Toggles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       children: [
         Toggle(
-          'Board Rotation (2P)',
+          l.boardRotation,
           toggle: appModel.enableRotation,
           setFunc: appModel.setEnableRotation,
         ),
         Toggle(
-          'Show Hints',
+          l.showHints,
           toggle: appModel.showHints,
           setFunc: appModel.setShowHints,
         ),
         Toggle(
-          'Show Notation',
+          l.showNotation,
           toggle: appModel.showNotation,
           setFunc: appModel.setShowNotation,
         ),
         Toggle(
-          'Allow Undo/Redo',
+          l.allowUndoRedo,
           toggle: appModel.allowUndoRedo,
           setFunc: appModel.setAllowUndoRedo,
         ),
         Toggle(
-          'Show Move History',
+          l.showMoveHistory,
           toggle: appModel.showMoveHistory,
           setFunc: appModel.setShowMoveHistory,
         ),
         Toggle(
-          'Sound',
+          l.sound,
           toggle: appModel.soundEnabled,
           setFunc: appModel.setSoundEnabled,
         ),
