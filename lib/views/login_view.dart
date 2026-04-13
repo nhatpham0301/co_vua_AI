@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../model/app_model.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
 import 'components/shared/app_dialog.dart';
@@ -19,13 +21,81 @@ class _LoginViewState extends State<LoginView> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
+    _usernameCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit(AppModel model, AppLocalizations l) async {
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError(l.authErrorValidation);
+      return;
+    }
+
+    if (_isRegister) {
+      final username = _usernameCtrl.text.trim();
+      final confirm = _confirmCtrl.text;
+      if (username.isEmpty) {
+        _showError(l.authErrorValidation);
+        return;
+      }
+      if (password != confirm) {
+        _showError(l.authErrorPasswordMismatch);
+        return;
+      }
+      final ok = await model.authService.register(
+        email: email,
+        password: password,
+        username: username,
+      );
+      if (!mounted) return;
+      if (ok) {
+        Navigator.of(context).pop(true);
+      } else {
+        _showError(_mapError(model.authService.lastError, l));
+      }
+    } else {
+      final ok = await model.authService.login(
+        email: email,
+        password: password,
+      );
+      if (!mounted) return;
+      if (ok) {
+        Navigator.of(context).pop(true);
+      } else {
+        _showError(_mapError(model.authService.lastError, l));
+      }
+    }
+  }
+
+  String _mapError(String? raw, AppLocalizations l) {
+    if (raw == null) return l.authErrorUnknown;
+    if (raw.contains('INVALID_CREDENTIALS'))
+      return l.authErrorInvalidCredentials;
+    if (raw.contains('EMAIL_TAKEN')) return l.authErrorEmailTaken;
+    if (raw.contains('USERNAME_TAKEN')) return l.authErrorUsernameTaken;
+    if (raw.contains('VALIDATION_ERROR')) return l.authErrorValidation;
+    return raw;
+  }
+
+  void _showError(String message) {
+    showAppDialog<void>(
+      context: context,
+      title: _isRegister ? 'Register' : 'Login',
+      message: message,
+      actions: [
+        AppDialogAction(label: 'OK', isPrimary: true),
+      ],
+    );
   }
 
   @override
@@ -139,37 +209,40 @@ class _LoginViewState extends State<LoginView> {
                             icon: CupertinoIcons.lock_shield,
                             obscureText: true,
                           ),
+                          const SizedBox(height: 12),
+                          _InputField(
+                            controller: _usernameCtrl,
+                            placeholder: l.username,
+                            icon: CupertinoIcons.person,
+                          ),
                         ],
                         const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: CupertinoButton(
-                            color: primary,
-                            borderRadius: BorderRadius.circular(14),
-                            onPressed: () {
-                              showAppDialog<void>(
-                                context: context,
-                                title: _isRegister
-                                    ? l.registerTitle
-                                    : l.loginTitle,
-                                message: l.loginComingSoon,
-                                actions: [
-                                  AppDialogAction(
-                                    label: l.ok,
-                                    isPrimary: true,
-                                  ),
-                                ],
-                              );
-                            },
-                            child: Text(
-                              _isRegister ? l.registerButton : l.loginButton,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
+                        Consumer<AppModel>(
+                          builder: (ctx, model, _) {
+                            final busy = model.authService.busy;
+                            return SizedBox(
+                              width: double.infinity,
+                              child: CupertinoButton(
+                                color: primary,
+                                borderRadius: BorderRadius.circular(14),
+                                onPressed:
+                                    busy ? null : () => _submit(model, l),
+                                child: busy
+                                    ? const CupertinoActivityIndicator(
+                                        color: Colors.white)
+                                    : Text(
+                                        _isRegister
+                                            ? l.registerButton
+                                            : l.loginButton,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 19,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 10),
                         if (!_isRegister)

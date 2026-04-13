@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../logic/dev_logger.dart';
 import '../../../model/app_model.dart';
 import '../../chess_view.dart';
 import 'mm_models.dart';
@@ -114,17 +115,39 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     setState(() => _isStarting = true);
     try {
       final appModel = Provider.of<AppModel>(context, listen: false);
+      final isLoggedIn = appModel.authService.isLoggedIn;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[HOME_PLAY] Tap PLAY | login=$isLoggedIn | savedGame=${widget.hasSavedGame}',
+      );
+
       final online = await _checkOnline();
+      DevLogger.instance.log(
+        DevLogCategory.system,
+        '[HOME_PLAY] Connectivity check | online=$online',
+      );
       if (!mounted) return;
 
       if (!online) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Offline mode -> start local AI game',
+        );
         appModel.setPlayerCount(1);
         await appModel.adService.showAdBeforeGame(
           () async {
             if (!mounted) return;
+            DevLogger.instance.log(
+              DevLogCategory.ad,
+              '[HOME_PLAY] Ad completed -> open ChessView (offline)',
+            );
             await Navigator.push(
               context,
               CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+            );
+            DevLogger.instance.log(
+              DevLogCategory.game,
+              '[HOME_PLAY] Returned from ChessView (offline)',
             );
             widget.onGameFinished();
           },
@@ -133,6 +156,10 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         return;
       }
 
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[HOME_PLAY] Online mode -> open matchmaking dialog',
+      );
       final result = await showCupertinoModalPopup<MatchResult>(
         context: context,
         barrierDismissible: false,
@@ -140,20 +167,45 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       );
       if (!mounted) return;
 
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[HOME_PLAY] Matchmaking result=$result',
+      );
+
       if (result == null || result == MatchResult.cancelled) return;
+      if (result == MatchResult.timeout) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Matchmaking timeout -> fallback local AI game',
+        );
+      }
 
       appModel.setPlayerCount(1);
       await appModel.adService.showAdBeforeGame(
         () async {
           if (!mounted) return;
+          DevLogger.instance.log(
+            DevLogCategory.ad,
+            '[HOME_PLAY] Ad completed -> open ChessView (online path)',
+          );
           await Navigator.push(
             context,
             CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+          );
+          DevLogger.instance.log(
+            DevLogCategory.game,
+            '[HOME_PLAY] Returned from ChessView (online path)',
           );
           widget.onGameFinished();
         },
         context: context,
       );
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.system,
+        '[HOME_PLAY] Start flow error: $e',
+      );
+      rethrow;
     } finally {
       if (mounted) setState(() => _isStarting = false);
     }

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../model/api_models.dart';
 
 class ApiException implements Exception {
@@ -148,6 +150,59 @@ class ExperimentalApiClient {
     );
   }
 
+  // ── Public POST (no Bearer token) ──────────────────────────────────────────
+  Future<Map<String, dynamic>> postJsonPublic(
+    String path, {
+    required Map<String, dynamic> body,
+  }) {
+    return _postJson(path, body: body, requiresAuth: false);
+  }
+
+  // ── Authenticated GET ──────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> getJsonAuth(
+    String path, {
+    Map<String, String>? queryParams,
+  }) {
+    return _getJson(path, requiresAuth: true, queryParams: queryParams);
+  }
+
+  // ── Recent games (public) ──────────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> fetchRecentGames({int limit = 10}) {
+    return _getListJson(
+      '/api/games',
+      requiresAuth: false,
+      queryParams: {'limit': '$limit'},
+    );
+  }
+
+  // ── Create AI game (auth) ──────────────────────────────────────────────────
+  Future<Map<String, dynamic>> createAiGame({
+    int aiLevel = 3,
+    String aiColor = 'black',
+    String timeControl = 'blitz_5',
+    int moveTimeLimit = 0,
+  }) {
+    return _postJson('/api/games/vs-ai', requiresAuth: true, body: {
+      'aiLevel': aiLevel,
+      'aiColor': aiColor,
+      'timeControl': timeControl,
+      'moveTimeLimit': moveTimeLimit,
+    });
+  }
+
+  // ── Create PvP game (auth) ─────────────────────────────────────────────────
+  Future<Map<String, dynamic>> createPvPGame({
+    String timeControl = 'blitz_5',
+    bool isRated = true,
+    int moveTimeLimit = 0,
+  }) {
+    return _postJson('/api/games', requiresAuth: true, body: {
+      'timeControl': timeControl,
+      'isRated': isRated,
+      'moveTimeLimit': moveTimeLimit,
+    });
+  }
+
   Future<Map<String, dynamic>> _getJson(
     String path, {
     bool requiresAuth = false,
@@ -158,6 +213,12 @@ class ExperimentalApiClient {
     );
 
     final client = HttpClient();
+    final stopwatch = Stopwatch()..start();
+    _logRequest(
+      method: 'GET',
+      uri: uri,
+      requiresAuth: requiresAuth,
+    );
     try {
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -168,7 +229,22 @@ class ExperimentalApiClient {
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
+      _logResponse(
+        method: 'GET',
+        uri: uri,
+        statusCode: response.statusCode,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        responseBody: responseBody,
+      );
       return _parseResponse(response.statusCode, responseBody);
+    } catch (e) {
+      _logFailure(
+        method: 'GET',
+        uri: uri,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        error: e,
+      );
+      rethrow;
     } finally {
       client.close(force: true);
     }
@@ -182,6 +258,13 @@ class ExperimentalApiClient {
     final uri = Uri.parse('$_baseUrl$path');
 
     final client = HttpClient();
+    final stopwatch = Stopwatch()..start();
+    _logRequest(
+      method: 'POST',
+      uri: uri,
+      requiresAuth: requiresAuth,
+      body: body,
+    );
     try {
       final request = await client.postUrl(uri);
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -193,7 +276,22 @@ class ExperimentalApiClient {
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
+      _logResponse(
+        method: 'POST',
+        uri: uri,
+        statusCode: response.statusCode,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        responseBody: responseBody,
+      );
       return _parseResponse(response.statusCode, responseBody);
+    } catch (e) {
+      _logFailure(
+        method: 'POST',
+        uri: uri,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        error: e,
+      );
+      rethrow;
     } finally {
       client.close(force: true);
     }
@@ -202,10 +300,19 @@ class ExperimentalApiClient {
   Future<List<Map<String, dynamic>>> _getListJson(
     String path, {
     bool requiresAuth = false,
+    Map<String, String>? queryParams,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path');
+    final uri = Uri.parse('$_baseUrl$path').replace(
+      queryParameters: queryParams,
+    );
 
     final client = HttpClient();
+    final stopwatch = Stopwatch()..start();
+    _logRequest(
+      method: 'GET',
+      uri: uri,
+      requiresAuth: requiresAuth,
+    );
     try {
       final request = await client.getUrl(uri);
       request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
@@ -216,10 +323,78 @@ class ExperimentalApiClient {
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
+      _logResponse(
+        method: 'GET',
+        uri: uri,
+        statusCode: response.statusCode,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        responseBody: responseBody,
+      );
       return _parseListResponse(response.statusCode, responseBody);
+    } catch (e) {
+      _logFailure(
+        method: 'GET',
+        uri: uri,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        error: e,
+      );
+      rethrow;
     } finally {
       client.close(force: true);
     }
+  }
+
+  void _logRequest({
+    required String method,
+    required Uri uri,
+    required bool requiresAuth,
+    Map<String, dynamic>? body,
+  }) {
+    if (!kDebugMode) return;
+    final payload =
+        body == null ? '' : ' | body=${jsonEncode(_maskSensitive(body))}';
+    debugPrint('[API][REQ] $method $uri | auth=$requiresAuth$payload');
+  }
+
+  void _logResponse({
+    required String method,
+    required Uri uri,
+    required int statusCode,
+    required int elapsedMs,
+    required String responseBody,
+  }) {
+    if (!kDebugMode) return;
+    final preview = responseBody.length <= 220
+        ? responseBody
+        : '${responseBody.substring(0, 220)}...';
+    debugPrint(
+      '[API][RES] $method $uri | status=$statusCode | ${elapsedMs}ms | body=$preview',
+    );
+  }
+
+  void _logFailure({
+    required String method,
+    required Uri uri,
+    required int elapsedMs,
+    required Object error,
+  }) {
+    if (!kDebugMode) return;
+    debugPrint('[API][ERR] $method $uri | ${elapsedMs}ms | error=$error');
+  }
+
+  Map<String, dynamic> _maskSensitive(Map<String, dynamic> input) {
+    final output = <String, dynamic>{};
+    for (final entry in input.entries) {
+      final key = entry.key.toLowerCase();
+      if (key.contains('password') ||
+          key.contains('token') ||
+          key.contains('authorization')) {
+        output[entry.key] = '***';
+      } else {
+        output[entry.key] = entry.value;
+      }
+    }
+    return output;
   }
 
   Map<String, dynamic> _parseResponse(int statusCode, String responseBody) {

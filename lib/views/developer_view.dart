@@ -34,6 +34,7 @@ class DeveloperView extends StatefulWidget {
 
 class _DeveloperViewState extends State<DeveloperView> {
   int _tabIndex = 0;
+  bool _menuCollapsed = false;
   final ScrollController _scrollCtrl = ScrollController();
 
   @override
@@ -65,10 +66,18 @@ class _DeveloperViewState extends State<DeveloperView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(onBack: () => Navigator.pop(context)),
-            _SimulationPanel(),
-            _AdPanel(),
-            _ApiPanel(),
+            _Header(
+              onBack: () => Navigator.pop(context),
+              menuCollapsed: _menuCollapsed,
+              onToggleMenu: () {
+                setState(() => _menuCollapsed = !_menuCollapsed);
+              },
+            ),
+            if (!_menuCollapsed) ...[
+              _SimulationPanel(),
+              _AdPanel(),
+              _ApiPanel(),
+            ],
             _TabBar(
               selectedIndex: _tabIndex,
               onChanged: (i) => setState(() => _tabIndex = i),
@@ -91,7 +100,14 @@ class _DeveloperViewState extends State<DeveloperView> {
 // ─── Header ───────────────────────────────────────────────────────────────────
 class _Header extends StatelessWidget {
   final VoidCallback onBack;
-  const _Header({required this.onBack});
+  final bool menuCollapsed;
+  final VoidCallback onToggleMenu;
+
+  const _Header({
+    required this.onBack,
+    required this.menuCollapsed,
+    required this.onToggleMenu,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +136,18 @@ class _Header extends StatelessWidget {
             ),
           ),
           const Spacer(),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: onToggleMenu,
+            child: Icon(
+              menuCollapsed
+                  ? CupertinoIcons.chevron_down_circle
+                  : CupertinoIcons.chevron_up_circle,
+              color: Colors.white70,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 8),
           ListenableBuilder(
             listenable: DevLogger.instance,
             builder: (_, __) => CupertinoButton(

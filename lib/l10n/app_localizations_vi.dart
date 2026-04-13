@@ -82,6 +82,45 @@ class AppLocalizationsVi extends AppLocalizations {
   String get continueGuest => 'Tiếp tục với tư cách khách';
 
   @override
+  String get username => 'Tên người dùng';
+
+  @override
+  String get authErrorInvalidCredentials => 'Email hoặc mật khẩu không đúng';
+
+  @override
+  String get authErrorEmailTaken => 'Email đã được đăng ký';
+
+  @override
+  String get authErrorUsernameTaken => 'Tên người dùng đã được sử dụng';
+
+  @override
+  String get authErrorValidation => 'Vui lòng kiểm tra thông tin nhập';
+
+  @override
+  String get authErrorUnknown => 'Đã xảy ra lỗi. Vui lòng thử lại.';
+
+  @override
+  String get authErrorPasswordMismatch => 'Mật khẩu không khớp';
+
+  @override
+  String get authLoading => 'Vui lòng chờ…';
+
+  @override
+  String get loginSuccess => 'Đăng nhập thành công!';
+
+  @override
+  String get registerSuccess => 'Tạo tài khoản thành công!';
+
+  @override
+  String get logoutButton => 'Đăng xuất';
+
+  @override
+  String get recentGames => 'Các ván đấu gần đây';
+
+  @override
+  String get noGamesYet => 'Chưa có ván đấu nào';
+
+  @override
   String get settingsTooltip => 'Cài đặt';
 
   @override

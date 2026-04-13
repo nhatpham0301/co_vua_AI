@@ -68,6 +68,8 @@ class MatchGen {
     return MatchPlayer(name, 900 + _rng.nextInt(1200));
   }
 
+  static List<List<bool>> generateRandomBoard() => _randomBoard();
+
   static List<List<bool>> _randomBoard() => List.generate(
       8, (_) => List.generate(8, (_) => _rng.nextDouble() > 0.55));
 

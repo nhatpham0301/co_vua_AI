@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../logic/ad_service.dart';
 import '../logic/audio_service.dart';
+import '../logic/auth_service.dart';
 import '../logic/chess_piece.dart';
 import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
@@ -20,6 +22,12 @@ import 'player.dart';
 import 'user_preferences.dart';
 
 class AppModel extends ChangeNotifier {
+  static String _envApiBaseUrl() {
+    final raw = dotenv.env['API_BASE_URL']?.trim();
+    if (raw == null || raw.isEmpty) return 'https://giaitri.cloud';
+    return raw;
+  }
+
   // ── Game Settings ──
   int playerCount = 1;
   int aiDifficulty = 3;
@@ -32,7 +40,8 @@ class AppModel extends ChangeNotifier {
   final TimerService timerService = TimerService();
   final AdService adService = AdService.instance;
   final ExperimentalApiClient apiClient =
-      ExperimentalApiClient(baseUrl: 'http://localhost:3000');
+      ExperimentalApiClient(baseUrl: _envApiBaseUrl());
+  late final AuthService authService = AuthService(apiClient);
 
   // ── Experimental API State ──
   bool apiBusy = false;
@@ -117,8 +126,10 @@ class AppModel extends ChangeNotifier {
     };
     timerService.onExpired = () => endGame();
     audio.enabled = prefs.soundEnabled;
+    authService.addListener(() => notifyListeners());
 
     prefs.load();
+    authService.init();
   }
 
   // ── Game Lifecycle ──

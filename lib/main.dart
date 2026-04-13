@@ -22,9 +22,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Env is tiny (<1 KB asset file) and must be ready before ad widgets read
-  // unit IDs, so keep it synchronous.
-  await dotenv.load(fileName: 'assets/env/config.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {
+    // Backward-compatible fallback for older setup.
+    await dotenv.load(fileName: 'assets/env/config.env');
+  }
 
   // Render first frame immediately — no more awaiting MobileAds.init here.
   runApp(

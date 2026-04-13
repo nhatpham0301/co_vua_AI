@@ -10,7 +10,7 @@ import 'mm_saved_game_card.dart';
 // ─── Scrollable live match list with pull-to-refresh ─────────────────────────
 class LiveMatchList extends StatelessWidget {
   final List<LiveMatch> matches;
-  final VoidCallback onRefresh;
+  final Future<void> Function() onRefresh;
   final bool hasSavedGame;
   final double bottomPadding;
 
@@ -28,7 +28,7 @@ class LiveMatchList extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         CupertinoSliverRefreshControl(
-          onRefresh: () async => onRefresh(),
+          onRefresh: onRefresh,
           builder: (context, mode, pulledExtent, threshold, snap) {
             return Center(
               child: Padding(

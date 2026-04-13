@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../logic/dev_logger.dart';
 import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
@@ -23,11 +24,6 @@ class MainMenuView extends StatefulWidget {
 }
 
 class _MainMenuViewState extends State<MainMenuView> {
-  bool _isLoggedIn = false;
-  final String _userName = 'Nguyễn Văn A';
-  final int _elo = 1850;
-  final String _rank = 'Grandmaster';
-
   bool _hasSavedGame = false;
   List<LiveMatch> _matches = [];
   Timer? _ticker;
@@ -35,8 +31,9 @@ class _MainMenuViewState extends State<MainMenuView> {
   @override
   void initState() {
     super.initState();
-    _matches = MatchGen.generateTen();
+    _matches = MatchGen.generateTen(); // fallback data
     _checkSavedGame();
+    _fetchRecentGames();
     _ticker = Timer.periodic(const Duration(seconds: 3), (_) {
       if (mounted) setState(() => MatchGen.tick(_matches));
     });
@@ -53,13 +50,60 @@ class _MainMenuViewState extends State<MainMenuView> {
     if (mounted) setState(() => _hasSavedGame = has);
   }
 
-  void _refreshMatches() => setState(() => _matches = MatchGen.generateTen());
+  Future<void> _fetchRecentGames() async {
+    try {
+      final model = Provider.of<AppModel>(context, listen: false);
+      final jsonList = await model.apiClient.fetchRecentGames(limit: 10);
+      if (!mounted) return;
+      final apiMatches = jsonList.map(_jsonToLiveMatch).toList();
+      setState(() {
+        _matches = apiMatches.isNotEmpty ? apiMatches : _matches;
+      });
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'fetchRecentGames fallback to fake data: $e',
+      );
+    }
+  }
 
-  void _handleLogin() {
-    Navigator.push(
+  static LiveMatch _jsonToLiveMatch(Map<String, dynamic> json) {
+    return LiveMatch(
+      id: json['id'] as String? ?? '',
+      white: MatchPlayer(
+        json['whiteId'] as String? ?? '?',
+        0,
+      ),
+      black: MatchPlayer(
+        json['blackId'] as String? ?? '?',
+        0,
+      ),
+      moveCount: 0,
+      elapsedSec: _calcElapsed(json['startedAt'] as String?),
+      board: MatchGen.generateRandomBoard(),
+    );
+  }
+
+  static int _calcElapsed(String? startedAt) {
+    if (startedAt == null) return 0;
+    final dt = DateTime.tryParse(startedAt);
+    if (dt == null) return 0;
+    return DateTime.now().difference(dt).inSeconds.clamp(0, 99999);
+  }
+
+  Future<void> _refreshMatches() async {
+    await _fetchRecentGames();
+  }
+
+  void _handleLogin() async {
+    final result = await Navigator.push<bool>(
       context,
       CupertinoPageRoute(builder: (_) => const LoginView()),
     );
+    if (result == true && mounted) {
+      // Auth successful — refresh data
+      _fetchRecentGames();
+    }
   }
 
   @override
@@ -68,66 +112,76 @@ class _MainMenuViewState extends State<MainMenuView> {
     const bannerHeight = 50.0;
     const fabAreaHeight = 72.0;
 
-    return Scaffold(
-      backgroundColor: bgDark,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [bgMid, bgDark],
-              ),
-            ),
-          ),
-          const BoardBackground(),
-          const CornerKnots(),
-          Column(
+    return Consumer<AppModel>(
+      builder: (context, model, _) {
+        final auth = model.authService;
+        final isLoggedIn = auth.isLoggedIn;
+        final userName = auth.user?.username ?? '';
+        final elo = auth.user?.elo ?? 0;
+
+        return Scaffold(
+          backgroundColor: bgDark,
+          body: Stack(
+            fit: StackFit.expand,
             children: [
-              SafeArea(
-                bottom: false,
-                child: MenuHeader(
-                  isLoggedIn: _isLoggedIn,
-                  userName: _userName,
-                  elo: _elo,
-                  rank: _rank,
-                  onLoginTap: _handleLogin,
-                  onSettingsTap: () => Navigator.push(
-                    context,
-                    CupertinoPageRoute(builder: (_) => SettingsView()),
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [bgMid, bgDark],
                   ),
-                  onThemeTap: () {
-                    final m = Provider.of<AppModel>(context, listen: false);
-                    m.setTheme((m.themeIndex + 1) % themeList.length);
-                  },
                 ),
               ),
-              Expanded(
-                child: LiveMatchList(
-                  matches: _matches,
-                  onRefresh: _refreshMatches,
-                  hasSavedGame: _hasSavedGame,
-                  bottomPadding: fabAreaHeight + bannerHeight + bottomPad + 12,
+              const BoardBackground(),
+              const CornerKnots(),
+              Column(
+                children: [
+                  SafeArea(
+                    bottom: false,
+                    child: MenuHeader(
+                      isLoggedIn: isLoggedIn,
+                      userName: userName,
+                      elo: elo,
+                      rank: '',
+                      onLoginTap: _handleLogin,
+                      onSettingsTap: () => Navigator.push(
+                        context,
+                        CupertinoPageRoute(builder: (_) => SettingsView()),
+                      ),
+                      onThemeTap: () {
+                        model.setTheme(
+                            (model.themeIndex + 1) % themeList.length);
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: LiveMatchList(
+                      matches: _matches,
+                      onRefresh: _refreshMatches,
+                      hasSavedGame: _hasSavedGame,
+                      bottomPadding:
+                          fabAreaHeight + bannerHeight + bottomPad + 12,
+                    ),
+                  ),
+                  GameBannerAd(bottomPad: bottomPad),
+                ],
+              ),
+              Positioned(
+                bottom: bannerHeight + bottomPad + 14,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: QuickPlayBtn(
+                    hasSavedGame: _hasSavedGame,
+                    onGameFinished: _checkSavedGame,
+                  ),
                 ),
               ),
-              GameBannerAd(bottomPad: bottomPad),
             ],
           ),
-          Positioned(
-            bottom: bannerHeight + bottomPad + 14,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: QuickPlayBtn(
-                hasSavedGame: _hasSavedGame,
-                onGameFinished: _checkSavedGame,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

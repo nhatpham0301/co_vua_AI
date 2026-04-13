@@ -82,6 +82,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get continueGuest => 'Continue as Guest';
 
   @override
+  String get username => 'Username';
+
+  @override
+  String get authErrorInvalidCredentials => 'Invalid email or password';
+
+  @override
+  String get authErrorEmailTaken => 'Email already registered';
+
+  @override
+  String get authErrorUsernameTaken => 'Username already taken';
+
+  @override
+  String get authErrorValidation => 'Please check your input';
+
+  @override
+  String get authErrorUnknown => 'Something went wrong. Please try again.';
+
+  @override
+  String get authErrorPasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get authLoading => 'Please wait…';
+
+  @override
+  String get loginSuccess => 'Logged in successfully!';
+
+  @override
+  String get registerSuccess => 'Account created!';
+
+  @override
+  String get logoutButton => 'Log Out';
+
+  @override
+  String get recentGames => 'Recent Games';
+
+  @override
+  String get noGamesYet => 'No games yet';
+
+  @override
   String get settingsTooltip => 'Settings';
 
   @override

@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_themes.dart';
@@ -25,6 +26,12 @@ final List<String> sortedPieceThemes = () {
 class UserPreferences {
   SharedPreferences? _prefs;
 
+  static String _defaultApiBaseUrl() {
+    final raw = dotenv.env['API_BASE_URL']?.trim();
+    if (raw == null || raw.isEmpty) return 'https://giaitri.cloud';
+    return raw;
+  }
+
   String pieceTheme = 'Default';
   String themeName = 'Jargon Jade';
   bool showMoveHistory = true;
@@ -36,7 +43,7 @@ class UserPreferences {
   String? localeCode;
   int timeLimitMinutes = 30; // 0 = unlimited
   int moveTimeLimitSeconds = 30; // seconds per move, 0 = no per-move limit
-  String apiBaseUrl = 'http://localhost:3000';
+  String apiBaseUrl = _defaultApiBaseUrl();
 
   List<String> get pieceThemes => sortedPieceThemes;
 
@@ -76,6 +83,7 @@ class UserPreferences {
     localeCode = _prefs!.getString('localeCode');
     timeLimitMinutes = _prefs!.getInt('timeLimitMinutes') ?? 30;
     moveTimeLimitSeconds = _prefs!.getInt('moveTimeLimitSeconds') ?? 30;
+    apiBaseUrl = _prefs!.getString('apiBaseUrl') ?? _defaultApiBaseUrl();
     onChanged?.call();
   }
 
@@ -101,7 +109,6 @@ class UserPreferences {
     } else {
       await _prefs!.setString('localeCode', code);
     }
-    apiBaseUrl = _prefs!.getString('apiBaseUrl') ?? 'http://localhost:3000';
     onChanged?.call();
   }
 
@@ -180,7 +187,7 @@ class UserPreferences {
     localeCode = null;
     timeLimitMinutes = 30;
     moveTimeLimitSeconds = 30;
-    apiBaseUrl = 'http://localhost:3000';
+    apiBaseUrl = _defaultApiBaseUrl();
 
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('themeName', themeName);

@@ -101,6 +101,7 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
   assets:
+    - .env
     - assets/env/config.env
     - assets/images/
     - assets/images/pieces/classic/

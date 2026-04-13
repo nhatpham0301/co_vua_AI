@@ -242,6 +242,84 @@ abstract class AppLocalizations {
   /// **'Continue as Guest'**
   String get continueGuest;
 
+  /// No description provided for @username.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get username;
+
+  /// No description provided for @authErrorInvalidCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email or password'**
+  String get authErrorInvalidCredentials;
+
+  /// No description provided for @authErrorEmailTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'Email already registered'**
+  String get authErrorEmailTaken;
+
+  /// No description provided for @authErrorUsernameTaken.
+  ///
+  /// In en, this message translates to:
+  /// **'Username already taken'**
+  String get authErrorUsernameTaken;
+
+  /// No description provided for @authErrorValidation.
+  ///
+  /// In en, this message translates to:
+  /// **'Please check your input'**
+  String get authErrorValidation;
+
+  /// No description provided for @authErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get authErrorUnknown;
+
+  /// No description provided for @authErrorPasswordMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get authErrorPasswordMismatch;
+
+  /// No description provided for @authLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Please wait…'**
+  String get authLoading;
+
+  /// No description provided for @loginSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged in successfully!'**
+  String get loginSuccess;
+
+  /// No description provided for @registerSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Account created!'**
+  String get registerSuccess;
+
+  /// No description provided for @logoutButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out'**
+  String get logoutButton;
+
+  /// No description provided for @recentGames.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Games'**
+  String get recentGames;
+
+  /// No description provided for @noGamesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No games yet'**
+  String get noGamesYet;
+
   /// No description provided for @settingsTooltip.
   ///
   /// In en, this message translates to:
