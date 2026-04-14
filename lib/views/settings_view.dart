@@ -86,6 +86,26 @@ class SettingsView extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 20),
+                Consumer<AppModel>(
+                  builder: (context, appModel, _) {
+                    final isLoggedIn = appModel.authService.isLoggedIn;
+                    if (!isLoggedIn) return const SizedBox.shrink();
+                    return Column(
+                      children: [
+                        RoundedButton(
+                          l.logoutButton,
+                          onPressed: () async {
+                            await appModel.authService.logout();
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    );
+                  },
+                ),
                 RoundedButton(
                   l.back,
                   onPressed: () {

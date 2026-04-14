@@ -68,15 +68,42 @@ class _MainMenuViewState extends State<MainMenuView> {
   }
 
   static LiveMatch _jsonToLiveMatch(Map<String, dynamic> json) {
+    final whiteId = json['whiteId'] as String?;
+    final blackId = json['blackId'] as String?;
+    final whiteUser = json['white'];
+    final blackUser = json['black'];
+
+    String resolveName(dynamic user, String? fallbackId, String sideLabel) {
+      if (user is Map<String, dynamic>) {
+        final username = user['username'] as String?;
+        if (username != null && username.trim().isNotEmpty) {
+          return username.trim();
+        }
+      }
+      if (fallbackId != null && fallbackId.isNotEmpty) {
+        final short =
+            fallbackId.length > 8 ? fallbackId.substring(0, 8) : fallbackId;
+        return '$sideLabel-$short';
+      }
+      return '$sideLabel-?';
+    }
+
+    int resolveElo(dynamic user, String key) {
+      if (user is Map<String, dynamic>) {
+        return (user['elo'] as num?)?.toInt() ?? 0;
+      }
+      return (json[key] as num?)?.toInt() ?? 0;
+    }
+
     return LiveMatch(
       id: json['id'] as String? ?? '',
       white: MatchPlayer(
-        json['whiteId'] as String? ?? '?',
-        0,
+        resolveName(whiteUser, whiteId, 'White'),
+        resolveElo(whiteUser, 'whiteEloSnapshot'),
       ),
       black: MatchPlayer(
-        json['blackId'] as String? ?? '?',
-        0,
+        resolveName(blackUser, blackId, 'Black'),
+        resolveElo(blackUser, 'blackEloSnapshot'),
       ),
       moveCount: 0,
       elapsedSec: _calcElapsed(json['startedAt'] as String?),

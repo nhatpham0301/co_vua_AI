@@ -16,18 +16,21 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
+  static final RegExp _emailRegex = RegExp(
+    r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+  );
+
   bool _isRegister = false;
+  bool _obscurePassword = true;
 
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
 
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    _confirmCtrl.dispose();
     _usernameCtrl.dispose();
     super.dispose();
   }
@@ -36,20 +39,27 @@ class _LoginViewState extends State<LoginView> {
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      _showError(l.authErrorValidation);
+    if (email.isEmpty) {
+      _showError('Email is required.');
+      return;
+    }
+    if (!_emailRegex.hasMatch(email)) {
+      _showError('Email format is invalid.');
+      return;
+    }
+    if (password.isEmpty) {
+      _showError('Password is required.');
+      return;
+    }
+    if (password.length < 8) {
+      _showError('Password must be at least 8 characters.');
       return;
     }
 
     if (_isRegister) {
       final username = _usernameCtrl.text.trim();
-      final confirm = _confirmCtrl.text;
       if (username.isEmpty) {
-        _showError(l.authErrorValidation);
-        return;
-      }
-      if (password != confirm) {
-        _showError(l.authErrorPasswordMismatch);
+        _showError('Username is required.');
         return;
       }
       final ok = await model.authService.register(
@@ -199,16 +209,26 @@ class _LoginViewState extends State<LoginView> {
                           controller: _passwordCtrl,
                           placeholder: l.password,
                           icon: CupertinoIcons.lock,
-                          obscureText: true,
+                          obscureText: _obscurePassword,
+                          suffix: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: Icon(
+                                _obscurePassword
+                                    ? CupertinoIcons.eye
+                                    : CupertinoIcons.eye_slash,
+                                color: Colors.white60,
+                                size: 18,
+                              ),
+                            ),
+                          ),
                         ),
                         if (_isRegister) ...[
-                          const SizedBox(height: 12),
-                          _InputField(
-                            controller: _confirmCtrl,
-                            placeholder: l.confirmPassword,
-                            icon: CupertinoIcons.lock_shield,
-                            obscureText: true,
-                          ),
                           const SizedBox(height: 12),
                           _InputField(
                             controller: _usernameCtrl,
@@ -289,12 +309,14 @@ class _InputField extends StatelessWidget {
   final String placeholder;
   final IconData icon;
   final bool obscureText;
+  final Widget? suffix;
 
   const _InputField({
     required this.controller,
     required this.placeholder,
     required this.icon,
     this.obscureText = false,
+    this.suffix,
   });
 
   @override
@@ -317,6 +339,7 @@ class _InputField extends StatelessWidget {
           padding: const EdgeInsets.only(left: 10),
           child: Icon(icon, color: Colors.white60, size: 18),
         ),
+        suffix: suffix,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: const BoxDecoration(),
       ),

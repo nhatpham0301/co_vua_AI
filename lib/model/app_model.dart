@@ -14,6 +14,7 @@ import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
 import '../logic/move_calculation/move_classes/move_meta.dart';
 import '../logic/move_calculation/move_classes/move_stack_object.dart';
+import '../logic/online_game_events_service.dart';
 import '../logic/shared_functions.dart';
 import '../logic/timer_service.dart';
 import 'api_models.dart';
@@ -25,6 +26,12 @@ class AppModel extends ChangeNotifier {
   static String _envApiBaseUrl() {
     final raw = dotenv.env['API_BASE_URL']?.trim();
     if (raw == null || raw.isEmpty) return 'https://giaitri.cloud';
+    return raw;
+  }
+
+  static String _envSocketBaseUrl() {
+    final raw = dotenv.env['SOCKET_BASE_URL']?.trim();
+    if (raw == null || raw.isEmpty) return _envApiBaseUrl();
     return raw;
   }
 
@@ -41,6 +48,7 @@ class AppModel extends ChangeNotifier {
   final AdService adService = AdService.instance;
   final ExperimentalApiClient apiClient =
       ExperimentalApiClient(baseUrl: _envApiBaseUrl());
+  final OnlineGameEventsService onlineEvents = OnlineGameEventsService();
   late final AuthService authService = AuthService(apiClient);
 
   // ── Experimental API State ──
@@ -72,6 +80,7 @@ class AppModel extends ChangeNotifier {
   List<String> get pieceThemes => prefs.pieceThemes;
   Locale? get locale => prefs.locale;
   String get apiBaseUrl => apiClient.baseUrl;
+  String get socketBaseUrl => _envSocketBaseUrl();
 
   ValueNotifier<Duration> get player1TimeLeft => timerService.player1TimeLeft;
   set player1TimeLeft(ValueNotifier<Duration> val) =>
@@ -189,6 +198,7 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
+    unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
 
@@ -198,6 +208,7 @@ class AppModel extends ChangeNotifier {
     saveGameState();
     gameController?.cancelAIMove();
     timerService.stop();
+    unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
 
@@ -242,6 +253,7 @@ class AppModel extends ChangeNotifier {
 
     GameStateStorage.clearGameState();
     unawaited(adService.onGameEnded());
+    unawaited(onlineEvents.stopTracking());
     if (!silent) notifyListeners();
   }
 
@@ -258,6 +270,22 @@ class AppModel extends ChangeNotifier {
   void requestPromotion() {
     promotionRequested = true;
     notifyListeners();
+  }
+
+  Future<void> startOnlineEventTracking(String gameId) async {
+    final token = authService.accessToken;
+    if (token == null || token.isEmpty) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] Skip tracking: missing access token',
+      );
+      return;
+    }
+    await onlineEvents.startTracking(
+      socketBaseUrl: socketBaseUrl,
+      gameId: gameId,
+      accessToken: token,
+    );
   }
 
   // ── Game Options ──

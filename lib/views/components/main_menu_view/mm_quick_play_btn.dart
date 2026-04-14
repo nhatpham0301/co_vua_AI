@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../logic/dev_logger.dart';
+import '../../../logic/experimental_api_client.dart';
 import '../../../model/app_model.dart';
+import '../../../model/player.dart';
 import '../../chess_view.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
@@ -110,6 +112,53 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     );
   }
 
+  Future<T> _withAuthRetry<T>({
+    required AppModel appModel,
+    required String action,
+    required Future<T> Function() execute,
+  }) async {
+    try {
+      return await execute();
+    } on ApiException catch (e) {
+      if (e.statusCode != 401) rethrow;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[HOME_PLAY] $action unauthorized (401) -> refreshing token',
+      );
+      final refreshed = await appModel.authService.refreshTokens();
+      if (!refreshed) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[HOME_PLAY] $action refresh failed -> need re-login',
+        );
+        rethrow;
+      }
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[HOME_PLAY] $action retry after refresh',
+      );
+      return execute();
+    }
+  }
+
+  Future<void> _showSessionExpiredDialog(BuildContext context) async {
+    if (!mounted) return;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Phiên đăng nhập hết hạn'),
+        content: const Text('Vui lòng đăng nhập lại để chơi online.'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _start(BuildContext context) async {
     if (!mounted) return;
     setState(() => _isStarting = true);
@@ -160,10 +209,38 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         DevLogCategory.game,
         '[HOME_PLAY] Online mode -> open matchmaking dialog',
       );
+
+      bool onlineGameReady = false;
+
+      if (isLoggedIn) {
+        try {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] Calling POST /api/matchmaking/join ...',
+          );
+          final joinJson = await _withAuthRetry(
+            appModel: appModel,
+            action: 'joinMatchmaking',
+            execute: () => appModel.apiClient.joinMatchmaking(
+              moveTimeLimit: appModel.moveTimeLimit,
+            ),
+          );
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] Matchmaking joined | ${joinJson['message'] ?? 'ok'}',
+          );
+        } catch (e) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] POST /api/matchmaking/join failed | $e',
+          );
+        }
+      }
+
       final result = await showCupertinoModalPopup<MatchResult>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const MatchmakingDialog(timeoutSeconds: 1),
+        builder: (_) => const MatchmakingDialog(timeoutSeconds: 10),
       );
       if (!mounted) return;
 
@@ -172,12 +249,109 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         '[HOME_PLAY] Matchmaking result=$result',
       );
 
-      if (result == null || result == MatchResult.cancelled) return;
+      if (result == null || result == MatchResult.cancelled) {
+        if (isLoggedIn) {
+          try {
+            await _withAuthRetry(
+              appModel: appModel,
+              action: 'leaveMatchmaking(cancelled)',
+              execute: appModel.apiClient.leaveMatchmaking,
+            );
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] DELETE /api/matchmaking/leave success (cancelled)',
+            );
+          } catch (e) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] DELETE /api/matchmaking/leave failed (cancelled) | $e',
+            );
+          }
+        }
+        return;
+      }
       if (result == MatchResult.timeout) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[HOME_PLAY] Matchmaking timeout -> fallback local AI game',
+          '[HOME_PLAY] Matchmaking timeout -> leave queue -> fallback AI game',
         );
+        if (isLoggedIn) {
+          try {
+            await _withAuthRetry(
+              appModel: appModel,
+              action: 'leaveMatchmaking(timeout)',
+              execute: appModel.apiClient.leaveMatchmaking,
+            );
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] DELETE /api/matchmaking/leave success (timeout)',
+            );
+          } catch (e) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] DELETE /api/matchmaking/leave failed (timeout) | $e',
+            );
+          }
+        }
+      }
+
+      if (isLoggedIn) {
+        try {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] Calling POST /api/games/vs-ai after matchmaking timeout ...',
+          );
+          final gameJson = await _withAuthRetry(
+            appModel: appModel,
+            action: 'createAiGame',
+            execute: () => appModel.apiClient.createAiGame(
+              aiLevel: appModel.aiDifficulty,
+              color:
+                  appModel.selectedSide == Player.player2 ? 'black' : 'white',
+              moveTimeLimit: appModel.moveTimeLimit,
+            ),
+          );
+          final gameId = gameJson['id'];
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] POST /api/games/vs-ai success | gameId=$gameId',
+          );
+          if (gameId is String && gameId.isNotEmpty) {
+            await appModel.startOnlineEventTracking(gameId);
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] Realtime tracking attached | gameId=$gameId',
+            );
+            onlineGameReady = true;
+          } else {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] Skip socket tracking: missing gameId in createAiGame response',
+            );
+          }
+        } on ApiException catch (e) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] POST /api/games/vs-ai failed | $e',
+          );
+          if (e.statusCode == 401) {
+            await _showSessionExpiredDialog(context);
+            return;
+          }
+        } catch (e) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] POST /api/games/vs-ai failed | $e',
+          );
+        }
+      }
+
+      if (isLoggedIn && !onlineGameReady) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[HOME_PLAY] Abort opening ChessView: online game was not created successfully',
+        );
+        return;
       }
 
       appModel.setPlayerCount(1);

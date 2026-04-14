@@ -178,13 +178,13 @@ class ExperimentalApiClient {
   // ── Create AI game (auth) ──────────────────────────────────────────────────
   Future<Map<String, dynamic>> createAiGame({
     int aiLevel = 3,
-    String aiColor = 'black',
+    String color = 'black',
     String timeControl = 'blitz_5',
     int moveTimeLimit = 0,
   }) {
     return _postJson('/api/games/vs-ai', requiresAuth: true, body: {
       'aiLevel': aiLevel,
-      'aiColor': aiColor,
+      'color': color,
       'timeControl': timeControl,
       'moveTimeLimit': moveTimeLimit,
     });
@@ -201,6 +201,25 @@ class ExperimentalApiClient {
       'isRated': isRated,
       'moveTimeLimit': moveTimeLimit,
     });
+  }
+
+  // ── Matchmaking (auth) ─────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> joinMatchmaking({
+    String timeControl = 'blitz_5',
+    int moveTimeLimit = 0,
+  }) {
+    return _postJson('/api/matchmaking/join', requiresAuth: true, body: {
+      'timeControl': timeControl,
+      'moveTimeLimit': moveTimeLimit,
+    });
+  }
+
+  Future<Map<String, dynamic>> leaveMatchmaking() {
+    return _deleteJson('/api/matchmaking/leave', requiresAuth: true);
+  }
+
+  Future<Map<String, dynamic>> getMatchmakingStatus() {
+    return _getJson('/api/matchmaking/status', requiresAuth: true);
   }
 
   Future<Map<String, dynamic>> _getJson(
@@ -334,6 +353,50 @@ class ExperimentalApiClient {
     } catch (e) {
       _logFailure(
         method: 'GET',
+        uri: uri,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        error: e,
+      );
+      rethrow;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  Future<Map<String, dynamic>> _deleteJson(
+    String path, {
+    bool requiresAuth = false,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$path');
+
+    final client = HttpClient();
+    final stopwatch = Stopwatch()..start();
+    _logRequest(
+      method: 'DELETE',
+      uri: uri,
+      requiresAuth: requiresAuth,
+    );
+    try {
+      final request = await client.deleteUrl(uri);
+      request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+      if (requiresAuth && accessToken != null && accessToken!.isNotEmpty) {
+        request.headers
+            .set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
+      }
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      _logResponse(
+        method: 'DELETE',
+        uri: uri,
+        statusCode: response.statusCode,
+        elapsedMs: stopwatch.elapsedMilliseconds,
+        responseBody: responseBody,
+      );
+      return _parseResponse(response.statusCode, responseBody);
+    } catch (e) {
+      _logFailure(
+        method: 'DELETE',
         uri: uri,
         elapsedMs: stopwatch.elapsedMilliseconds,
         error: e,
