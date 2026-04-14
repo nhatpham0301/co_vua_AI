@@ -144,10 +144,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           _wasGameOver = true;
           _gameEndAdScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            Future.delayed(const Duration(seconds: 1), () {
+            Future.delayed(const Duration(seconds: 1), () async {
               if (!mounted) return;
               _gameEndAdScheduled = false;
-              appModel.adService.showGameEndAd(context);
+              final shown = await appModel.adService.showGameEndAd(context);
+              if (!mounted) return;
+              if (shown) {
+                appModel.markEndGameAdDisplayed();
+              }
             });
           });
         } else if (!appModel.gameOver) {

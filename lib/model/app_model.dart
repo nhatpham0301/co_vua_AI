@@ -102,11 +102,17 @@ class AppModel extends ChangeNotifier {
   List<MoveMeta> moveMetaList = [];
   List<ChessPieceType> capturedWhite = [];
   List<ChessPieceType> capturedBlack = [];
+  bool _sessionStartedOnline = false;
+  bool _endGameAdDisplayed = false;
 
   // ── Computed Properties ──
   Player get aiTurn => oppositePlayer(playerSide);
   bool get isAIsTurn => playingWithAI && (turn == aiTurn);
   bool get playingWithAI => playerCount == 1;
+  bool get isOnlineGameMode => _sessionStartedOnline;
+  bool get usePairUndoRedo => playingWithAI && !isOnlineGameMode;
+  bool get shouldLockReplayAfterEndAd =>
+      isOnlineGameMode && gameOver && _endGameAdDisplayed;
 
   // Used to prevent AnimatedRotation from sweeping across the screen when first loading the board.
   bool animateBoardRotation = false;
@@ -150,6 +156,7 @@ class AppModel extends ChangeNotifier {
     gameOver = false;
     stalemate = false;
     userWon = false;
+    _endGameAdDisplayed = false;
     turn = Player.player1;
     moveMetaList = [];
     capturedWhite = [];
@@ -198,6 +205,8 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
+    _sessionStartedOnline = false;
+    _endGameAdDisplayed = false;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -208,6 +217,8 @@ class AppModel extends ChangeNotifier {
     saveGameState();
     gameController?.cancelAIMove();
     timerService.stop();
+    _sessionStartedOnline = false;
+    _endGameAdDisplayed = false;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -272,6 +283,11 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void markEndGameAdDisplayed() {
+    _endGameAdDisplayed = true;
+    notifyListeners();
+  }
+
   Future<void> startOnlineEventTracking(String gameId) async {
     final token = authService.accessToken;
     if (token == null || token.isEmpty) {
@@ -281,6 +297,8 @@ class AppModel extends ChangeNotifier {
       );
       return;
     }
+    _sessionStartedOnline = true;
+    _endGameAdDisplayed = false;
     await onlineEvents.startTracking(
       socketBaseUrl: socketBaseUrl,
       gameId: gameId,

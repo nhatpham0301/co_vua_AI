@@ -11,6 +11,7 @@ class MovesUndoRedoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
     return Column(
       children: [
         Row(
@@ -18,15 +19,15 @@ class MovesUndoRedoRow extends StatelessWidget {
             appModel.showMoveHistory
                 ? Expanded(child: MoveList(appModel))
                 : Container(),
-            appModel.showMoveHistory && appModel.allowUndoRedo
+            appModel.showMoveHistory && showUndoRedo
                 ? SizedBox(width: 10)
                 : Container(),
-            appModel.allowUndoRedo
+            showUndoRedo
                 ? Expanded(child: UndoRedoButtons(appModel))
                 : Container(),
           ],
         ),
-        appModel.showMoveHistory || appModel.allowUndoRedo
+        appModel.showMoveHistory || showUndoRedo
             ? SizedBox(height: 10)
             : Container(),
       ],

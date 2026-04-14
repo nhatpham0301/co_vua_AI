@@ -269,16 +269,16 @@ class AdService {
   // ── Show Ad at Game End (called from chess_view after 1s) ─────────────────
 
   /// Hiện ad ngay tại màn hình kết thúc ván (được gọi tự động sau 1 giây).
-  /// Không nhận callback — người dùng xem xong và tiếp tục tự trong app.
-  Future<void> showGameEndAd(BuildContext context) async {
-    if (!_needsAd) return;
+  /// Trả về true nếu ad đã được hiển thị/đóng thành công.
+  Future<bool> showGameEndAd(BuildContext context) async {
+    if (!_needsAd) return false;
     await ensureInitialized();
 
     if (_devSkipNextAd) {
       _devSkipNextAd = false;
       _needsAd = false;
       DevLogger.instance.log(DevLogCategory.ad, 'DEV: Ad bị bỏ qua (devSkip)');
-      return;
+      return false;
     }
 
     // Dev mode: hiện dialog giả lập
@@ -288,7 +288,7 @@ class AdService {
           .log(DevLogCategory.ad, 'DEV: Hiện interstitial giả lập (game end)');
       await _showDevSimulatedAd(context);
       DevLogger.instance.log(DevLogCategory.ad, 'DEV: Ad giả lập đóng');
-      return;
+      return true;
     }
 
     if (_adQueue.isEmpty) {
@@ -298,7 +298,7 @@ class AdService {
         'Hàng đợi trống — giữ _needsAd để fallback trước ván kế',
       );
       fillQueue();
-      return;
+      return false;
     }
 
     _needsAd = false;
@@ -310,10 +310,12 @@ class AdService {
       'Hiện ad kết thúc game. Còn lại trong hàng đợi: ${_adQueue.length}/$kAdQueueMaxSize',
     );
 
+    final result = Completer<bool>();
     ad.fullScreenContentCallback = FullScreenContentCallback(
       onAdDismissedFullScreenContent: (_) {
         DevLogger.instance.log(DevLogCategory.ad, 'Ad đóng sau kết thúc ván');
         ad.dispose();
+        if (!result.isCompleted) result.complete(true);
       },
       onAdFailedToShowFullScreenContent: (_, error) {
         DevLogger.instance.log(DevLogCategory.ad, 'Ad không hiện được: $error');
@@ -321,10 +323,21 @@ class AdService {
         ad.dispose();
         // Khôi phục để fallback
         _needsAd = true;
+        if (!result.isCompleted) result.complete(false);
       },
     );
 
     await ad.show();
+    return result.future.timeout(
+      const Duration(seconds: 20),
+      onTimeout: () {
+        DevLogger.instance.log(
+          DevLogCategory.ad,
+          'Timeout chờ callback đóng ad kết thúc game',
+        );
+        return false;
+      },
+    );
   }
 
   // ── Fallback: Show Ad Before Game (main menu "CHƠI" button) ───────────────

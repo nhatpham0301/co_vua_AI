@@ -84,7 +84,7 @@ class ChessGame extends FlameGame with TapCallbacks {
   // ── Input Handling ──
 
   void onTapDown(TapDownEvent event) {
-    if (appModel.gameOver || !(appModel.isAIsTurn)) {
+    if (!appModel.gameOver && !appModel.isAIsTurn) {
       var tile = _vector2ToTile(event.localPosition);
       var touchedPiece = board.tiles[tile];
       if (touchedPiece == selectedPiece) {
@@ -172,8 +172,7 @@ class ChessGame extends FlameGame with TapCallbacks {
       currentRotation = targetRotation;
     }
 
-    for (var piece
-        in board.player1Pieces.followedBy(board.player2Pieces)) {
+    for (var piece in board.player1Pieces.followedBy(board.player2Pieces)) {
       spriteMap[piece]?.update(tileSize ?? 0, appModel, piece, t);
     }
   }

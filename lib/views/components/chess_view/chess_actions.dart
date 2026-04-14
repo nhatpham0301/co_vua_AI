@@ -20,20 +20,20 @@ class ActionButtonsPanel extends StatelessWidget {
       appModel.allowUndoRedo &&
       appModel.gameController != null &&
       appModel.gameController!.board.moveStack.isNotEmpty &&
-      (!appModel.playingWithAI ||
+      (!appModel.usePairUndoRedo ||
           appModel.gameController!.board.moveStack.length > 1);
 
   bool get _redoOk =>
       appModel.allowUndoRedo &&
       appModel.gameController != null &&
       appModel.gameController!.board.redoStack.isNotEmpty &&
-      (!appModel.playingWithAI ||
+      (!appModel.usePairUndoRedo ||
           appModel.gameController!.board.redoStack.length > 1);
 
   void _undo() {
     final gc = appModel.gameController;
     if (gc == null) return;
-    if (appModel.playingWithAI) {
+    if (appModel.usePairUndoRedo) {
       gc.undoTwoMoves();
     } else {
       gc.undoMove();
@@ -43,7 +43,7 @@ class ActionButtonsPanel extends StatelessWidget {
   void _redo() {
     final gc = appModel.gameController;
     if (gc == null) return;
-    if (appModel.playingWithAI) {
+    if (appModel.usePairUndoRedo) {
       gc.redoTwoMoves();
     } else {
       gc.redoMove();
@@ -53,6 +53,7 @@ class ActionButtonsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12),
       padding: const EdgeInsets.all(8),
@@ -63,63 +64,106 @@ class ActionButtonsPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _ActionBtn(
-              icon: Icons.undo_rounded,
-              enabled: _undoOk,
-              onTap: _undoOk ? _undo : null,
+          if (showUndoRedo) ...[
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.undo_rounded,
+                enabled: _undoOk,
+                onTap: _undoOk ? _undo : null,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ActionBtn(
-              icon: Icons.redo_rounded,
-              enabled: _redoOk,
-              onTap: _redoOk ? _redo : null,
-              tooltip: l.redo,
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.redo_rounded,
+                enabled: _redoOk,
+                onTap: _redoOk ? _redo : null,
+                tooltip: l.redo,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ActionBtn(
-              icon: Icons.add_circle_outline_rounded,
-              enabled: true,
-              isActive: false,
-              tooltip: l.newGameTitle,
-              onTap: () => _showRestartDialog(context, l),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.add_circle_outline_rounded,
+                enabled: true,
+                isActive: false,
+                tooltip: l.newGameTitle,
+                onTap: () => _showRestartDialog(context, l),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ActionBtn(
-              icon: appModel.showHints
-                  ? Icons.visibility_rounded
-                  : Icons.visibility_off_rounded,
-              enabled: true,
-              isActive: appModel.showHints,
-              tooltip: l.toggleHints,
-              onTap: () async {
-                await appModel.prefs.setShowHints(!appModel.showHints);
-                appModel.update();
-              },
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: appModel.showHints
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                enabled: true,
+                isActive: appModel.showHints,
+                tooltip: l.toggleHints,
+                onTap: () async {
+                  await appModel.prefs.setShowHints(!appModel.showHints);
+                  appModel.update();
+                },
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ActionBtn(
-              icon: Icons.exit_to_app_rounded,
-              enabled: true,
-              tooltip: l.exitTooltip,
-              onTap: () {
-                if (appModel.gameOver) {
-                  appModel.exitChessView();
-                  Navigator.pop(context);
-                } else {
-                  showExitDialog(context);
-                }
-              },
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.exit_to_app_rounded,
+                enabled: true,
+                tooltip: l.exitTooltip,
+                onTap: () {
+                  if (appModel.gameOver) {
+                    appModel.exitChessView();
+                    Navigator.pop(context);
+                  } else {
+                    showExitDialog(context);
+                  }
+                },
+              ),
             ),
-          ),
+          ] else ...[
+            Expanded(
+              child: _ActionBtn(
+                icon: appModel.showHints
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                enabled: true,
+                isActive: appModel.showHints,
+                tooltip: l.toggleHints,
+                onTap: () async {
+                  await appModel.prefs.setShowHints(!appModel.showHints);
+                  appModel.update();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.add_circle_outline_rounded,
+                enabled: true,
+                isActive: false,
+                tooltip: l.newGameTitle,
+                onTap: () => _showRestartDialog(context, l),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _ActionBtn(
+                icon: Icons.exit_to_app_rounded,
+                enabled: true,
+                tooltip: l.exitTooltip,
+                onTap: () {
+                  if (appModel.gameOver) {
+                    appModel.exitChessView();
+                    Navigator.pop(context);
+                  } else {
+                    showExitDialog(context);
+                  }
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -210,6 +254,7 @@ class BottomButtonsPanel extends StatelessWidget {
   }
 
   void _showRestartDialog(BuildContext context) {
+    if (appModel.shouldLockReplayAfterEndAd) return;
     final l = AppLocalizations.of(context)!;
     showAppDialog<void>(
       context: context,

@@ -9,14 +9,14 @@ class UndoRedoButtons extends StatelessWidget {
   bool get undoEnabled {
     return appModel.gameController != null &&
         appModel.gameController!.board.moveStack.isNotEmpty &&
-        (!appModel.playingWithAI ||
+        (!appModel.usePairUndoRedo ||
             appModel.gameController!.board.moveStack.length > 1);
   }
 
   bool get redoEnabled {
     return appModel.gameController != null &&
         appModel.gameController!.board.redoStack.isNotEmpty &&
-        (!appModel.playingWithAI ||
+        (!appModel.usePairUndoRedo ||
             appModel.gameController!.board.redoStack.length > 1);
   }
 
@@ -45,7 +45,7 @@ class UndoRedoButtons extends StatelessWidget {
 
   void undo() {
     if (appModel.gameController != null) {
-      if (appModel.playingWithAI) {
+      if (appModel.usePairUndoRedo) {
         appModel.gameController!.undoTwoMoves();
       } else {
         appModel.gameController!.undoMove();
@@ -55,7 +55,7 @@ class UndoRedoButtons extends StatelessWidget {
 
   void redo() {
     if (appModel.gameController != null) {
-      if (appModel.playingWithAI) {
+      if (appModel.usePairUndoRedo) {
         appModel.gameController!.redoTwoMoves();
       } else {
         appModel.gameController!.redoMove();
