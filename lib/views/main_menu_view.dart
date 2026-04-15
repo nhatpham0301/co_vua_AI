@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../logic/dev_logger.dart';
 import '../logic/game_state_storage.dart';
+import '../logic/online_game_events_service.dart';
 import '../model/app_model.dart';
 import '../model/app_themes.dart';
 import 'components/main_menu_view/mm_background.dart';
@@ -205,10 +206,116 @@ class _MainMenuViewState extends State<MainMenuView> {
                   ),
                 ),
               ),
+              if (isLoggedIn)
+                Positioned(
+                  bottom: bannerHeight + bottomPad + 18,
+                  right: 20,
+                  child: _SocketTestBtn(model),
+                ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+// ── Socket Debug Button ───────────────────────────────────────────────────────
+
+class _SocketTestBtn extends StatefulWidget {
+  final AppModel model;
+  const _SocketTestBtn(this.model);
+
+  @override
+  State<_SocketTestBtn> createState() => _SocketTestBtnState();
+}
+
+class _SocketTestBtnState extends State<_SocketTestBtn> {
+  bool _testing = false;
+
+  Future<void> _runTest() async {
+    if (_testing) return;
+    setState(() => _testing = true);
+    try {
+      final token = await widget.model.authService.ensureValidAccessToken();
+      if (token == null || token.isEmpty) {
+        _showResult(
+          context,
+          connected: false,
+          message: 'Không có access token hợp lệ.',
+        );
+        return;
+      }
+
+      final result = await OnlineGameEventsService.debugSocketAuth(
+        socketBaseUrl: widget.model.socketBaseUrl,
+        accessToken: token,
+      );
+
+      if (!mounted) return;
+      _showResult(
+        context,
+        connected: result.connected,
+        message: result.error,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showResult(context, connected: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  void _showResult(
+    BuildContext ctx, {
+    required bool connected,
+    String? message,
+  }) {
+    showCupertinoDialog<void>(
+      context: ctx,
+      builder: (_) => CupertinoAlertDialog(
+        title: Text(connected ? '✅ Socket Connected' : '❌ Socket Failed'),
+        content: Text(
+          connected
+              ? 'Kết nối /live thành công với auth.token.'
+              : 'Lỗi: ${message ?? 'unknown'}',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(_),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _testing ? null : _runTest,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: bgCard.withValues(alpha: 0.6),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.15),
+          ),
+        ),
+        child: _testing
+            ? const Padding(
+                padding: EdgeInsets.all(10),
+                child: CupertinoActivityIndicator(color: Colors.white),
+              )
+            : const Icon(
+                Icons.wifi_rounded,
+                color: Colors.white70,
+                size: 20,
+              ),
+      ),
     );
   }
 }

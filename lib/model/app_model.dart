@@ -289,11 +289,11 @@ class AppModel extends ChangeNotifier {
   }
 
   Future<void> startOnlineEventTracking(String gameId) async {
-    final token = authService.accessToken;
+    final token = await authService.ensureValidAccessToken();
     if (token == null || token.isEmpty) {
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] Skip tracking: missing access token',
+        '[SOCKET] Skip tracking: no valid access token available',
       );
       return;
     }

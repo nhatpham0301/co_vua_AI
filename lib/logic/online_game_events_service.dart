@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import 'dev_logger.dart';
@@ -34,104 +36,76 @@ class OnlineGameEventsService {
     final base = _normalizeBaseUrl(socketBaseUrl);
     final uri = '$base/live';
     final authPreview = _maskToken(accessToken);
-    final authHeader = 'Bearer $accessToken';
     final jwtDiag = _jwtDiagnostics(accessToken);
-    var retriedWithBearer = false;
 
     DevLogger.instance.log(
       DevLogCategory.http,
       '[SOCKET] startTracking | uri=$uri | gameId=$gameId | auth=$authPreview | $jwtDiag',
     );
 
-    void connectSocket({required bool useBearerTokenField}) {
-      final tokenField = useBearerTokenField ? authHeader : accessToken;
-      final mode = useBearerTokenField ? 'bearer' : 'raw';
+    final socket = io.io(
+      uri,
+      io.OptionBuilder()
+          .setTransports(['websocket', 'polling'])
+          .setAuth({'token': accessToken})
+          .setPath('/socket.io')
+          .disableAutoConnect()
+          .build(),
+    );
 
-      final socket = io.io(
-        uri,
-        io.OptionBuilder()
-            .setTransports(['websocket', 'polling'])
-            .setAuth({
-              'token': tokenField,
-              'accessToken': accessToken,
-            })
-            .setQuery({
-              'token': tokenField,
-              'accessToken': accessToken,
-            })
-            .setExtraHeaders({
-              'Authorization': authHeader,
-              'x-access-token': accessToken,
-            })
-            .setPath('/socket.io')
-            .disableAutoConnect()
-            .build(),
-      );
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[SOCKET] auth mode=auth.token | len=${accessToken.length} | starts=${accessToken.substring(0, 20)}...',
+    );
 
+    _socket = socket;
+    _activeGameId = gameId;
+
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[SOCKET] Socket created | mode=auth.token | transports=websocket,polling | path=/socket.io | autoConnect=false | gameId=$gameId',
+    );
+
+    socket.onConnect((_) {
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] Token format | mode=$mode | len=${accessToken.length} | starts=${accessToken.substring(0, 20)}... | tokenField=$tokenField',
+        '[SOCKET] connected | mode=auth.token | id=${socket.id ?? '-'} | gameId=$gameId',
       );
+      _emitWithLog(socket, 'game:join', {'gameId': gameId}, gameId: gameId);
+    });
 
-      _socket = socket;
-      _activeGameId = gameId;
-
+    socket.onConnectError((error) {
+      final preview = _safePreview(error);
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] Socket created | mode=$mode | transports=websocket,polling | path=/socket.io | auth=payload+query+headers | autoConnect=false | gameId=$gameId',
+        '[SOCKET] connect_error | mode=auth.token | gameId=$gameId | $preview',
       );
-
-      socket.onConnect((_) {
-        DevLogger.instance.log(
-          DevLogCategory.http,
-          '[SOCKET] connected | mode=$mode | id=${socket.id ?? '-'} | gameId=$gameId',
-        );
-        _emitWithLog(socket, 'game:join', {'gameId': gameId}, gameId: gameId);
-      });
-
-      socket.onConnectError((error) {
-        final preview = _safePreview(error);
-        DevLogger.instance.log(
-          DevLogCategory.http,
-          '[SOCKET] connect_error | mode=$mode | gameId=$gameId | $preview',
-        );
-
-        if (!useBearerTokenField &&
-            !retriedWithBearer &&
-            _looksInvalidToken(preview)) {
-          retriedWithBearer = true;
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[SOCKET] retry connect with Bearer token format | gameId=$gameId',
-          );
-          socket.dispose();
-          connectSocket(useBearerTokenField: true);
-        }
-      });
-
-      socket.onError((error) {
-        DevLogger.instance.log(
-          DevLogCategory.http,
-          '[SOCKET] error(callback) | mode=$mode | gameId=$gameId | ${_safePreview(error)}',
-        );
-      });
-
-      socket.onDisconnect((reason) {
-        DevLogger.instance.log(
-          DevLogCategory.http,
-          '[SOCKET] disconnected | mode=$mode | gameId=$gameId | reason=${_safePreview(reason)}',
-        );
-      });
-
-      _bindGameEvents(socket, gameId);
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] connect() called | mode=$mode | gameId=$gameId',
+        '[SOCKET] auth.token with validated access token failed -> backend should verify socket auth middleware | gameId=$gameId',
       );
-      socket.connect();
-    }
+    });
 
-    connectSocket(useBearerTokenField: false);
+    socket.onError((error) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] error(callback) | mode=auth.token | gameId=$gameId | ${_safePreview(error)}',
+      );
+    });
+
+    socket.onDisconnect((reason) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] disconnected | mode=auth.token | gameId=$gameId | reason=${_safePreview(reason)}',
+      );
+    });
+
+    _bindGameEvents(socket, gameId);
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[SOCKET] connect() called | mode=auth.token | gameId=$gameId',
+    );
+    socket.connect();
   }
 
   Future<void> stopTracking() async {
@@ -276,69 +250,108 @@ class OnlineGameEventsService {
     return String.fromCharCodes(bytes);
   }
 
-  static bool _looksInvalidToken(String errorPreview) {
-    final text = errorPreview.toLowerCase();
-    return text.contains('invalid token') || text.contains('invalid_token');
-  }
-
-  static Future<void> debugSocketAuth({
+  /// Returns `(connected: bool, error: String?)`.
+  /// Connects with `auth.token` per API spec, resolves after connect or first connect_error.
+  static Future<({bool connected, String? error})> debugSocketAuth({
     required String socketBaseUrl,
     required String accessToken,
-    required String gameId,
   }) async {
     final base = _normalizeBaseUrl(socketBaseUrl);
     final uri = '$base/live';
     final jwtDiag = _jwtDiagnostics(accessToken);
+    _logManualConnectGuide(base, accessToken);
 
     DevLogger.instance.log(
       DevLogCategory.http,
-      '[SOCKET_DEBUG] Attempting minimal query-only auth | uri=$uri | gameId=$gameId | $jwtDiag',
+      '[SOCKET_DEBUG] Test auth.token | uri=$uri | $jwtDiag | len=${accessToken.length}',
     );
+
+    final completer = Completer<({bool connected, String? error})>();
+
+    print("URI: $uri");
+    print("AccessToken mask: ${_maskToken(accessToken)}");
+    print("access: $accessToken");
+
 
     try {
       final socket = io.io(
         uri,
         io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
-            .setQuery({'token': accessToken})
+            .setAuth({'token': accessToken})
             .setPath('/socket.io')
             .disableAutoConnect()
             .build(),
       );
 
-      var connectAttempts = 0;
       socket.onConnect((_) {
         DevLogger.instance.log(
           DevLogCategory.http,
-          '[SOCKET_DEBUG] SUCCESS connected | uri=$uri | gameId=$gameId',
+          '[SOCKET_DEBUG] SUCCESS connected | id=${socket.id ?? '-'} | uri=$uri',
         );
         socket.dispose();
+        if (!completer.isCompleted) {
+          completer.complete((connected: true, error: null));
+        }
       });
 
       socket.onConnectError((error) {
-        connectAttempts++;
+        final msg = _safePreview(error);
         DevLogger.instance.log(
           DevLogCategory.http,
-          '[SOCKET_DEBUG] connect_error attempt=$connectAttempts | uri=$uri | gameId=$gameId | error=${_safePreview(error)}',
+          '[SOCKET_DEBUG] connect_error | uri=$uri | error=$msg',
         );
-        if (connectAttempts > 2) socket.dispose();
+        socket.dispose();
+        if (!completer.isCompleted) {
+          completer.complete((connected: false, error: msg));
+        }
       });
 
       socket.onError((error) {
+        final msg = _safePreview(error);
         DevLogger.instance.log(
           DevLogCategory.http,
-          '[SOCKET_DEBUG] error | uri=$uri | gameId=$gameId | error=${_safePreview(error)}',
+          '[SOCKET_DEBUG] error | uri=$uri | error=$msg',
         );
+        if (!completer.isCompleted) {
+          completer.complete((connected: false, error: msg));
+        }
       });
 
       socket.connect();
-      await Future.delayed(const Duration(seconds: 3));
+
+      // Timeout safety
+      Future.delayed(const Duration(seconds: 6), () {
+        if (!completer.isCompleted) {
+          socket.dispose();
+          completer.complete((connected: false, error: 'timeout after 6s'));
+        }
+      });
+
+      return completer.future;
     } catch (e) {
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET_DEBUG] exception | uri=$uri | gameId=$gameId | error=$e',
+        '[SOCKET_DEBUG] exception | uri=$uri | error=$e',
       );
+      return (connected: false, error: e.toString());
     }
+  }
+
+  static void _logManualConnectGuide(String baseUrl, String accessToken) {
+    final wsHandshakeUrl = '$baseUrl/socket.io/?EIO=4&transport=websocket';
+    final preview = _maskToken(accessToken);
+    final curlWs =
+        'curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: SGVsbG9Xb3JsZDEyMw==" -H "Authorization: Bearer <ACCESS_TOKEN>" "$wsHandshakeUrl"';
+
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[SOCKET_DEBUG][GUIDE] accessToken(masked)=$preview',
+    );
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[SOCKET_DEBUG][GUIDE] websocket curl: $curlWs',
+    );
   }
 
   static String _normalizeBaseUrl(String raw) {

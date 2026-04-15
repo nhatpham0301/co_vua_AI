@@ -14,7 +14,7 @@ import 'dev_logger.dart';
 
 // ─── Ad Policy Config ─────────────────────────────────────────────────────────
 /// Số lượng quảng cáo interstitial tối đa được preload và giữ trong hàng đợi.
-const int kAdQueueMaxSize = 5;
+const int kAdQueueMaxSize = 3;
 
 // SharedPreferences keys
 const _kPrefDateKey = 'ad_last_date_played'; // "yyyy-MM-dd"

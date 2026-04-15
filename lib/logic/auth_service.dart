@@ -48,6 +48,44 @@ class AuthService extends ChangeNotifier {
   String? get lastError => _lastError;
   String? get accessToken => _accessToken;
 
+  Future<String?> ensureValidAccessToken({int minValiditySeconds = 30}) async {
+    final token = _accessToken;
+    if (token == null || token.isEmpty) return null;
+
+    final remainingSeconds = _jwtRemainingSeconds(token);
+    if (remainingSeconds == null) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'Access token expiry check skipped: unable to parse JWT exp',
+      );
+      return token;
+    }
+
+    if (remainingSeconds > minValiditySeconds) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        'Access token valid for ${remainingSeconds}s',
+      );
+      return token;
+    }
+
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      'Access token expiring/expired (${remainingSeconds}s) -> refreshing',
+    );
+    final refreshed = await refreshTokens();
+    if (!refreshed || _accessToken == null || _accessToken!.isEmpty) {
+      return null;
+    }
+
+    final refreshedRemaining = _jwtRemainingSeconds(_accessToken!);
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      'Access token refreshed${refreshedRemaining != null ? ' | validFor=${refreshedRemaining}s' : ''}',
+    );
+    return _accessToken;
+  }
+
   // ── SharedPreferences keys ─────────────────────────────────────────────────
   static const _kAccessToken = 'auth_access_token';
   static const _kRefreshToken = 'auth_refresh_token';
@@ -249,5 +287,79 @@ class AuthService extends ChangeNotifier {
     await prefs.remove(_kUsername);
     await prefs.remove(_kEmail);
     await prefs.remove(_kElo);
+  }
+
+  static int? _jwtRemainingSeconds(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length < 2) return null;
+
+      final decoded = _decodeBase64Url(parts[1]);
+      final expIndex = decoded.indexOf('"exp":');
+      if (expIndex < 0) return null;
+
+      final start = expIndex + 6;
+      var end = start;
+      while (end < decoded.length) {
+        final code = decoded.codeUnitAt(end);
+        if (code < 48 || code > 57) break;
+        end++;
+      }
+      if (end <= start) return null;
+
+      final expSeconds = int.tryParse(decoded.substring(start, end));
+      if (expSeconds == null) return null;
+
+      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return expSeconds - nowSeconds;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _decodeBase64Url(String input) {
+    var normalized = input.replaceAll('-', '+').replaceAll('_', '/');
+    final remainder = normalized.length % 4;
+    if (remainder > 0) {
+      normalized =
+          normalized.padRight(normalized.length + (4 - remainder), '=');
+    }
+
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    final bytes = <int>[];
+
+    for (var index = 0; index < normalized.length; index += 4) {
+      final c1 = chars.indexOf(normalized[index]);
+      final c2 = chars.indexOf(normalized[index + 1]);
+      final c3 = normalized[index + 2] == '='
+          ? -1
+          : chars.indexOf(normalized[index + 2]);
+      final c4 = normalized[index + 3] == '='
+          ? -1
+          : chars.indexOf(normalized[index + 3]);
+
+      if (c1 < 0 ||
+          c2 < 0 ||
+          (c3 < 0 && normalized[index + 2] != '=') ||
+          (c4 < 0 && normalized[index + 3] != '=')) {
+        return '{}';
+      }
+
+      final b1 = (c1 << 2) | (c2 >> 4);
+      bytes.add(b1 & 0xFF);
+
+      if (c3 >= 0) {
+        final b2 = ((c2 & 0x0F) << 4) | (c3 >> 2);
+        bytes.add(b2 & 0xFF);
+      }
+
+      if (c4 >= 0 && c3 >= 0) {
+        final b3 = ((c3 & 0x03) << 6) | c4;
+        bytes.add(b3 & 0xFF);
+      }
+    }
+
+    return String.fromCharCodes(bytes);
   }
 }
