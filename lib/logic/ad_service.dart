@@ -12,10 +12,6 @@ import 'dev_logger.dart';
 // ─── Ad Unit IDs ──────────────────────────────────────────────────────────────
 // Ad IDs are read from env only (assets/env/config.env).
 
-// ─── Ad Policy Config ─────────────────────────────────────────────────────────
-/// Số lượng quảng cáo interstitial tối đa được preload và giữ trong hàng đợi.
-const int kAdQueueMaxSize = 3;
-
 // SharedPreferences keys
 const _kPrefDateKey = 'ad_last_date_played'; // "yyyy-MM-dd"
 const _kPrefCountKey = 'ad_daily_game_count'; // số ván hôm nay
@@ -26,7 +22,7 @@ const _kPrefCountKey = 'ad_daily_game_count'; // số ván hôm nay
 ///   1. Ván kết thúc → [onGameEnded] → theo dõi ngày, bật [_needsAd] nếu cần.
 ///   2. Chess view sau 1 giây → [showGameEndAd] → hiện ad ngay trong màn hình game.
 ///   3. Nút "Chơi lại" / "CHƠI" → [showAdBeforeGame] → chỉ là fallback nếu
-///      ad chưa được hiện tại bước 2 (ví dụ: hàng đợi lúc đó trống).
+///      ad chưa được hiện tại bước 2 (ví dụ: interstitial chưa tải kịp lúc đó).
 class AdService {
   static const String _testAndroidBannerId =
       'ca-app-pub-3940256099942544/6300978111';
@@ -51,9 +47,10 @@ class AdService {
         // 'ABCDEF012345...',
       ];
 
-  // ── Ad Queue ───────────────────────────────────────────────────────────────
-  final List<InterstitialAd> _adQueue = [];
+  // ── Interstitial State ─────────────────────────────────────────────────────
+  InterstitialAd? _readyInterstitial;
   bool _isLoadingAd = false;
+  Future<InterstitialAd?>? _loadingAdFuture;
   Timer? _retryLoadTimer;
   int _retryAttempt = 0;
 
@@ -82,7 +79,7 @@ class AdService {
   /// True khi một ván đã kết thúc và cần hiện ad.
   bool _needsAd = false;
   bool get needsAd => _needsAd;
-  int get queueSize => _adQueue.length;
+  int get queueSize => _readyInterstitial == null ? 0 : 1;
   bool get isLoadingAd => _isLoadingAd;
 
   // ── Dev flags ──────────────────────────────────────────────────────────────
@@ -137,29 +134,37 @@ class AdService {
     )..load();
   }
 
-  // ── Queue Management ────────────────────────────────────────────────────────
+  // ── Interstitial Loading ───────────────────────────────────────────────────
 
-  /// Nạp quảng cáo vào hàng đợi cho đến khi đầy [kAdQueueMaxSize].
+  /// Preload đúng 1 interstitial để có thể show ngay khi cần.
   void fillQueue() {
     if (!_sdkReady) {
       DevLogger.instance.log(
         DevLogCategory.ad,
-        'SDK not ready — deferring fillQueue',
+        'SDK not ready — deferring interstitial preload',
       );
       return;
     }
-    _loadNextAdIfNeeded();
+    unawaited(_loadInterstitialIfNeeded());
   }
 
-  void _loadNextAdIfNeeded() {
+  Future<InterstitialAd?> _loadInterstitialIfNeeded() {
     _retryLoadTimer?.cancel();
     _retryLoadTimer = null;
-    if (_isLoadingAd || _adQueue.length >= kAdQueueMaxSize) return;
+    if (_readyInterstitial != null) {
+      return Future.value(_readyInterstitial);
+    }
+    if (_loadingAdFuture != null) {
+      return _loadingAdFuture!;
+    }
+
     _isLoadingAd = true;
+    final completer = Completer<InterstitialAd?>();
+    _loadingAdFuture = completer.future;
 
     DevLogger.instance.log(
       DevLogCategory.ad,
-      'Loading ad into queue (${_adQueue.length}/$kAdQueueMaxSize)...',
+      'Loading interstitial ad...',
     );
 
     InterstitialAd.load(
@@ -167,34 +172,38 @@ class AdService {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) {
-          _adQueue.add(ad);
+          _readyInterstitial = ad;
           _isLoadingAd = false;
+          _loadingAdFuture = null;
           _retryAttempt = 0;
           DevLogger.instance.log(
             DevLogCategory.ad,
-            'Ad loaded. Queue: ${_adQueue.length}/$kAdQueueMaxSize',
+            'Interstitial ad loaded and ready',
           );
-          debugPrint(
-              '[AdService] Ad loaded. Queue: ${_adQueue.length}/$kAdQueueMaxSize');
-          _loadNextAdIfNeeded();
+          debugPrint('[AdService] Interstitial ad loaded and ready');
+          if (!completer.isCompleted) completer.complete(ad);
         },
         onAdFailedToLoad: (error) {
           _isLoadingAd = false;
+          _loadingAdFuture = null;
           DevLogger.instance.log(
             DevLogCategory.ad,
-            'Ad failed to load: $error. Queue: ${_adQueue.length}/$kAdQueueMaxSize',
+            'Interstitial ad failed to load: $error',
           );
-          debugPrint('[AdService] Ad failed to load: $error');
+          debugPrint('[AdService] Interstitial ad failed to load: $error');
           _scheduleRetryAfterLoadFailure(error);
+          if (!completer.isCompleted) completer.complete(null);
         },
       ),
     );
+
+    return completer.future;
   }
 
   static const int _kMaxRetryAttempts = 5;
 
   void _scheduleRetryAfterLoadFailure(LoadAdError error) {
-    if (_adQueue.length >= kAdQueueMaxSize || _retryLoadTimer != null) return;
+    if (_readyInterstitial != null || _retryLoadTimer != null) return;
 
     _retryAttempt++;
     if (_retryAttempt > _kMaxRetryAttempts) {
@@ -219,6 +228,23 @@ class AdService {
       _retryLoadTimer = null;
       fillQueue();
     });
+  }
+
+  Future<InterstitialAd?> _takeInterstitialForShow() async {
+    final ready = _readyInterstitial;
+    if (ready != null) {
+      _readyInterstitial = null;
+      fillQueue();
+      return ready;
+    }
+
+    final loaded = await _loadInterstitialIfNeeded();
+    if (loaded == null) return null;
+    if (identical(_readyInterstitial, loaded)) {
+      _readyInterstitial = null;
+    }
+    fillQueue();
+    return loaded;
   }
 
   // ── Game End Tracking ──────────────────────────────────────────────────────
@@ -250,13 +276,13 @@ class AdService {
 
     DevLogger.instance.log(
       DevLogCategory.ad,
-      'Ván #$gameCount hôm nay | Queue: ${_adQueue.length}/$kAdQueueMaxSize',
+      'Ván #$gameCount hôm nay | interstitialReady=${_readyInterstitial != null}',
     );
 
     if (gameCount == 1) {
       // Ván đầu tiên trong ngày — miễn ad
       DevLogger.instance.log(DevLogCategory.ad, 'Ván 1 hôm nay — không cần ad');
-      fillQueue(); // preload cho ván sau
+      fillQueue();
       return;
     }
 
@@ -291,23 +317,20 @@ class AdService {
       return true;
     }
 
-    if (_adQueue.isEmpty) {
-      // Hàng đợi trống — giữ _needsAd = true để showAdBeforeGame làm fallback
+    final ad = await _takeInterstitialForShow();
+    if (ad == null) {
       DevLogger.instance.log(
         DevLogCategory.ad,
-        'Hàng đợi trống — giữ _needsAd để fallback trước ván kế',
+        'Chưa tải được interstitial ở game end — giữ _needsAd để fallback trước ván kế',
       );
-      fillQueue();
       return false;
     }
 
     _needsAd = false;
-    final ad = _adQueue.removeAt(0);
-    fillQueue(); // nạp ngay ad thay thế
 
     DevLogger.instance.log(
       DevLogCategory.ad,
-      'Hiện ad kết thúc game. Còn lại trong hàng đợi: ${_adQueue.length}/$kAdQueueMaxSize',
+      'Hiện interstitial ở game end',
     );
 
     final result = Completer<bool>();
@@ -343,7 +366,7 @@ class AdService {
   // ── Fallback: Show Ad Before Game (main menu "CHƠI" button) ───────────────
 
   /// Fallback cho nút "CHƠI" ở main menu. Chỉ hiện ad nếu [_needsAd] vẫn còn
-  /// (tức ad tại game end chưa được hiện do hàng đợi trống lúc đó).
+  /// (tức ad tại game end chưa được hiện do interstitial chưa tải kịp lúc đó).
   Future<void> showAdBeforeGame(
     FutureOr<void> Function() onComplete, {
     BuildContext? context,
@@ -375,22 +398,20 @@ class AdService {
       return;
     }
 
-    if (_adQueue.isEmpty) {
-      DevLogger.instance.log(
-          DevLogCategory.ad, 'Hàng đợi trống (fallback) — sẽ thử lại lượt sau');
-      debugPrint('[AdService] Queue empty — keep pending ad requirement.');
+    final ad = await _takeInterstitialForShow();
+    if (ad == null) {
+      DevLogger.instance.log(DevLogCategory.ad,
+          'Chưa tải được interstitial (fallback) — tiếp tục game');
+      debugPrint('[AdService] No interstitial ready for fallback show.');
       await onComplete();
-      fillQueue();
       return;
     }
 
     _needsAd = false;
-    final ad = _adQueue.removeAt(0);
-    fillQueue();
 
     DevLogger.instance.log(
       DevLogCategory.ad,
-      'Hiện ad fallback trước game. Queue còn: ${_adQueue.length}/$kAdQueueMaxSize',
+      'Hiện interstitial fallback trước game',
     );
 
     ad.fullScreenContentCallback = FullScreenContentCallback(

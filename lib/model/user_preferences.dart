@@ -177,7 +177,7 @@ class UserPreferences {
 
   Future<void> resetToDefaults() async {
     themeName = 'Jargon Jade';
-    pieceTheme = 'Classic';
+    pieceTheme = 'Default';
     showMoveHistory = true;
     soundEnabled = true;
     showHints = true;

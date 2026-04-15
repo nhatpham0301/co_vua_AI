@@ -34,7 +34,7 @@ void main() async {
 
   // Heavy work in background after UI is visible:
   // 1. Initialize Mobile Ads SDK (500 ms – 2 s on Android)
-  // 2. Pre-load interstitial ad queue
+  // 2. Pre-load one interstitial ad
   // 3. Pre-load Flame images & audio
   unawaited(_warmUpServices());
 }

@@ -179,7 +179,7 @@ class AppModel extends ChangeNotifier {
     gameController = GameController(this);
     timerService.start(() => turn, () => gameOver);
 
-    // Preload ads into queue so they're ready for the next game start.
+    // Preload one interstitial so it is ready for the next game start.
     adService.fillQueue();
 
     // Trigger AI move if it's AI's turn natively for standard games

@@ -17,32 +17,73 @@ class GameBannerAd extends StatefulWidget {
 }
 
 class _GameBannerAdState extends State<GameBannerAd> {
+  static const Duration _retryFast = Duration(milliseconds: 250);
+  static const Duration _retryMedium = Duration(milliseconds: 500);
+  static const Duration _retrySlow = Duration(seconds: 1);
+
   gma.BannerAd? _bannerAd;
   bool _adLoaded = false;
+  bool _isCreatingBanner = false;
+  int _retryAttempt = 0;
   Timer? _retryTimer;
 
   void _loadBanner() {
-    _bannerAd?.dispose();
+    if (!mounted) return;
+    if (_isCreatingBanner) return;
+    if (_bannerAd != null && _adLoaded) return;
+
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _isCreatingBanner = true;
+
     final adService = Provider.of<AppModel>(context, listen: false).adService;
-    _bannerAd = adService.createBannerAd(
+    final existing = _bannerAd;
+    final created = adService.createBannerAd(
       listener: gma.BannerAdListener(
         onAdLoaded: (_) {
+          _isCreatingBanner = false;
+          _retryAttempt = 0;
           _retryTimer?.cancel();
+          _retryTimer = null;
           if (mounted) setState(() => _adLoaded = true);
         },
         onAdFailedToLoad: (ad, __) {
+          _isCreatingBanner = false;
           ad.dispose();
+          if (identical(_bannerAd, ad)) {
+            _bannerAd = null;
+          }
           if (mounted) setState(() => _adLoaded = false);
-          _retryTimer ??=
-              Timer.periodic(const Duration(seconds: 8), (_) => _loadBanner());
+          _scheduleRetry();
         },
       ),
     );
-    // SDK not ready yet — schedule retry
-    if (_bannerAd == null) {
-      _retryTimer ??=
-          Timer.periodic(const Duration(seconds: 8), (_) => _loadBanner());
+
+    if (created == null) {
+      _isCreatingBanner = false;
+      _scheduleRetry();
+      return;
     }
+
+    _bannerAd = created;
+    if (existing != null && !identical(existing, created)) {
+      existing.dispose();
+    }
+  }
+
+  void _scheduleRetry() {
+    if (_retryTimer != null) return;
+    _retryAttempt++;
+    final delay = _retryAttempt <= 3
+        ? _retryFast
+        : _retryAttempt <= 8
+            ? _retryMedium
+            : _retrySlow;
+
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      _loadBanner();
+    });
   }
 
   @override
@@ -54,6 +95,7 @@ class _GameBannerAdState extends State<GameBannerAd> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _retryTimer = null;
     _bannerAd?.dispose();
     super.dispose();
   }

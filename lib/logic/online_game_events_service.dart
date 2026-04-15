@@ -278,7 +278,7 @@ class OnlineGameEventsService {
         uri,
         io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
-            .setAuth({'token': accessToken})
+            .setAuth({'token': accessToken, 'Bearer': accessToken})
             .setPath('/socket.io')
             .disableAutoConnect()
             .build(),
