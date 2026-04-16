@@ -4,18 +4,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../logic/game_state_storage.dart';
-import '../logic/online_game_events_service.dart';
 import '../model/app_model.dart';
-import '../model/app_themes.dart';
-import 'components/main_menu_view/mm_background.dart';
-import 'components/main_menu_view/mm_banner_ad.dart' show GameBannerAd;
-import 'components/main_menu_view/mm_header.dart';
 import 'components/main_menu_view/mm_live_match_list.dart';
 import 'components/main_menu_view/mm_models.dart';
-import 'components/main_menu_view/mm_palette.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
+import 'components/main_menu_view/user_profile_dialog.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 
@@ -123,6 +119,75 @@ class _MainMenuViewState extends State<MainMenuView> {
     await _fetchRecentGames();
   }
 
+  Future<void> _showWatchDialog() async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) {
+        final l = AppLocalizations.of(ctx)!;
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: 0.8,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF09152A),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.10),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 10, 6),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            CupertinoIcons.eye,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            l.watchMatchTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            minimumSize: const Size(30, 30),
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Đóng'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: Color(0x22FFFFFF)),
+                    Expanded(
+                      child: LiveMatchList(
+                        matches: _matches,
+                        onRefresh: _refreshMatches,
+                        hasSavedGame: false,
+                        bottomPadding: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _handleLogin() async {
     final result = await Navigator.push<bool>(
       context,
@@ -134,84 +199,143 @@ class _MainMenuViewState extends State<MainMenuView> {
     }
   }
 
+  void _showUserProfile() async {
+    final auth = Provider.of<AppModel>(context, listen: false).authService;
+    if (!auth.isLoggedIn || auth.user == null) return;
+
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => UserProfileDialog(
+        userId: auth.user!.id,
+        userName: auth.user!.username,
+        avatarUrl: auth.user!.avatarUrl,
+        elo: auth.user!.elo,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-    const bannerHeight = 50.0;
-    const fabAreaHeight = 72.0;
-
     return Consumer<AppModel>(
       builder: (context, model, _) {
         final auth = model.authService;
         final isLoggedIn = auth.isLoggedIn;
         final userName = auth.user?.username ?? '';
-        final elo = auth.user?.elo ?? 0;
+        final l = AppLocalizations.of(context)!;
 
         return Scaffold(
-          backgroundColor: bgDark,
+          backgroundColor: Colors.black,
           body: Stack(
             fit: StackFit.expand,
             children: [
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [bgMid, bgDark],
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/home/background.png',
+                  fit: BoxFit.fitHeight,
+                  alignment: Alignment.center,
+                ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.12),
+                        Colors.black.withValues(alpha: 0.50),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const BoardBackground(),
-              const CornerKnots(),
               Column(
                 children: [
                   SafeArea(
                     bottom: false,
-                    child: MenuHeader(
-                      isLoggedIn: isLoggedIn,
-                      userName: userName,
-                      elo: elo,
-                      rank: '',
-                      onLoginTap: _handleLogin,
-                      onSettingsTap: () => Navigator.push(
-                        context,
-                        CupertinoPageRoute(builder: (_) => SettingsView()),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                      child: Row(
+                        children: [
+                          if (isLoggedIn)
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _showUserProfile,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.45),
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.25),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '$userName • ${auth.user?.elo ?? 0} ELO',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else ...[
+                            const Spacer(),
+                          ],
+                          const SizedBox(width: 8),
+                          _TopIconButton(
+                            icon: CupertinoIcons.person,
+                            label: l.loginTitle,
+                            onTap: _handleLogin,
+                          ),
+                          const SizedBox(width: 8),
+                          _TopIconButton(
+                            icon: CupertinoIcons.settings,
+                            label: l.settings,
+                            onTap: () => Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                  builder: (_) => SettingsView()),
+                            ),
+                          ),
+                        ],
                       ),
-                      onThemeTap: () {
-                        model.setTheme(
-                            (model.themeIndex + 1) % themeList.length);
-                      },
                     ),
                   ),
-                  Expanded(
-                    child: LiveMatchList(
-                      matches: _matches,
-                      onRefresh: _refreshMatches,
-                      hasSavedGame: _hasSavedGame,
-                      bottomPadding:
-                          fabAreaHeight + bannerHeight + bottomPad + 12,
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Column(
+                      children: [
+                        _ImageHomeButton(
+                          assetPath: 'assets/images/home/watch_match.png',
+                          loading: false,
+                          semanticLabel: l.watch,
+                          onTap: _showWatchDialog,
+                        ),
+                        const SizedBox(height: 18),
+                        QuickPlayBtn(
+                          hasSavedGame: _hasSavedGame,
+                          onGameFinished: _checkSavedGame,
+                          buttonBuilder: (ctx, isStarting) => _ImageHomeButton(
+                            assetPath: 'assets/images/home/play_game.png',
+                            loading: isStarting,
+                            semanticLabel: l.play,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  GameBannerAd(bottomPad: bottomPad),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
                 ],
               ),
-              Positioned(
-                bottom: bannerHeight + bottomPad + 14,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: QuickPlayBtn(
-                    hasSavedGame: _hasSavedGame,
-                    onGameFinished: _checkSavedGame,
-                  ),
-                ),
-              ),
-              if (isLoggedIn)
-                Positioned(
-                  bottom: bannerHeight + bottomPad + 18,
-                  right: 20,
-                  child: _SocketTestBtn(model),
-                ),
             ],
           ),
         );
@@ -220,102 +344,80 @@ class _MainMenuViewState extends State<MainMenuView> {
   }
 }
 
-// ── Socket Debug Button ───────────────────────────────────────────────────────
+class _TopIconButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
-class _SocketTestBtn extends StatefulWidget {
-  final AppModel model;
-  const _SocketTestBtn(this.model);
-
-  @override
-  State<_SocketTestBtn> createState() => _SocketTestBtnState();
-}
-
-class _SocketTestBtnState extends State<_SocketTestBtn> {
-  bool _testing = false;
-
-  Future<void> _runTest() async {
-    if (_testing) return;
-    setState(() => _testing = true);
-    try {
-      final token = await widget.model.authService.ensureValidAccessToken();
-      if (token == null || token.isEmpty) {
-        _showResult(
-          context,
-          connected: false,
-          message: 'Không có access token hợp lệ.',
-        );
-        return;
-      }
-
-      final result = await OnlineGameEventsService.debugSocketAuth(
-        socketBaseUrl: widget.model.socketBaseUrl,
-        accessToken: token,
-      );
-
-      if (!mounted) return;
-      _showResult(
-        context,
-        connected: result.connected,
-        message: result.error,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showResult(context, connected: false, message: e.toString());
-    } finally {
-      if (mounted) setState(() => _testing = false);
-    }
-  }
-
-  void _showResult(
-    BuildContext ctx, {
-    required bool connected,
-    String? message,
-  }) {
-    showCupertinoDialog<void>(
-      context: ctx,
-      builder: (_) => CupertinoAlertDialog(
-        title: Text(connected ? '✅ Socket Connected' : '❌ Socket Failed'),
-        content: Text(
-          connected
-              ? 'Kết nối /live thành công với auth.token.'
-              : 'Lỗi: ${message ?? 'unknown'}',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(_),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+  const _TopIconButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _testing ? null : _runTest,
+      onTap: onTap,
       child: Container(
-        width: 42,
-        height: 42,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: bgCard.withValues(alpha: 0.6),
+          color: Colors.black.withValues(alpha: 0.45),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: Colors.white.withValues(alpha: 0.28),
           ),
         ),
-        child: _testing
-            ? const Padding(
-                padding: EdgeInsets.all(10),
-                child: CupertinoActivityIndicator(color: Colors.white),
-              )
-            : const Icon(
-                Icons.wifi_rounded,
-                color: Colors.white70,
-                size: 20,
-              ),
+        child: Tooltip(
+          message: label,
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
       ),
     );
+  }
+}
+
+class _ImageHomeButton extends StatelessWidget {
+  final String assetPath;
+  final bool loading;
+  final String semanticLabel;
+  final VoidCallback? onTap;
+
+  const _ImageHomeButton({
+    required this.assetPath,
+    required this.loading,
+    required this.semanticLabel,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.asset(
+            assetPath,
+            fit: BoxFit.contain,
+          ),
+          if (loading)
+            Container(
+              width: 80,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const CupertinoActivityIndicator(color: Colors.white),
+            ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return button;
+    return GestureDetector(onTap: onTap, child: button);
   }
 }

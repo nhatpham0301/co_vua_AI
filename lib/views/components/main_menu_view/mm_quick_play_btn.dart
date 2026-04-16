@@ -29,11 +29,13 @@ Future<bool> _checkOnline() async {
 class QuickPlayBtn extends StatefulWidget {
   final bool hasSavedGame;
   final VoidCallback onGameFinished;
+  final Widget Function(BuildContext context, bool isStarting)? buttonBuilder;
 
   const QuickPlayBtn({
     super.key,
     required this.hasSavedGame,
     required this.onGameFinished,
+    this.buttonBuilder,
   });
 
   @override
@@ -66,48 +68,51 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final defaultButton = Container(
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 52),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0082C8), Color(0xFF0050A0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0xFF0082C8),
+            blurRadius: 20,
+            spreadRadius: 1,
+          ),
+          BoxShadow(
+            color: Colors.black38,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Center(
+        child: _isStarting
+            ? const CupertinoActivityIndicator(color: Colors.white)
+            : Text(
+                l.play,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.5,
+                ),
+              ),
+      ),
+    );
+
     return AnimatedBuilder(
       animation: _scale,
       builder: (_, child) => Transform.scale(scale: _scale.value, child: child),
       child: GestureDetector(
         onTap: _isStarting ? null : () => _start(context),
-        child: Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 52),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0082C8), Color(0xFF0050A0)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0xFF0082C8),
-                blurRadius: 20,
-                spreadRadius: 1,
-              ),
-              BoxShadow(
-                color: Colors.black38,
-                blurRadius: 6,
-                offset: Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Center(
-            child: _isStarting
-                ? const CupertinoActivityIndicator(color: Colors.white)
-                : Text(
-                    l.play,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2.5,
-                    ),
-                  ),
-          ),
-        ),
+        child:
+            widget.buttonBuilder?.call(context, _isStarting) ?? defaultButton,
       ),
     );
   }

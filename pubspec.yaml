@@ -37,6 +37,7 @@ dependencies:
   google_mobile_ads: ^5.2.0
   flutter_dotenv: ^5.1.0
   socket_io_client: ^3.0.2
+  cached_network_image: ^3.3.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -104,6 +105,8 @@ flutter:
   assets:
     - .env
     - assets/images/
+    - assets/images/home/
+    - assets/images/rank/
     - assets/images/pieces/classic/
     - assets/images/pieces/default/
     - assets/images/pieces/letters/

@@ -16,6 +16,7 @@ import 'components/chess_view/game_app_bar.dart';
 import 'components/chess_view/players_header_row.dart';
 import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
+import 'components/main_menu_view/mm_banner_ad.dart';
 import 'components/main_menu_view/mm_palette.dart';
 
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
@@ -205,6 +206,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const GameBannerAd(bottomPad: 0),
                           // AppBar with rank and settings button
                           GameAppBar(rankName: rankName, appModel: appModel),
                           // Players info row

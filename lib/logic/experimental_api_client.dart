@@ -150,6 +150,25 @@ class ExperimentalApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> fetchUserProfile(String userId) async {
+    return _getJson(
+      '/api/users/$userId',
+      requiresAuth: false,
+    );
+  }
+
+  Future<List<dynamic>> fetchUserEloHistory(String userId) async {
+    final json = await _getJson(
+      '/api/users/$userId/elo-history',
+      requiresAuth: false,
+    );
+    final data = json['data'] ?? json['eloHistory'] ?? [];
+    if (data is List) {
+      return data;
+    }
+    return [];
+  }
+
   // ── Public POST (no Bearer token) ──────────────────────────────────────────
   Future<Map<String, dynamic>> postJsonPublic(
     String path, {

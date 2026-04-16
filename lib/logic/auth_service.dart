@@ -10,12 +10,14 @@ class AuthUser {
   final String username;
   final String email;
   final int elo;
+  final String? avatarUrl;
 
   const AuthUser({
     required this.id,
     required this.username,
     required this.email,
     required this.elo,
+    this.avatarUrl,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class AuthUser {
       username: json['username'] as String? ?? '',
       email: json['email'] as String? ?? '',
       elo: (json['elo'] as num?)?.toInt() ?? 1200,
+      avatarUrl: json['avatarUrl'] as String?,
     );
   }
 }
