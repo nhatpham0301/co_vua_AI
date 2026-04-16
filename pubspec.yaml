@@ -107,6 +107,7 @@ flutter:
     - assets/images/
     - assets/images/home/
     - assets/images/rank/
+    - assets/images/boards/
     - assets/images/pieces/classic/
     - assets/images/pieces/default/
     - assets/images/pieces/letters/

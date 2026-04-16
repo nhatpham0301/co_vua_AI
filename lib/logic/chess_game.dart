@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flame/events.dart';
+import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -36,6 +38,7 @@ class ChessGame extends FlameGame with TapCallbacks {
   Paint _latestMovePaint = Paint();
   Paint _selectedPiecePaint = Paint();
   String? _cachedThemeName;
+  ui.Image? _boardTexture;
 
   ChessGame(this.controller, this.appModel) {
     controller.onSnapSprites = () => snapSprites();
@@ -110,6 +113,16 @@ class ChessGame extends FlameGame with TapCallbacks {
   }
 
   // ── Rendering ──
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    try {
+      _boardTexture = Flame.images.fromCache('boards/wood_board.png');
+    } catch (_) {
+      _boardTexture = await Flame.images.load('boards/wood_board.png');
+    }
+  }
 
   @override
   void onGameResize(Vector2 size) {
@@ -206,6 +219,21 @@ class ChessGame extends FlameGame with TapCallbacks {
   }
 
   void _drawBoard(Canvas canvas) {
+    if (_boardTexture != null && width != null) {
+      canvas.drawImageRect(
+        _boardTexture!,
+        Rect.fromLTWH(
+          0,
+          0,
+          _boardTexture!.width.toDouble(),
+          _boardTexture!.height.toDouble(),
+        ),
+        Rect.fromLTWH(0, 0, width!, width!),
+        Paint(),
+      );
+      return;
+    }
+
     for (int tileNo = 0; tileNo < 64; tileNo++) {
       canvas.drawRect(
         Rect.fromLTWH(

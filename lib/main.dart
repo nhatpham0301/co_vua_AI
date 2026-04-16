@@ -65,6 +65,7 @@ Future<void> _loadFlameAssets() async {
       }
     }
   }
+  pieceImages.add('boards/wood_board.png');
   await Flame.images.loadAll(pieceImages);
   await FlameAudio.audioCache.loadAll([
     'piece_moved.mp3',
