@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../model/app_model.dart';
-import '../main_menu_view/mm_palette.dart';
 import '../shared/app_dialog.dart';
 import 'chess_dialogs.dart';
 
@@ -52,120 +51,138 @@ class ActionButtonsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      alignment: Alignment.centerLeft,
+      child: _ActionBtn(
+        icon: Icons.menu_rounded,
+        enabled: true,
+        tooltip: AppLocalizations.of(context)!.settings,
+        onTap: () => _showQuickMenu(context),
+      ),
+    );
+  }
+
+  Future<void> _showQuickMenu(BuildContext context) async {
     final l = AppLocalizations.of(context)!;
     final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: bgCard.withValues(alpha: 0.38),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          if (showUndoRedo) ...[
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.undo_rounded,
-                enabled: _undoOk,
-                onTap: _undoOk ? _undo : null,
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierLabel: 'quick_menu',
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.38),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, _, __) {
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFF2C1C12), Color(0xFF130D09)],
+                    ),
+                    border: Border.all(
+                      color: const Color(0xFFB06E2D).withValues(alpha: 0.85),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.30),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _MenuItem(
+                        icon: Icons.logout_rounded,
+                        label: l.exitBtn,
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          if (appModel.gameOver) {
+                            appModel.exitChessView();
+                            Navigator.pop(context);
+                          } else {
+                            showExitDialog(context);
+                          }
+                        },
+                      ),
+                      _MenuItem(
+                        icon: Icons.refresh_rounded,
+                        label: l.newGameTitle,
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _showRestartDialog(context, l);
+                        },
+                      ),
+                      if (showUndoRedo)
+                        _MenuItem(
+                          icon: Icons.undo_rounded,
+                          label: l.back,
+                          enabled: _undoOk,
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _undo();
+                          },
+                        ),
+                      if (showUndoRedo)
+                        _MenuItem(
+                          icon: Icons.redo_rounded,
+                          label: l.redo,
+                          enabled: _redoOk,
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _redo();
+                          },
+                        ),
+                      _MenuItem(
+                        icon: appModel.soundEnabled
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        label:
+                            appModel.soundEnabled ? 'Tắt tiếng' : 'Bật tiếng',
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          appModel.setSoundEnabled(!appModel.soundEnabled);
+                          appModel.update();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.redo_rounded,
-                enabled: _redoOk,
-                onTap: _redoOk ? _redo : null,
-                tooltip: l.redo,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.add_circle_outline_rounded,
-                enabled: true,
-                isActive: false,
-                tooltip: l.newGameTitle,
-                onTap: () => _showRestartDialog(context, l),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: appModel.showHints
-                    ? Icons.visibility_rounded
-                    : Icons.visibility_off_rounded,
-                enabled: true,
-                isActive: appModel.showHints,
-                tooltip: l.toggleHints,
-                onTap: () async {
-                  await appModel.prefs.setShowHints(!appModel.showHints);
-                  appModel.update();
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.exit_to_app_rounded,
-                enabled: true,
-                tooltip: l.exitTooltip,
-                onTap: () {
-                  if (appModel.gameOver) {
-                    appModel.exitChessView();
-                    Navigator.pop(context);
-                  } else {
-                    showExitDialog(context);
-                  }
-                },
-              ),
-            ),
-          ] else ...[
-            Expanded(
-              child: _ActionBtn(
-                icon: appModel.showHints
-                    ? Icons.visibility_rounded
-                    : Icons.visibility_off_rounded,
-                enabled: true,
-                isActive: appModel.showHints,
-                tooltip: l.toggleHints,
-                onTap: () async {
-                  await appModel.prefs.setShowHints(!appModel.showHints);
-                  appModel.update();
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.add_circle_outline_rounded,
-                enabled: true,
-                isActive: false,
-                tooltip: l.newGameTitle,
-                onTap: () => _showRestartDialog(context, l),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ActionBtn(
-                icon: Icons.exit_to_app_rounded,
-                enabled: true,
-                tooltip: l.exitTooltip,
-                onTap: () {
-                  if (appModel.gameOver) {
-                    appModel.exitChessView();
-                    Navigator.pop(context);
-                  } else {
-                    showExitDialog(context);
-                  }
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.08),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -298,7 +315,6 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   // final String label;
   final bool enabled;
-  final bool isActive;
   final String? tooltip;
   final VoidCallback? onTap;
 
@@ -306,7 +322,6 @@ class _ActionBtn extends StatelessWidget {
     required this.icon,
     // required this.label,
     required this.enabled,
-    this.isActive = false,
     this.tooltip,
     this.onTap,
   });
@@ -319,37 +334,33 @@ class _ActionBtn extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(28),
         splashColor: Colors.white.withValues(alpha: 0.08),
         highlightColor: Colors.white.withValues(alpha: 0.04),
         child: Ink(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          width: 52,
+          height: 52,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            shape: BoxShape.circle,
             gradient: enabled
-                ? LinearGradient(
+                ? const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: isActive
-                        ? const [Color(0xFF4C7A3E), Color(0xFF24412D)]
-                        : const [Color(0xFF314530), Color(0xFF1C2428)],
+                    colors: [Color(0xFF9A6330), Color(0xFF362113)],
                   )
                 : null,
             color: enabled ? null : Colors.white.withValues(alpha: 0.04),
             border: Border.all(
               color: enabled
-                  ? (isActive
-                      ? const Color(0xFFA9D67A).withValues(alpha: 0.72)
-                      : const Color(0xFF8EA770).withValues(alpha: 0.25))
+                  ? const Color(0xFFF0C06C).withValues(alpha: 0.72)
                   : Colors.white.withValues(alpha: 0.05),
+              width: 1.4,
             ),
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: isActive
-                          ? const Color(0xFF89D46A).withValues(alpha: 0.2)
-                          : Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
+                      color: const Color(0xFF1F130C).withValues(alpha: 0.55),
+                      blurRadius: 14,
                       offset: const Offset(0, 5),
                     ),
                   ]
@@ -368,29 +379,9 @@ class _ActionBtn extends StatelessWidget {
                   icon,
                   key: ValueKey(icon),
                   color: textColor,
-                  size: 19,
+                  size: 22,
                 ),
               ),
-              if (enabled && isActive)
-                Positioned(
-                  top: 4,
-                  right: 8,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFA9D67A),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFFA9D67A).withValues(alpha: 0.55),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -435,16 +426,16 @@ class _BottomBtn extends StatelessWidget {
                 ? const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF7A5B2B), Color(0xFF405E34)],
+                    colors: [Color(0xFFD79D49), Color(0xFF7A4B1F)],
                   )
                 : const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF283039), Color(0xFF171C23)],
+                    colors: [Color(0xFF5A3923), Color(0xFF24160F)],
                   ),
             border: Border.all(
               color: isPrimary
-                  ? const Color(0xFFD0BA7A).withValues(alpha: 0.18)
+                  ? const Color(0xFFF3CE82).withValues(alpha: 0.35)
                   : Colors.white.withValues(alpha: 0.08),
             ),
             boxShadow: [
@@ -467,6 +458,51 @@ class _BottomBtn extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 0.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = enabled ? const Color(0xFFF1C98A) : const Color(0xFF8C7360);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: fg),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

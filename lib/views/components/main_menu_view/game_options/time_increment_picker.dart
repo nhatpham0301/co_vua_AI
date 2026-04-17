@@ -6,14 +6,20 @@ import 'picker.dart';
 class TimeMoveLimitPicker extends StatelessWidget {
   final int? selectedLimit;
   final Function(int?)? setLimit;
+  final bool themed;
 
-  const TimeMoveLimitPicker({this.selectedLimit, this.setLimit});
+  const TimeMoveLimitPicker({
+    this.selectedLimit,
+    this.setLimit,
+    this.themed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Picker<int>(
       label: l.timeMoveLimit,
+      themed: themed,
       options: <int, Text>{
         0: Text(l.timeMoveLimitNone),
         10: const Text('10s'),

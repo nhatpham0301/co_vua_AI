@@ -14,12 +14,14 @@ class BoardStage extends StatelessWidget {
   final AppModel appModel;
   final ChessGame chessGame;
   final double boardSize;
+  final double topReservedHeight;
 
   const BoardStage({
     super.key,
     required this.appModel,
     required this.chessGame,
     required this.boardSize,
+    this.topReservedHeight = 0,
   });
 
   @override
@@ -29,8 +31,8 @@ class BoardStage extends StatelessWidget {
         const stageHorizontalPadding = 0.0;
         const stageVerticalPadding = 8.0;
         const boardHorizontalPadding = 0.0;
-        const boardVerticalPadding = 8.0;
-        const turnBarSpacing = 12.0;
+        const boardVerticalPadding = 6.0;
+        const turnBarSpacing = 8.0;
         const turnBarEstimatedHeight = 44.0;
 
         final maxBoardWidth =
@@ -48,31 +50,44 @@ class BoardStage extends StatelessWidget {
             )
             .toDouble();
 
+        final contentHeight = resolvedBoardSize +
+            (boardVerticalPadding * 2) +
+            turnBarSpacing +
+            turnBarEstimatedHeight;
+        final freeVerticalSpace = math.max(
+          0.0,
+          constraints.maxHeight - (stageVerticalPadding * 2) - contentHeight,
+        );
+        final adCompensation = (topReservedHeight * 0.18).clamp(0.0, 14.0);
+        final topInset =
+            (freeVerticalSpace * 0.20 + adCompensation).clamp(10.0, 34.0);
+
         return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: stageHorizontalPadding,
-            vertical: stageVerticalPadding,
+          padding: EdgeInsets.only(
+            top: topInset,
+            left: stageHorizontalPadding,
+            right: stageHorizontalPadding,
+            bottom: stageVerticalPadding,
           ),
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: boardHorizontalPadding,
-                      vertical: boardVerticalPadding,
-                    ),
-                    child: ChessBoardWidget(
-                      appModel,
-                      chessGame,
-                      boardSize: resolvedBoardSize,
-                    ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: boardHorizontalPadding,
+                    vertical: boardVerticalPadding,
+                  ),
+                  child: ChessBoardWidget(
+                    appModel,
+                    chessGame,
+                    boardSize: resolvedBoardSize,
                   ),
                 ),
-              ),
-              const SizedBox(height: turnBarSpacing),
-              _TurnBar(appModel),
-            ],
+                const SizedBox(height: turnBarSpacing),
+                _TurnBar(appModel),
+              ],
+            ),
           ),
         );
       },

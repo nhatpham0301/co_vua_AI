@@ -19,56 +19,86 @@ class LiveMatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: const Color(0xFFF1E1C7),
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: const Color(0xFFBE945F).withValues(alpha: 0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8D6339).withValues(alpha: 0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          splashColor: primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          splashColor: primary.withValues(alpha: 0.12),
           onTap: () => _onTap(context),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(
               children: [
-                // ── Left: mini board preview ──────────────────────────
-                MiniChessBoard(board: match.board),
-                const SizedBox(width: 14),
-
-                // ── Middle: LIVE badge + timer + players ──────────────
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          _LiveBadge(),
-                          const Spacer(),
-                          Text(
-                            _fmt(match.elapsedSec),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                Row(
+                  children: [
+                    _LiveBadge(),
+                    const Spacer(),
+                    Text(
+                      _fmt(match.elapsedSec),
+                      style: const TextStyle(
+                        color: Color(0xFF654225),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(height: 10),
-                      PlayerRow(player: match.white),
-                      const SizedBox(height: 6),
-                      PlayerRow(player: match.black),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-
-                // ── Right: XEM button ─────────────────────────────────
-                _WatchButton(onTap: () => _onTap(context)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          _SidePlayer(player: match.white, alignRight: false),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      children: [
+                        MiniChessBoard(board: match.board),
+                        const SizedBox(height: 5),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility_rounded,
+                              color: const Color(0xFF8F6A43)
+                                  .withValues(alpha: 0.92),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${match.moveCount}',
+                              style: const TextStyle(
+                                color: Color(0xFF5B3A21),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'Jura',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _SidePlayer(player: match.black, alignRight: true),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -90,85 +120,99 @@ class LiveMatchCard extends StatelessWidget {
   }
 }
 
-// ─── LIVE pill badge ──────────────────────────────────────────────────────────
+// ─── LIVE pill badge ─────────────────────────────────────────────────────────
 class _LiveBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: primary.withValues(alpha: 0.55)),
+        color: const Color(0xFFB84739),
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         l.live,
-        style: TextStyle(
-          color: primaryLight,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
         ),
       ),
     );
   }
 }
 
-// ─── "XEM" watch button ───────────────────────────────────────────────────────
-class _WatchButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _WatchButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: primary,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          l.watch,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Single player name row ───────────────────────────────────────────────────
-class PlayerRow extends StatelessWidget {
+class _SidePlayer extends StatelessWidget {
   final MatchPlayer player;
-  const PlayerRow({super.key, required this.player});
+  final bool alignRight;
+
+  const _SidePlayer({required this.player, required this.alignRight});
+
+  String _initials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return parts.first
+          .substring(0, parts.first.length.clamp(0, 2))
+          .toUpperCase();
+    }
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final textAlign = alignRight ? TextAlign.right : TextAlign.left;
+    return Column(
+      crossAxisAlignment:
+          alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        Flexible(
-          child: Text(
-            '${player.name} (${player.elo})',
-            style: TextStyle(
-              color: player.isBot
-                  ? Colors.white.withValues(alpha: 0.75)
-                  : Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFD8A968), Color(0xFF9D6532)],
             ),
-            overflow: TextOverflow.ellipsis,
+            border: Border.all(color: const Color(0xFFF6D9A9), width: 1.4),
+          ),
+          child: Center(
+            child: Text(
+              _initials(player.name),
+              style: const TextStyle(
+                color: Color(0xFF4C2E17),
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+              ),
+            ),
           ),
         ),
-        if (player.isBot) ...[
-          const SizedBox(width: 4),
-          const Icon(Icons.bolt_rounded, color: primaryLight, size: 14),
-        ],
+        const SizedBox(height: 6),
+        Text(
+          player.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: textAlign,
+          style: const TextStyle(
+            color: Color(0xFF573721),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        Text(
+          'A${player.elo}',
+          textAlign: textAlign,
+          style: TextStyle(
+            color: const Color(0xFF5F3B22).withValues(alpha: 0.85),
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
   }
@@ -182,14 +226,27 @@ class MiniChessBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 66,
-      height: 66,
+      width: 110,
+      height: 76,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: primary.withValues(alpha: 0.25), width: 1),
+        borderRadius: BorderRadius.circular(10),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFE2B875), Color(0xFFBD7E3D)],
+        ),
+        border:
+            Border.all(color: const Color(0xFFF2D3A2).withValues(alpha: 0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(9),
         child: CustomPaint(painter: _MiniChessPainter(board: board)),
       ),
     );
@@ -205,10 +262,10 @@ class _MiniChessPainter extends CustomPainter {
     const n = 8;
     final cw = size.width / n;
     final ch = size.height / n;
-    final light = Paint()..color = const Color(0xFF1A3560);
-    final dark = Paint()..color = const Color(0xFF0D2040);
-    final pieceW = Paint()..color = Colors.white.withValues(alpha: 0.85);
-    final pieceB = Paint()..color = const Color(0xFF00B4D8);
+    final light = Paint()..color = const Color(0xFFEBCB95);
+    final dark = Paint()..color = const Color(0xFFB88347);
+    final pieceW = Paint()..color = const Color(0xFFF7E5C8);
+    final pieceB = Paint()..color = const Color(0xFF6F4221);
 
     for (int r = 0; r < n; r++) {
       for (int c = 0; c < n; c++) {

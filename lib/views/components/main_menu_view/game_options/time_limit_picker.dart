@@ -6,14 +6,16 @@ import 'picker.dart';
 class TimeLimitPicker extends StatelessWidget {
   final int? selectedTime;
   final Function(int?)? setTime;
+  final bool themed;
 
-  TimeLimitPicker({this.selectedTime, this.setTime});
+  TimeLimitPicker({this.selectedTime, this.setTime, this.themed = false});
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Picker<int>(
       label: l.timeLimit,
+      themed: themed,
       options: <int, Text>{
         0: Text(l.timeLimitNone),
         5: const Text('5m'),

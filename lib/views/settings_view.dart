@@ -9,9 +9,7 @@ import 'components/main_menu_view/game_options/time_increment_picker.dart';
 import 'components/main_menu_view/game_options/time_limit_picker.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
-import 'components/settings_view/app_theme_picker.dart';
 import 'components/settings_view/language_picker.dart';
-import 'components/settings_view/piece_theme_picker.dart';
 import 'components/settings_view/toggles.dart';
 import 'components/shared/app_dialog.dart';
 import 'components/shared/bottom_padding.dart';
@@ -56,27 +54,39 @@ class SettingsView extends StatelessWidget {
           const BoardBackground(),
           const CornerKnots(),
           Padding(
-            padding: EdgeInsets.all(30),
+            padding: const EdgeInsets.all(30),
             child: Column(
               children: [
                 SizedBox(height: MediaQuery.of(context).padding.top),
+                Row(
+                  children: [
+                    _TopActionButton(
+                      icon: CupertinoIcons.back,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    const Spacer(),
+                    Consumer<AppModel>(
+                      builder: (context, appModel, child) => _TopActionButton(
+                        icon: Icons.settings_backup_restore_rounded,
+                        onTap: () => _showResetConfirmation(context, appModel),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
                 Expanded(
                   child: CupertinoScrollbar(
                     child: ListView(
                       padding: EdgeInsets.zero,
-                      physics: ClampingScrollPhysics(),
+                      physics: const ClampingScrollPhysics(),
                       children: [
-                        AppThemePicker(),
-                        SizedBox(height: 10),
-                        PieceThemePicker(),
-                        SizedBox(height: 10),
                         const LanguagePicker(),
-                        SizedBox(height: 10),
+                        const SizedBox(height: 10),
                         Consumer<AppModel>(
                           builder: (context, appModel, child) =>
                               Toggles(appModel),
                         ),
-                        SizedBox(height: 10),
+                        const SizedBox(height: 10),
                         Consumer<AppModel>(
                           builder: (context, appModel, child) =>
                               _TimerSettingsSection(appModel: appModel),
@@ -106,36 +116,38 @@ class SettingsView extends StatelessWidget {
                     );
                   },
                 ),
-                RoundedButton(
-                  l.back,
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                ),
-                const SizedBox(height: 12),
                 const _DevTapTarget(),
                 BottomPadding(),
               ],
             ),
           ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 30,
-            right: 30,
-            child: Consumer<AppModel>(
-              builder: (context, appModel, child) => CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () {
-                  _showResetConfirmation(context, appModel);
-                },
-                child: Icon(
-                  Icons.settings_backup_restore_rounded,
-                  color: const Color(0x99FFFFFF), // semi-transparent white
-                  size: 28,
-                ),
-              ),
-            ),
-          ),
         ],
+      ),
+    );
+  }
+}
+
+class _TopActionButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _TopActionButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.45),
+          border: Border.all(
+            color: const Color(0xFFF0CA89).withValues(alpha: 0.45),
+          ),
+        ),
+        child: Icon(icon, color: const Color(0xFFF4D293), size: 20),
       ),
     );
   }
@@ -150,31 +162,57 @@ class _TimerSettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 10),
-          child: Text(
-            l.timerSettings,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-            ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            bgCard.withValues(alpha: 0.62),
+            bgMid.withValues(alpha: 0.68),
+          ],
+        ),
+        border:
+            Border.all(color: const Color(0xFFEBC889).withValues(alpha: 0.32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                CupertinoIcons.clock_fill,
+                size: 16,
+                color: Color(0xFFF0D2A0),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                l.timerSettings,
+                style: const TextStyle(
+                  color: Color(0xFFF0D2A0),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.35,
+                ),
+              ),
+            ],
           ),
-        ),
-        TimeLimitPicker(
-          selectedTime: appModel.timeLimit,
-          setTime: appModel.setTimeLimit,
-        ),
-        const SizedBox(height: 10),
-        TimeMoveLimitPicker(
-          selectedLimit: appModel.moveTimeLimit,
-          setLimit: appModel.setMoveTimeLimit,
-        ),
-      ],
+          const SizedBox(height: 10),
+          TimeLimitPicker(
+            themed: true,
+            selectedTime: appModel.timeLimit,
+            setTime: appModel.setTimeLimit,
+          ),
+          const SizedBox(height: 10),
+          TimeMoveLimitPicker(
+            themed: true,
+            selectedLimit: appModel.moveTimeLimit,
+            setLimit: appModel.setMoveTimeLimit,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -234,7 +272,8 @@ class _DevTapTargetState extends State<_DevTapTarget> {
               'v1.0.2+3',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.15),
-                fontSize: 11,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (_taps > 0)
@@ -332,7 +371,8 @@ class _DevModeActiveSection extends StatelessWidget {
           'v1.0.2+3',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.15),
-            fontSize: 11,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

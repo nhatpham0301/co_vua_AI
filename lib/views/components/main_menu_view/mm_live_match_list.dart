@@ -39,11 +39,11 @@ class LiveMatchList extends StatelessWidget {
           },
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(14, 12, 14, bottomPadding),
+          padding: EdgeInsets.fromLTRB(14, 8, 14, bottomPadding),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               const _SectionHeader(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               if (hasSavedGame) ...[
                 const SavedGameCard(),
                 const SizedBox(height: 8),
@@ -67,35 +67,43 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Row(
-      children: [
-        Text(
-          l.liveMatchesTitle,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: primary.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: primary.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            l.live,
-            style: TextStyle(
-              color: primaryLight,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDEC7A7),
+        borderRadius: BorderRadius.circular(10),
+        border:
+            Border.all(color: const Color(0xFFB58752).withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            l.liveMatchesTitle,
+            style: const TextStyle(
+              color: Color(0xFF5A3821),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.7,
             ),
           ),
-        ),
-      ],
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB64537),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: const Text(
+              'LIVE',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

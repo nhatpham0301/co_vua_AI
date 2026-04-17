@@ -19,7 +19,7 @@ const _kPrefCountKey = 'ad_daily_game_count'; // số ván hôm nay
 /// Quản lý banner và interstitial ads — Singleton pattern.
 ///
 /// Luồng mới:
-///   1. Ván kết thúc → [onGameEnded] → theo dõi ngày, bật [_needsAd] nếu cần.
+///   1. Ván kết thúc → [onGameEnded] → bật [_needsAd] ngay.
 ///   2. Chess view sau 1 giây → [showGameEndAd] → hiện ad ngay trong màn hình game.
 ///   3. Nút "Chơi lại" / "CHƠI" → [showAdBeforeGame] → chỉ là fallback nếu
 ///      ad chưa được hiện tại bước 2 (ví dụ: interstitial chưa tải kịp lúc đó).
@@ -250,7 +250,7 @@ class AdService {
   // ── Game End Tracking ──────────────────────────────────────────────────────
 
   /// Gọi khi một ván kết thúc. Theo dõi số ván hôm nay qua SharedPreferences
-  /// và bật [_needsAd] nếu đã qua ván miễn phí đầu tiên trong ngày.
+  /// và bật [_needsAd] ngay để hiện ad khi vào trạng thái game over.
   Future<void> onGameEnded() async {
     if (_devForceAd) {
       _needsAd = true;
@@ -279,17 +279,10 @@ class AdService {
       'Ván #$gameCount hôm nay | interstitialReady=${_readyInterstitial != null}',
     );
 
-    if (gameCount == 1) {
-      // Ván đầu tiên trong ngày — miễn ad
-      DevLogger.instance.log(DevLogCategory.ad, 'Ván 1 hôm nay — không cần ad');
-      fillQueue();
-      return;
-    }
-
     _needsAd = true;
     fillQueue();
-    DevLogger.instance.log(
-        DevLogCategory.ad, '_needsAd = true — sẽ hiện ad khi kết thúc game');
+    DevLogger.instance.log(DevLogCategory.ad,
+        '_needsAd = true — sẽ hiện ad ngay khi kết thúc game');
   }
 
   // ── Show Ad at Game End (called from chess_view after 1s) ─────────────────

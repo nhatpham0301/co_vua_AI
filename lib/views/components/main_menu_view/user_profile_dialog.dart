@@ -3,10 +3,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../l10n/app_localizations.dart';
 import '../../../logic/rank_system.dart';
 import '../../../model/app_model.dart';
-import 'mm_palette.dart';
 
 class UserProfileDialog extends StatefulWidget {
   final String userId;
@@ -71,204 +69,189 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final rankName = RankSystem.getRankName(widget.elo);
     final rankBadgePath = RankSystem.getRankBadgePath(widget.elo);
 
     return SafeArea(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: FractionallySizedBox(
-          heightFactor: 0.85,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF09152A),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            ),
-            child: Column(
-              children: [
-                // Header with close button
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 620, maxHeight: 860),
+          margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7D4BB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF6D4B2D), width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.48),
+                blurRadius: 24,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 74,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF3E2A1A).withValues(alpha: 0.95),
+                      const Color(0xFF24170F).withValues(alpha: 0.95),
+                    ],
+                  ),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(9)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
-                      const SizedBox(width: 8),
-                      Expanded(child: Container()),
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        minimumSize: const Size(30, 30),
-                        onPressed: () => Navigator.pop(context),
-                        child: const Icon(CupertinoIcons.xmark,
-                            color: Colors.white70),
+                      Expanded(
+                        child: Text(
+                          widget.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFF0CB88),
+                            fontSize: 30,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Jura',
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF5A3923),
+                            border: Border.all(
+                              color: const Color(0xFFF2D09B)
+                                  .withValues(alpha: 0.7),
+                            ),
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.xmark,
+                            color: Color(0xFFF7DEB1),
+                            size: 18,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: Color(0x22FFFFFF)),
-                // Profile info section
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      // Avatar + Username + Rank
-                      Row(
-                        children: [
-                          // Avatar
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.yellow.withValues(alpha: 0.6),
-                                width: 2,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFF1C57D),
+                          width: 2.5,
+                        ),
+                        color: const Color(0xFF4D2F1B),
+                      ),
+                      child: widget.avatarUrl != null &&
+                              widget.avatarUrl!.isNotEmpty
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: widget.avatarUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (ctx, url) => const Center(
+                                  child: CupertinoActivityIndicator(
+                                    color: Color(0xFFF2CA84),
+                                  ),
+                                ),
+                                errorWidget: (ctx, url, err) =>
+                                    _buildAvatarPlaceholder(),
                               ),
-                              color: Colors.black.withValues(alpha: 0.3),
+                            )
+                          : _buildAvatarPlaceholder(),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$rankName • ${widget.elo} ELO',
+                            style: const TextStyle(
+                              color: Color(0xFF5A3921),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
                             ),
-                            child: widget.avatarUrl != null &&
-                                    widget.avatarUrl!.isNotEmpty
-                                ? ClipOval(
-                                    child: CachedNetworkImage(
-                                      imageUrl: widget.avatarUrl!,
-                                      fit: BoxFit.cover,
-                                      placeholder: (ctx, url) => const Center(
-                                        child: CupertinoActivityIndicator(
-                                          color: Colors.white30,
-                                        ),
-                                      ),
-                                      errorWidget: (ctx, url, err) =>
-                                          _buildAvatarPlaceholder(),
-                                    ),
-                                  )
-                                : _buildAvatarPlaceholder(),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.userName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${rankName} • ${widget.elo} ELO',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                // Rank badge
-                                Image.asset(
-                                  rankBadgePath,
-                                  width: 60,
-                                  height: 30,
-                                  fit: BoxFit.contain,
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 6),
+                          Image.asset(
+                            rankBadgePath,
+                            width: 74,
+                            height: 34,
+                            fit: BoxFit.contain,
                           ),
                         ],
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.fromLTRB(14, 2, 14, 8),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: const Color(0xFFD6C1A1),
+                  border: Border.all(
+                    color: const Color(0xFF9B6D3A).withValues(alpha: 0.55),
                   ),
                 ),
-                const Divider(height: 1, color: Color(0x22FFFFFF)),
-                // Tabs
-                Container(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _selectedTab = 0);
-                            _loadUserData();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: _selectedTab == 0
-                                      ? primaryLight
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              l.settingsTooltip,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _selectedTab == 0
-                                    ? primaryLight
-                                    : Colors.white.withValues(alpha: 0.5),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _ProfileTabButton(
+                        label: 'Thống kê',
+                        selected: _selectedTab == 0,
+                        onTap: () {
+                          setState(() => _selectedTab = 0);
+                          _loadUserData();
+                        },
                       ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _selectedTab = 1);
-                            _loadUserData();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: _selectedTab == 1
-                                      ? primaryLight
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              'Lịch sử',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: _selectedTab == 1
-                                    ? primaryLight
-                                    : Colors.white.withValues(alpha: 0.5),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _ProfileTabButton(
+                        label: 'Lịch sử',
+                        selected: _selectedTab == 1,
+                        onTap: () {
+                          setState(() => _selectedTab = 1);
+                          _loadUserData();
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                // Tab content
-                Expanded(
-                  child: _loading
-                      ? const Center(
-                          child: CupertinoActivityIndicator(
-                            color: primaryLight,
-                          ),
-                        )
-                      : _selectedTab == 0
-                          ? _buildStatsTab()
-                          : _buildHistoryTab(),
-                ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CupertinoActivityIndicator(
+                          color: Color(0xFF9A612E),
+                        ),
+                      )
+                    : _selectedTab == 0
+                        ? _buildStatsTab()
+                        : _buildHistoryTab(),
+              ),
+            ],
           ),
         ),
       ),
@@ -277,12 +260,12 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   Widget _buildAvatarPlaceholder() {
     return Container(
-      color: Colors.black.withValues(alpha: 0.5),
+      color: const Color(0xFF6B4528),
       child: Center(
         child: Text(
           widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
           style: const TextStyle(
-            color: Colors.white60,
+            color: Color(0xFFF7DEB0),
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),
@@ -293,11 +276,12 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   Widget _buildStatsTab() {
     if (_eloHistory == null || _eloHistory!.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           'Chưa có dữ liệu',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
+            color: Color(0xFF7E5A3A),
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -308,12 +292,12 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Lịch sử ELO',
             style: TextStyle(
-              color: Colors.white,
+              color: Color(0xFF5A3921),
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 12),
@@ -323,16 +307,16 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFF1E1C7),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: const Color(0xFFBE945F).withValues(alpha: 0.5),
                       ),
                     ),
                     child: Text(
                       e.toString(),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                      style: const TextStyle(
+                        color: Color(0xFF5A3921),
                         fontSize: 12,
                       ),
                     ),
@@ -346,11 +330,12 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   Widget _buildHistoryTab() {
     if (_eloHistory == null || _eloHistory!.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           'Chưa có ván nào',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
+            color: Color(0xFF7E5A3A),
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -367,30 +352,32 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isWin
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.red.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xFFF1E1C7),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: (isWin ? Colors.green : Colors.red)
-                      .withValues(alpha: 0.3),
+                  color: (isWin
+                          ? const Color(0xFF3E8A50)
+                          : const Color(0xFF9B4444))
+                      .withValues(alpha: 0.45),
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isWin ? '✅ Thắng' : '❌ Thua',
+                    isWin ? 'Thắng' : 'Thua',
                     style: TextStyle(
-                      color: isWin ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.w600,
+                      color: isWin
+                          ? const Color(0xFF2D7C43)
+                          : const Color(0xFF8E3535),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     game.toString(),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                    style: const TextStyle(
+                      color: Color(0xFF6D4B2E),
                       fontSize: 11,
                     ),
                     maxLines: 2,
@@ -401,6 +388,57 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+}
+
+class _ProfileTabButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ProfileTabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: selected
+              ? const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFD8A96D), Color(0xFFA76C35)],
+                )
+              : const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFBCA582), Color(0xFF9E8563)],
+                ),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFFF2D5A2).withValues(alpha: 0.82)
+                : const Color(0xFF89613E).withValues(alpha: 0.44),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? const Color(0xFF3D2514) : const Color(0xFF5A402B),
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            fontFamily: 'Jura',
+          ),
+        ),
       ),
     );
   }

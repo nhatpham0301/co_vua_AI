@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:confetti/confetti.dart';
@@ -12,7 +13,6 @@ import '../model/player.dart';
 import 'components/chess_view/board_stage.dart';
 import 'components/chess_view/chess_actions.dart';
 import 'components/chess_view/chess_dialogs.dart';
-import 'components/chess_view/game_app_bar.dart';
 import 'components/chess_view/players_header_row.dart';
 import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
@@ -20,23 +20,7 @@ import 'components/main_menu_view/mm_banner_ad.dart';
 import 'components/main_menu_view/mm_palette.dart';
 
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
-
-String _rankName(int level, AppLocalizations l) {
-  switch (level) {
-    case 1:
-      return l.rankName1;
-    case 2:
-      return l.rankName2;
-    case 3:
-      return l.rankName3;
-    case 4:
-      return l.rankName4;
-    case 5:
-      return l.rankName5;
-    default:
-      return '';
-  }
-}
+const _kTopBannerSlotHeight = 56.0;
 
 class ChessView extends StatefulWidget {
   final AppModel appModel;
@@ -55,6 +39,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
   bool _wasGameOver = false;
   bool _gameEndAdScheduled = false;
+  int _readySeconds = 30;
+  bool _isReady = false;
+  Timer? _readyTimer;
 
   _ChessViewState(this.appModel);
 
@@ -71,8 +58,47 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       } else {
         appModel.newGame(notify: false);
         _initFlameGame();
+        _startReadyCountdown();
       }
     });
+  }
+
+  void _startReadyCountdown() {
+    _readyTimer?.cancel();
+    _readySeconds = 30;
+    _isReady = false;
+
+    appModel.timerService.pause();
+    appModel.gameController?.cancelAIMove();
+
+    _readyTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _isReady) {
+        timer.cancel();
+        return;
+      }
+
+      if (_readySeconds <= 1) {
+        timer.cancel();
+        appModel.exitChessView();
+        Navigator.of(context).pop();
+        return;
+      }
+
+      setState(() => _readySeconds--);
+    });
+    setState(() {});
+  }
+
+  void _onReadyPressed() {
+    if (_isReady) return;
+    _readyTimer?.cancel();
+    _readyTimer = null;
+    setState(() => _isReady = true);
+
+    appModel.timerService.resume();
+    if (appModel.isAIsTurn && !appModel.gameOver) {
+      appModel.gameController?.triggerAIMove();
+    }
   }
 
   void _initFlameGame() {
@@ -88,6 +114,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _readyTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _confettiController.dispose();
     super.dispose();
@@ -109,8 +136,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   double _boardSizeFor(BoxConstraints constraints) {
-    final maxBoardWidth = constraints.maxWidth - 24;
-    final preferredHeight = constraints.maxHeight * 0.68;
+    final maxBoardWidth = constraints.maxWidth - 34;
+    final preferredHeight = constraints.maxHeight * 0.66;
     return math.max(280, math.min(maxBoardWidth, preferredHeight));
   }
 
@@ -167,7 +194,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
         final l = AppLocalizations.of(context)!;
         final diff = appModel.aiDifficulty.clamp(1, 5);
-        final rankName = _rankName(diff, l);
         final botElo = _kRankElos[diff];
         final isAI = appModel.playingWithAI;
 
@@ -198,6 +224,18 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                 ),
                 const BoardBackground(),
                 const CornerKnots(),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.14),
+                        const Color(0xFF2E1B0F).withValues(alpha: 0.38),
+                      ],
+                    ),
+                  ),
+                ),
                 SafeArea(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -206,24 +244,19 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const GameBannerAd(bottomPad: 0),
-                          // AppBar with rank and settings button
-                          GameAppBar(rankName: rankName, appModel: appModel),
-                          // Players info row
-                          _playerRow(
-                              isAI: isAI,
-                              diff: diff,
-                              botElo: botElo,
-                              context: context),
+                          const SizedBox(
+                            height: _kTopBannerSlotHeight,
+                            child: GameBannerAd(bottomPad: 0),
+                          ),
                           // Chess board stage
                           Expanded(
                             child: BoardStage(
                               appModel: appModel,
                               chessGame: chessGame!,
                               boardSize: boardSize,
+                              topReservedHeight: _kTopBannerSlotHeight,
                             ),
                           ),
-                          const SizedBox(height: 8),
                           // Action buttons panel
                           ActionButtonsPanel(
                             appModel,
@@ -233,6 +266,132 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         ],
                       );
                     },
+                  ),
+                ),
+                if (!_isReady && !widget.isResuming)
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: Colors.black.withValues(alpha: 0.20),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$_readySeconds',
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 68,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'Jura',
+                                shadows: [
+                                  Shadow(
+                                    color: Color(0xFFF5E0BC),
+                                    blurRadius: 16,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            GestureDetector(
+                              onTap: _onReadyPressed,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 34,
+                                  vertical: 11,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(26),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFFD79D49),
+                                      Color(0xFF9A6330),
+                                    ],
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(0xFFF3CE82)
+                                        .withValues(alpha: 0.55),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.28),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: const Text(
+                                  'Sẵn sàng',
+                                  style: TextStyle(
+                                    color: Color(0xFF4B2B15),
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                SafeArea(
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: _kTopBannerSlotHeight + 16,
+                        left: 10,
+                        child: MatchCornerProfile(
+                          name: isAI ? l.botLevel(diff) : l.opponent,
+                          eloLabel: l.eloLabel(botElo),
+                          totalTimeLeft: appModel.player2TimeLeft,
+                          showTotalTime: appModel.timeLimit > 0,
+                          avatarUrl: null,
+                          isBot: isAI,
+                          isActive: appModel.isAIsTurn && !appModel.gameOver,
+                          mirror: false,
+                          moveTimeLimitSeconds: appModel.moveTimeLimit,
+                          moveTimeLeft: appModel.moveTimeLeft,
+                          onTap: () => showCapturedPiecesSheet(
+                            context,
+                            appModel,
+                            Player.player2,
+                            isAI
+                                ? l.capturedBotPieces
+                                : l.capturedOpponentPieces,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 10,
+                        bottom: 0,
+                        child: MatchCornerProfile(
+                          name:
+                              appModel.authService.user?.username.isNotEmpty ==
+                                      true
+                                  ? appModel.authService.user!.username
+                                  : l.youPlayer,
+                          eloLabel: l
+                              .eloLabel(appModel.authService.user?.elo ?? 1200),
+                          totalTimeLeft: appModel.player1TimeLeft,
+                          showTotalTime: appModel.timeLimit > 0,
+                          avatarUrl: appModel.authService.user?.avatarUrl,
+                          isBot: false,
+                          isActive: !appModel.isAIsTurn && !appModel.gameOver,
+                          mirror: true,
+                          moveTimeLimitSeconds: appModel.moveTimeLimit,
+                          moveTimeLeft: appModel.moveTimeLeft,
+                          onTap: () => showCapturedPiecesSheet(
+                            context,
+                            appModel,
+                            Player.player1,
+                            l.capturedYourPieces,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Align(
@@ -254,43 +413,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           ),
         );
       },
-    );
-  }
-
-  Widget _playerRow(
-      {required bool isAI,
-      required int diff,
-      required int botElo,
-      required BuildContext context}) {
-    final l = AppLocalizations.of(context)!;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-      child: PlayersHeaderRow(
-        isAI: isAI,
-        diff: diff,
-        botElo: botElo,
-        gameOver: appModel.gameOver,
-        isAIsTurn: appModel.isAIsTurn,
-        timeLimitMinutes: appModel.timeLimit,
-        moveTimeLimitSeconds: appModel.moveTimeLimit,
-        player1MaterialDelta: appModel.materialAdvantageFor(Player.player1),
-        player2MaterialDelta: appModel.materialAdvantageFor(Player.player2),
-        player1TimeLeft: appModel.player1TimeLeft,
-        player2TimeLeft: appModel.player2TimeLeft,
-        moveTimeLeft: appModel.moveTimeLeft,
-        onTapPlayer1: () => showCapturedPiecesSheet(
-          context,
-          appModel,
-          Player.player1,
-          l.capturedYourPieces,
-        ),
-        onTapPlayer2: () => showCapturedPiecesSheet(
-          context,
-          appModel,
-          Player.player2,
-          isAI ? l.capturedBotPieces : l.capturedOpponentPieces,
-        ),
-      ),
     );
   }
 }
