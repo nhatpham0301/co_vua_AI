@@ -18,6 +18,7 @@ import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_banner_ad.dart';
 import 'components/main_menu_view/mm_palette.dart';
+import 'components/main_menu_view/user_profile_dialog.dart';
 
 const _kRankElos = [0, 800, 1100, 1400, 1650, 2100];
 const _kTopBannerSlotHeight = 56.0;
@@ -98,6 +99,41 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     appModel.timerService.resume();
     if (appModel.isAIsTurn && !appModel.gameOver) {
       appModel.gameController?.triggerAIMove();
+    }
+  }
+
+  void _showOpponentProfile(
+      BuildContext context, AppModel appModel, AppLocalizations l, int botElo) {
+    final opponentId = appModel.opponentUserId;
+    final isAI = appModel.playingWithAI;
+    final diff = appModel.aiDifficulty.clamp(1, 5);
+    final opponentName = isAI ? l.botLevel(diff) : l.opponent;
+    final capturedPieces = appModel.capturedBlack; // quân trắng ăn quân đen
+
+    if (opponentId != null && !isAI) {
+      // Online — show full profile dialog with captured tab
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (_) => UserProfileDialog(
+          userId: opponentId,
+          userName: opponentName,
+          avatarUrl: null,
+          elo: botElo,
+          capturedPieces: capturedPieces,
+        ),
+      );
+    } else {
+      // AI or no userId — show local info with captured tab only
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (_) => UserProfileDialog(
+          userId: 'ai_$diff',
+          userName: opponentName,
+          avatarUrl: null,
+          elo: botElo,
+          capturedPieces: capturedPieces,
+        ),
+      );
     }
   }
 
@@ -345,23 +381,17 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         left: 10,
                         child: MatchCornerProfile(
                           name: isAI ? l.botLevel(diff) : l.opponent,
+                          elo: botElo,
                           eloLabel: l.eloLabel(botElo),
                           totalTimeLeft: appModel.player2TimeLeft,
                           showTotalTime: appModel.timeLimit > 0,
                           avatarUrl: null,
-                          isBot: isAI,
                           isActive: appModel.isAIsTurn && !appModel.gameOver,
                           mirror: false,
                           moveTimeLimitSeconds: appModel.moveTimeLimit,
                           moveTimeLeft: appModel.moveTimeLeft,
-                          onTap: () => showCapturedPiecesSheet(
-                            context,
-                            appModel,
-                            Player.player2,
-                            isAI
-                                ? l.capturedBotPieces
-                                : l.capturedOpponentPieces,
-                          ),
+                          onTap: () => _showOpponentProfile(
+                              context, appModel, l, botElo),
                         ),
                       ),
                       Positioned(
@@ -373,12 +403,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                       true
                                   ? appModel.authService.user!.username
                                   : l.youPlayer,
+                          elo: appModel.authService.user?.elo ?? 1200,
                           eloLabel: l
                               .eloLabel(appModel.authService.user?.elo ?? 1200),
                           totalTimeLeft: appModel.player1TimeLeft,
                           showTotalTime: appModel.timeLimit > 0,
                           avatarUrl: appModel.authService.user?.avatarUrl,
-                          isBot: false,
                           isActive: !appModel.isAIsTurn && !appModel.gameOver,
                           mirror: true,
                           moveTimeLimitSeconds: appModel.moveTimeLimit,

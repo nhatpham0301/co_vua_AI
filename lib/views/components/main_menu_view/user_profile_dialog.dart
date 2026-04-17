@@ -1,10 +1,12 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../logic/chess_piece.dart';
 import '../../../logic/rank_system.dart';
+import '../../../logic/shared_functions.dart';
 import '../../../model/app_model.dart';
+import '../shared/ranked_profile_avatar.dart';
 
 class UserProfileDialog extends StatefulWidget {
   final String userId;
@@ -12,12 +14,16 @@ class UserProfileDialog extends StatefulWidget {
   final String? avatarUrl;
   final int elo;
 
+  /// Danh sách quân đã mất (truyền vào từ màn trận đấu để hiện tab Quân cờ)
+  final List<ChessPieceType>? capturedPieces;
+
   const UserProfileDialog({
     super.key,
     required this.userId,
     required this.userName,
     this.avatarUrl,
     required this.elo,
+    this.capturedPieces,
   });
 
   @override
@@ -25,9 +31,12 @@ class UserProfileDialog extends StatefulWidget {
 }
 
 class _UserProfileDialogState extends State<UserProfileDialog> {
-  int _selectedTab = 0; // 0 = Stats, 1 = History
+  // 0 = Stats, 1 = History, 2 = Captured (nếu có)
+  int _selectedTab = 0;
   List<dynamic>? _eloHistory;
   bool _loading = false;
+
+  bool get _hasCapturedTab => widget.capturedPieces != null;
 
   @override
   void initState() {
@@ -37,6 +46,8 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   Future<void> _loadUserData() async {
     if (_loading) return;
+    // Tab Quân cờ không cần gọi API
+    if (_hasCapturedTab && _selectedTab == 2) return;
     setState(() => _loading = true);
 
     try {
@@ -44,13 +55,9 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
       final apiClient = appModel.apiClient;
 
       if (_selectedTab == 0) {
-        // Load ELO history for stats
         final history = await apiClient.fetchUserEloHistory(widget.userId);
-        if (mounted) {
-          setState(() => _eloHistory = history);
-        }
+        if (mounted) setState(() => _eloHistory = history);
       } else {
-        // Load game history
         final games = await apiClient.fetchUserGames(
           userId: widget.userId,
           limit: 20,
@@ -70,7 +77,6 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
   @override
   Widget build(BuildContext context) {
     final rankName = RankSystem.getRankName(widget.elo);
-    final rankBadgePath = RankSystem.getRankBadgePath(widget.elo);
 
     return SafeArea(
       child: Center(
@@ -150,33 +156,11 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
                 child: Row(
                   children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFF1C57D),
-                          width: 2.5,
-                        ),
-                        color: const Color(0xFF4D2F1B),
-                      ),
-                      child: widget.avatarUrl != null &&
-                              widget.avatarUrl!.isNotEmpty
-                          ? ClipOval(
-                              child: CachedNetworkImage(
-                                imageUrl: widget.avatarUrl!,
-                                fit: BoxFit.cover,
-                                placeholder: (ctx, url) => const Center(
-                                  child: CupertinoActivityIndicator(
-                                    color: Color(0xFFF2CA84),
-                                  ),
-                                ),
-                                errorWidget: (ctx, url, err) =>
-                                    _buildAvatarPlaceholder(),
-                              ),
-                            )
-                          : _buildAvatarPlaceholder(),
+                    RankedProfileAvatar(
+                      name: widget.userName,
+                      elo: widget.elo,
+                      avatarUrl: widget.avatarUrl,
+                      avatarSize: 72,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -190,13 +174,6 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Image.asset(
-                            rankBadgePath,
-                            width: 74,
-                            height: 34,
-                            fit: BoxFit.contain,
                           ),
                         ],
                       ),
@@ -237,11 +214,23 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                         },
                       ),
                     ),
+                    if (_hasCapturedTab) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _ProfileTabButton(
+                          label: 'Quân cờ',
+                          selected: _selectedTab == 2,
+                          onTap: () {
+                            setState(() => _selectedTab = 2);
+                          },
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
               Expanded(
-                child: _loading
+                child: _loading && _selectedTab != 2
                     ? const Center(
                         child: CupertinoActivityIndicator(
                           color: Color(0xFF9A612E),
@@ -249,25 +238,11 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                       )
                     : _selectedTab == 0
                         ? _buildStatsTab()
-                        : _buildHistoryTab(),
+                        : _selectedTab == 2
+                            ? _buildCapturedTab()
+                            : _buildHistoryTab(),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAvatarPlaceholder() {
-    return Container(
-      color: const Color(0xFF6B4528),
-      child: Center(
-        child: Text(
-          widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Color(0xFFF7DEB0),
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
           ),
         ),
       ),
@@ -389,6 +364,114 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
           );
         }).toList(),
       ),
+    );
+  }
+
+  Widget _buildCapturedTab() {
+    final pieces = widget.capturedPieces ?? [];
+    if (pieces.isEmpty) {
+      return const Center(
+        child: Text(
+          'Chưa ăn quân nào',
+          style: TextStyle(
+            color: Color(0xFF7E5A3A),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    // Group by piece type
+    final grouped = <ChessPieceType, int>{};
+    for (final p in pieces) {
+      grouped[p] = (grouped[p] ?? 0) + 1;
+    }
+
+    return Consumer<AppModel>(
+      builder: (context, appModel, _) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Đã ăn ${pieces.length} quân',
+                style: const TextStyle(
+                  color: Color(0xFF5A3921),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: grouped.entries.map((entry) {
+                  final typeName = pieceTypeToString(entry.key);
+                  final assetPath =
+                      'assets/images/pieces/${formatPieceTheme(appModel.pieceTheme)}/${typeName}_black.png';
+                  return Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1E1C7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFBE945F).withValues(alpha: 0.5),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          assetPath,
+                          width: 40,
+                          height: 40,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.extension_rounded,
+                            size: 40,
+                            color: Color(0xFF8B5A2B),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(99),
+                            color:
+                                const Color(0xFF9A612E).withValues(alpha: 0.18),
+                            border: Border.all(
+                              color: const Color(0xFF9A612E)
+                                  .withValues(alpha: 0.42),
+                            ),
+                          ),
+                          child: Text(
+                            'x${entry.value}',
+                            style: const TextStyle(
+                              color: Color(0xFF5A3921),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

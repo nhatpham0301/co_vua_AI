@@ -188,25 +188,20 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
           '[HOME_PLAY] Offline mode -> start local AI game',
         );
         appModel.setPlayerCount(1);
-        await appModel.adService.showAdBeforeGame(
-          () async {
-            if (!mounted) return;
-            DevLogger.instance.log(
-              DevLogCategory.ad,
-              '[HOME_PLAY] Ad completed -> open ChessView (offline)',
-            );
-            await Navigator.push(
-              context,
-              CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-            );
-            DevLogger.instance.log(
-              DevLogCategory.game,
-              '[HOME_PLAY] Returned from ChessView (offline)',
-            );
-            widget.onGameFinished();
-          },
-          context: context,
+        if (!mounted) return;
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Open ChessView (offline)',
         );
+        await Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+        );
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Returned from ChessView (offline)',
+        );
+        widget.onGameFinished();
         return;
       }
 
@@ -245,7 +240,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       final result = await showCupertinoModalPopup<MatchResult>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => const MatchmakingDialog(timeoutSeconds: 10),
+        builder: (_) => const MatchmakingDialog(timeoutSeconds: 0),
       );
       if (!mounted) return;
 
@@ -360,25 +355,20 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       }
 
       appModel.setPlayerCount(1);
-      await appModel.adService.showAdBeforeGame(
-        () async {
-          if (!mounted) return;
-          DevLogger.instance.log(
-            DevLogCategory.ad,
-            '[HOME_PLAY] Ad completed -> open ChessView (online path)',
-          );
-          await Navigator.push(
-            context,
-            CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-          );
-          DevLogger.instance.log(
-            DevLogCategory.game,
-            '[HOME_PLAY] Returned from ChessView (online path)',
-          );
-          widget.onGameFinished();
-        },
-        context: context,
+      if (!mounted) return;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[HOME_PLAY] Open ChessView (online path)',
       );
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+      );
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[HOME_PLAY] Returned from ChessView (online path)',
+      );
+      widget.onGameFinished();
     } catch (e) {
       DevLogger.instance.log(
         DevLogCategory.system,
@@ -408,6 +398,14 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
   void initState() {
     super.initState();
     _remaining = widget.timeoutSeconds;
+
+    if (_remaining <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.pop(context, MatchResult.timeout);
+      });
+      return;
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _remaining--);

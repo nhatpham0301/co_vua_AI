@@ -1,19 +1,18 @@
 ﻿import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
-import '../logic/rank_system.dart';
 import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
-import 'components/main_menu_view/mm_live_match_list.dart';
 import 'components/main_menu_view/mm_models.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
+import 'components/shared/ranked_profile_avatar.dart';
 import 'components/main_menu_view/user_profile_dialog.dart';
+import 'components/main_menu_view/watch_dialog.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 
@@ -128,106 +127,10 @@ class _MainMenuViewState extends State<MainMenuView> {
       barrierLabel: 'watch_matches',
       barrierColor: Colors.black.withValues(alpha: 0.62),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (ctx, _, __) {
-        final l = AppLocalizations.of(ctx)!;
-        return SafeArea(
-          child: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 640, maxHeight: 860),
-              margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7D4BB),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF6D4B2D), width: 1.4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.48),
-                    blurRadius: 24,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    height: 74,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFF3E2A1A).withValues(alpha: 0.95),
-                          const Color(0xFF24170F).withValues(alpha: 0.95),
-                        ],
-                      ),
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(9)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        l.watchMatchTitle,
-                        style: const TextStyle(
-                          color: Color(0xFFF0CB88),
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Jura',
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: LiveMatchList(
-                      matches: _matches,
-                      onRefresh: _refreshMatches,
-                      hasSavedGame: false,
-                      bottomPadding: 12,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-                    child: GestureDetector(
-                      onTap: () => Navigator.pop(ctx),
-                      child: Container(
-                        width: 180,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFFD9AE73), Color(0xFFAA6F38)],
-                          ),
-                          border: Border.all(
-                            color:
-                                const Color(0xFFEBCB9A).withValues(alpha: 0.7),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.24),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          l.cancel,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Color(0xFF3D2515),
-                            fontSize: 26,
-                            fontFamily: 'Jura',
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      pageBuilder: (ctx, _, __) => WatchMatchesDialogContent(
+        matches: _matches,
+        onRefresh: _refreshMatches,
+      ),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
@@ -380,49 +283,6 @@ class _MainMenuViewState extends State<MainMenuView> {
   }
 }
 
-class _WatchModeTab extends StatelessWidget {
-  final String label;
-  final bool selected;
-
-  const _WatchModeTab({required this.label, required this.selected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        gradient: selected
-            ? const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFD8A96D), Color(0xFFA76C35)],
-              )
-            : const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFBCA582), Color(0xFF9E8563)],
-              ),
-        border: Border.all(
-          color: selected
-              ? const Color(0xFFF2D5A2).withValues(alpha: 0.82)
-              : const Color(0xFF89613E).withValues(alpha: 0.44),
-        ),
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: selected ? const Color(0xFF3D2514) : const Color(0xFF5A402B),
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
-          fontFamily: 'Jura',
-        ),
-      ),
-    );
-  }
-}
-
 class _HomeProfileHeader extends StatelessWidget {
   final String userName;
   final int elo;
@@ -440,64 +300,16 @@ class _HomeProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rankAsset = RankSystem.getRankBadgePath(elo);
-    final rankLevel = RankSystem.getRankFromElo(elo);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onTap: onTapProfile,
-          child: SizedBox(
-            width: 92,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 74,
-                  height: 74,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFF1C57D),
-                      width: 3,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(child: _HomeAvatar(avatarUrl: avatarUrl)),
-                ),
-                Transform.translate(
-                  offset: const Offset(0, -6),
-                  child: Image.asset(
-                    rankAsset,
-                    height: 34,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox(height: 34),
-                  ),
-                ),
-                Transform.translate(
-                  offset: const Offset(0, -10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(3, (index) {
-                      return Icon(
-                        Icons.star_rounded,
-                        size: 18,
-                        color: index < rankLevel
-                            ? const Color(0xFFFFD43C)
-                            : const Color(0xFF4E381E),
-                      );
-                    }),
-                  ),
-                ),
-              ],
-            ),
+          child: RankedProfileAvatar(
+            name: userName,
+            elo: elo,
+            avatarUrl: avatarUrl,
+            avatarSize: 74,
           ),
         ),
         const SizedBox(width: 10),
@@ -597,47 +409,6 @@ class _HomeProfileHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _HomeAvatar extends StatelessWidget {
-  final String? avatarUrl;
-
-  const _HomeAvatar({required this.avatarUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    if (avatarUrl != null && avatarUrl!.trim().isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: avatarUrl!.trim(),
-        fit: BoxFit.cover,
-        placeholder: (_, __) => const ColoredBox(
-          color: Color(0xFF4B2C1A),
-          child: Center(
-            child: CupertinoActivityIndicator(color: Color(0xFFF2CA84)),
-          ),
-        ),
-        errorWidget: (_, __, ___) => const _HomeAvatarFallback(),
-      );
-    }
-
-    return const _HomeAvatarFallback();
-  }
-}
-
-class _HomeAvatarFallback extends StatelessWidget {
-  const _HomeAvatarFallback();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF6B4528),
-      child: const Icon(
-        Icons.person_rounded,
-        color: Color(0xFFF7DEB0),
-        size: 38,
-      ),
     );
   }
 }
@@ -746,13 +517,48 @@ class _ImageHomeButton extends StatelessWidget {
           ),
           if (loading)
             Container(
-              width: 80,
-              height: 36,
+              width: 156,
+              height: 42,
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(22),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF7A522F), Color(0xFF4A2E1C)],
+                ),
+                border: Border.all(
+                  color: const Color(0xFFF3CE82).withValues(alpha: 0.72),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const CupertinoActivityIndicator(color: Colors.white),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(
+                    Icons.sports_esports_rounded,
+                    size: 16,
+                    color: Color(0xFFF4D59E),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Vào trận...',
+                    style: TextStyle(
+                      color: Color(0xFFF8E1B8),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  CupertinoActivityIndicator(color: Color(0xFFF4D59E)),
+                ],
+              ),
             ),
         ],
       ),

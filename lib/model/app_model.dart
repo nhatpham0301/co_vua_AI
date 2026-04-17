@@ -114,6 +114,16 @@ class AppModel extends ChangeNotifier {
   bool get shouldLockReplayAfterEndAd =>
       isOnlineGameMode && gameOver && _endGameAdDisplayed;
 
+  /// ID của đối thủ trong ván online (null nếu chưa có hoặc là AI game).
+  String? get opponentUserId {
+    final snap = onlineGameSnapshot;
+    if (snap == null) return null;
+    final myId = authService.user?.id;
+    if (snap.whiteId == myId) return snap.blackId;
+    if (snap.blackId == myId) return snap.whiteId;
+    return snap.whiteId ?? snap.blackId;
+  }
+
   // Used to prevent AnimatedRotation from sweeping across the screen when first loading the board.
   bool animateBoardRotation = false;
 

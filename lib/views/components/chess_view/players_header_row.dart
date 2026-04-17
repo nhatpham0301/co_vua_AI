@@ -1,19 +1,18 @@
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../main_menu_view/mm_palette.dart';
+import '../shared/ranked_profile_avatar.dart';
 
 class MatchCornerProfile extends StatelessWidget {
   final String name;
+  final int elo;
   final String eloLabel;
   final ValueListenable<Duration> totalTimeLeft;
   final bool showTotalTime;
   final String? avatarUrl;
-  final bool isBot;
   final bool isActive;
   final bool mirror;
   final int moveTimeLimitSeconds;
@@ -23,11 +22,11 @@ class MatchCornerProfile extends StatelessWidget {
   const MatchCornerProfile({
     super.key,
     required this.name,
+    required this.elo,
     required this.eloLabel,
     required this.totalTimeLeft,
     required this.showTotalTime,
     required this.avatarUrl,
-    required this.isBot,
     required this.isActive,
     required this.mirror,
     required this.moveTimeLimitSeconds,
@@ -44,10 +43,10 @@ class MatchCornerProfile extends StatelessWidget {
         textDirection: mirror ? TextDirection.rtl : TextDirection.ltr,
         children: [
           _AvatarWithCountdown(
+            name: name,
+            elo: elo,
             avatarUrl: avatarUrl,
-            isBot: isBot,
             isActive: isActive,
-            fallbackText: name,
             moveTimeLimitSeconds: moveTimeLimitSeconds,
             moveTimeLeft: moveTimeLeft,
           ),
@@ -183,18 +182,18 @@ class _InfoPlates extends StatelessWidget {
 }
 
 class _AvatarWithCountdown extends StatelessWidget {
+  final String name;
+  final int elo;
   final String? avatarUrl;
-  final bool isBot;
   final bool isActive;
-  final String fallbackText;
   final int moveTimeLimitSeconds;
   final ValueListenable<Duration> moveTimeLeft;
 
   const _AvatarWithCountdown({
+    required this.name,
+    required this.elo,
     required this.avatarUrl,
-    required this.isBot,
     required this.isActive,
-    required this.fallbackText,
     required this.moveTimeLimitSeconds,
     required this.moveTimeLeft,
   });
@@ -202,8 +201,8 @@ class _AvatarWithCountdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 58,
-      height: 58,
+      width: 74,
+      height: 92,
       child: ValueListenableBuilder<Duration>(
         valueListenable: moveTimeLeft,
         builder: (_, value, __) {
@@ -212,65 +211,36 @@ class _AvatarWithCountdown extends StatelessWidget {
               .clamp(0.0, 1.0)
               .toDouble();
 
-          return CustomPaint(
-            painter: _CountdownRingPainter(
-              progress: isActive && moveTimeLimitSeconds > 0 ? progress : 1,
-              showProgress: isActive && moveTimeLimitSeconds > 0,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(5),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: goldMid.withValues(alpha: 0.8),
-                    width: 1.5,
-                  ),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF694227), Color(0xFF2F1D12)],
+          return Stack(
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                child: SizedBox(
+                  width: 58,
+                  height: 58,
+                  child: CustomPaint(
+                    painter: _CountdownRingPainter(
+                      progress:
+                          isActive && moveTimeLimitSeconds > 0 ? progress : 1,
+                      showProgress: isActive && moveTimeLimitSeconds > 0,
+                    ),
                   ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildAvatar(),
               ),
-            ),
+              Positioned(
+                top: 4,
+                child: RankedProfileAvatar(
+                  name: name,
+                  elo: elo,
+                  avatarUrl: avatarUrl,
+                  avatarSize: 50,
+                ),
+              ),
+            ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildAvatar() {
-    if (isBot) {
-      return const Icon(Icons.smart_toy_rounded, color: Color(0xFFF3C97A));
-    }
-
-    if (avatarUrl != null && avatarUrl!.trim().isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: avatarUrl!.trim(),
-        fit: BoxFit.cover,
-        placeholder: (context, _) => const Center(
-          child: CupertinoActivityIndicator(color: Colors.white70),
-        ),
-        errorWidget: (context, _, __) => _fallbackText(),
-      );
-    }
-
-    return _fallbackText();
-  }
-
-  Widget _fallbackText() {
-    final c = fallbackText.isEmpty ? '?' : fallbackText.trim().characters.first;
-    return Center(
-      child: Text(
-        c.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
-        ),
       ),
     );
   }
