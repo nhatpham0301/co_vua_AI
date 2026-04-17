@@ -210,43 +210,41 @@ class _MainMenuViewState extends State<MainMenuView> {
                 children: [
                   SafeArea(
                     bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                      child: isLoggedIn
-                          ? _HomeProfileHeader(
-                              userName: userName,
-                              elo: userElo,
-                              avatarUrl: auth.user?.avatarUrl,
-                              onTapProfile: _showUserProfile,
-                              onTapSettings: () => Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  builder: (_) => SettingsView(),
-                                ),
+                    child: isLoggedIn
+                        ? _HomeProfileHeader(
+                            userName: userName,
+                            elo: userElo,
+                            avatarUrl: auth.user?.avatarUrl,
+                            onTapProfile: _showUserProfile,
+                            onTapInbox: _showUserProfile,
+                            onTapSettings: () => Navigator.push(
+                              context,
+                              CupertinoPageRoute(
+                                builder: (_) => SettingsView(),
                               ),
-                            )
-                          : Row(
-                              children: [
-                                const Spacer(),
-                                _TopIconButton(
-                                  icon: CupertinoIcons.person,
-                                  label: l.loginTitle,
-                                  onTap: _handleLogin,
-                                ),
-                                const SizedBox(width: 8),
-                                _TopIconButton(
-                                  icon: CupertinoIcons.settings,
-                                  label: l.settings,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (_) => SettingsView(),
-                                    ),
+                            ),
+                          )
+                        : Row(
+                            children: [
+                              const Spacer(),
+                              _TopIconButton(
+                                icon: CupertinoIcons.person,
+                                label: l.loginTitle,
+                                onTap: _handleLogin,
+                              ),
+                              const SizedBox(width: 8),
+                              _TopIconButton(
+                                icon: CupertinoIcons.settings,
+                                label: l.settings,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) => SettingsView(),
                                   ),
                                 ),
-                              ],
-                            ),
-                    ),
+                              ),
+                            ],
+                          ),
                   ),
                   const Spacer(),
                   Padding(
@@ -288,6 +286,7 @@ class _HomeProfileHeader extends StatelessWidget {
   final int elo;
   final String? avatarUrl;
   final VoidCallback onTapProfile;
+  final VoidCallback onTapInbox;
   final VoidCallback onTapSettings;
 
   const _HomeProfileHeader({
@@ -295,8 +294,17 @@ class _HomeProfileHeader extends StatelessWidget {
     required this.elo,
     required this.avatarUrl,
     required this.onTapProfile,
+    required this.onTapInbox,
     required this.onTapSettings,
   });
+
+  String _rankLabel(int elo) {
+    if (elo >= 2000) return 'ĐẠI SƯ';
+    if (elo >= 1700) return 'CAO THỦ';
+    if (elo >= 1400) return 'KỲ SĨ';
+    if (elo >= 1100) return 'TRUNG CẤP';
+    return 'TÂN THỦ';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,103 +317,130 @@ class _HomeProfileHeader extends StatelessWidget {
             name: userName,
             elo: elo,
             avatarUrl: avatarUrl,
-            avatarSize: 74,
+            avatarSize: 60,
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 7),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: onTapProfile,
-                child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0xFF775032), Color(0xFF472B1A)],
-                    ),
-                    border: Border.all(
-                      color: const Color(0xFFF2CA8A).withValues(alpha: 0.75),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          userName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFF8E1B7),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: onTapProfile,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFF111111), Color(0xFF292013)],
                           ),
+                          border: Border.all(
+                            color:
+                                const Color(0xFFE8BE75).withValues(alpha: 0.9),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.26),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFFF7D89D),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'Jura',
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        CupertinoIcons.pencil,
-                        size: 16,
-                        color: Color(0xFFEFC67F),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 5),
+                  _HeaderRoundIconButton(
+                    icon: CupertinoIcons.mail_solid,
+                    onTap: onTapInbox,
+                  ),
+                  const SizedBox(width: 5),
+                  _HeaderRoundIconButton(
+                    icon: CupertinoIcons.settings,
+                    onTap: onTapSettings,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _HomeStatPlate(
-                icon: Icons.workspace_premium_rounded,
-                value: '$elo',
-              ),
+              const SizedBox(height: 5),
+              // Container(
+              //   height: 26,
+              //   padding: const EdgeInsets.symmetric(horizontal: 8),
+              //   decoration: BoxDecoration(
+              //     borderRadius: BorderRadius.circular(16),
+              //     gradient: const LinearGradient(
+              //       begin: Alignment.topCenter,
+              //       end: Alignment.bottomCenter,
+              //       colors: [Color(0xFF2B1C0F), Color(0xFF1A120B)],
+              //     ),
+              //     border: Border.all(
+              //       color: const Color(0xFFF1C77D).withValues(alpha: 0.78),
+              //     ),
+              //   ),
+              //   child: Row(
+              //     mainAxisSize: MainAxisSize.min,
+              //     children: [
+              //       const Icon(
+              //         Icons.workspace_premium_rounded,
+              //         size: 14,
+              //         color: Color(0xFFF6C155),
+              //       ),
+              //       const SizedBox(width: 5),
+              //       Text(
+              //         _rankLabel(elo),
+              //         style: const TextStyle(
+              //           color: Color(0xFFFFC752),
+              //           fontSize: 13,
+              //           fontWeight: FontWeight.w900,
+              //           fontFamily: 'Jura',
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // const SizedBox(height: 5),
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: _HeaderResourceBar(
+              //         icon: Icons.monetization_on_rounded,
+              //         iconColor: const Color(0xFFFFC95D),
+              //         value: '12.450',
+              //       ),
+              //     ),
+              //     const SizedBox(width: 6),
+              //     Expanded(
+              //       child: _HeaderResourceBar(
+              //         icon: Icons.diamond_outlined,
+              //         iconColor: const Color(0xFF57C6FF),
+              //         value: '980',
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        GestureDetector(
-          onTap: onTapSettings,
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF7A5030), Color(0xFF472919)],
-              ),
-              border: Border.all(
-                color: const Color(0xFFF0CA89).withValues(alpha: 0.72),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(
-                  CupertinoIcons.settings,
-                  size: 24,
-                  color: Color(0xFFF4D293),
-                ),
-              ],
-            ),
           ),
         ),
       ],
@@ -413,30 +448,43 @@ class _HomeProfileHeader extends StatelessWidget {
   }
 }
 
-class _HomeStatPlate extends StatelessWidget {
+class _HeaderResourceBar extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String value;
 
-  const _HomeStatPlate({required this.icon, required this.value});
+  const _HeaderResourceBar({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.only(left: 8, right: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(12),
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF744829), Color(0xFF492D1B)],
+          colors: [Color(0xFF0A0A0A), Color(0xFF25190F)],
         ),
-        border:
-            Border.all(color: const Color(0xFFE7BE7E).withValues(alpha: 0.72)),
+        border: Border.all(
+          color: const Color(0xFFF0C77D).withValues(alpha: 0.85),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFF3D194)),
+          Icon(icon, size: 17, color: iconColor),
           const SizedBox(width: 5),
           Expanded(
             child: Text(
@@ -444,13 +492,74 @@ class _HomeStatPlate extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFFFCE6BD),
-                fontSize: 12.5,
+                color: Color(0xFFF7D99F),
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
+                fontFamily: 'Jura',
               ),
             ),
           ),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2B2B2B), Color(0xFF151515)],
+              ),
+              border: Border.all(
+                color: const Color(0xFFF0C478).withValues(alpha: 0.85),
+              ),
+            ),
+            child: const Icon(
+              CupertinoIcons.add,
+              size: 13,
+              color: Color(0xFFF4CC87),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderRoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderRoundIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF111111), Color(0xFF2A1E11)],
+          ),
+          border: Border.all(
+            color: const Color(0xFFF1C67E).withValues(alpha: 0.9),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 7,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Icon(icon, size: 16, color: const Color(0xFFF2CB8A)),
       ),
     );
   }
