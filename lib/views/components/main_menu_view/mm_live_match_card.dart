@@ -6,6 +6,14 @@ import '../shared/ranked_profile_avatar.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
 
+const _kPreviewAssets = [
+  'assets/images/home/Chesspreview1.png',
+  'assets/images/home/Chesspreview2.png',
+  'assets/images/home/Chesspreview3.png',
+  'assets/images/home/Chesspreview4.png',
+  'assets/images/home/Chesspreview5.png',
+];
+
 // ─── One live-match card row ──────────────────────────────────────────────────
 class LiveMatchCard extends StatelessWidget {
   final LiveMatch match;
@@ -17,23 +25,18 @@ class LiveMatchCard extends StatelessWidget {
     required this.previewIndex,
   });
 
-  String _fmt(int secs) {
-    final m = secs ~/ 60;
-    final s = secs % 60;
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final previewAsset = _kPreviewAssets[previewIndex % _kPreviewAssets.length];
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF6C4124), Color(0xFF4E2F1A)],
+        image: DecorationImage(
+          image: AssetImage(previewAsset),
+          fit: BoxFit.cover,
         ),
         border:
             Border.all(color: const Color(0xFFC49358).withValues(alpha: 0.8)),
@@ -52,111 +55,34 @@ class LiveMatchCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           splashColor: primary.withValues(alpha: 0.12),
           onTap: () => _onTap(context),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
-            child: Column(
-              children: [
-                Row(
+          child: Column(
+            children: [
+              SizedBox(
+                height: 132,
+                child: Stack(
                   children: [
-                    Text(
-                      match.white.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFF2D8B0),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SidePlayer(
+                          player: match.white,
+                          alignRight: false,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _VsCenter(moveCount: match.moveCount),
+                        ),
+                        const SizedBox(width: 8),
+                        _SidePlayer(
+                          player: match.black,
+                          alignRight: true,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 132,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        top: 26,
-                        bottom: 16,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF7F4D28), Color(0xFF5B351B)],
-                            ),
-                            border: Border.all(
-                              color: const Color(0xFFC79A63)
-                                  .withValues(alpha: 0.32),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _SidePlayer(
-                            player: match.white,
-                            alignRight: false,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                MatchPreviewBoard(previewIndex: previewIndex),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.max,
-                                  children: [
-                                    Icon(
-                                      Icons.visibility_rounded,
-                                      color: const Color(0xFFE8C695),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${match.moveCount}',
-                                      style: const TextStyle(
-                                        color: Color(0xFFF4DDB8),
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w900,
-                                        fontFamily: 'Jura',
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Flexible(
-                                      child: Text(
-                                        'LIVE',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: Color(0xFFFF7E2E),
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w900,
-                                          fontFamily: 'Jura',
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _SidePlayer(
-                            player: match.black,
-                            alignRight: true,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -192,65 +118,99 @@ class _SidePlayer extends StatelessWidget {
         RankedProfileAvatar(
           name: player.name,
           elo: player.elo,
-          avatarSize: 62,
+          avatarSize: 45,
         ),
       ],
     );
   }
 }
 
-class MatchPreviewBoard extends StatelessWidget {
-  final int previewIndex;
+class _VsCenter extends StatelessWidget {
+  final int moveCount;
 
-  static const List<String> _previewAssets = [
-    'assets/images/home/Chesspreview1.png',
-    'assets/images/home/Chesspreview2.png',
-    'assets/images/home/Chesspreview3.png',
-    'assets/images/home/Chesspreview4.png',
-    'assets/images/home/Chesspreview5.png',
-  ];
-
-  const MatchPreviewBoard({
-    super.key,
-    required this.previewIndex,
-  });
+  const _VsCenter({required this.moveCount});
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = _previewAssets[previewIndex % _previewAssets.length];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final boardWidth = constraints.maxWidth.clamp(120.0, 250.0).toDouble();
-        return Container(
-          width: boardWidth,
-          height: 74,
+    return Column(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // VS title with a chess-themed gold capsule.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(999),
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFE2B875), Color(0xFFBD7E3D)],
+              colors: [Color(0xFFEFCB8B), Color(0xFFC2803B)],
             ),
             border: Border.all(
-                color: const Color(0xFFF2D3A2).withValues(alpha: 0.7)),
+              color: const Color(0xFFFFE3B6).withValues(alpha: 0.9),
+              width: 1.1,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: 0.28),
                 blurRadius: 8,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image.asset(
-              imagePath,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
+          child: Text(
+            'VS',
+            style: TextStyle(
+              color: const Color(0xFF3B2311),
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Jura',
+              letterSpacing: 1.4,
+              shadows: [
+                Shadow(
+                  color: const Color(0xFFFFE8C5).withValues(alpha: 0.7),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+        // LIVE badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'LIVE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Jura',
+                ),
+              ),
+              const SizedBox(width: 70),
+              Icon(
+                Icons.visibility_rounded,
+                color: const Color(0xFFE8C695),
+                size: 15,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '$moveCount',
+                style: const TextStyle(
+                  color: Color(0xFFF4DDB8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Jura',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

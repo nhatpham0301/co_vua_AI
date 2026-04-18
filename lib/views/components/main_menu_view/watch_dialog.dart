@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../l10n/app_localizations.dart';
 import 'mm_live_match_list.dart';
 import 'mm_models.dart';
 
@@ -16,7 +15,6 @@ class WatchMatchesDialogContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     return SafeArea(
       child: Center(
         child: Container(

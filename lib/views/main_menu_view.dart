@@ -122,6 +122,10 @@ class _MainMenuViewState extends State<MainMenuView> {
   }
 
   Future<void> _showWatchDialog() async {
+    // Always refresh from GET /api/games right before opening watch dialog.
+    await _fetchRecentGames();
+    if (!mounted) return;
+
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
