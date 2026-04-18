@@ -35,6 +35,13 @@ class AppModel extends ChangeNotifier {
     return raw;
   }
 
+  static bool _envOnlineVsAiLocalFallbackEnabled() {
+    final raw =
+        dotenv.env['ONLINE_VS_AI_LOCAL_FALLBACK_ENABLED']?.trim().toLowerCase();
+    if (raw == null || raw.isEmpty) return true;
+    return raw == '1' || raw == 'true' || raw == 'yes' || raw == 'on';
+  }
+
   // ── Game Settings ──
   int playerCount = 1;
   int aiDifficulty = 3;
@@ -104,6 +111,7 @@ class AppModel extends ChangeNotifier {
   List<ChessPieceType> capturedBlack = [];
   bool _sessionStartedOnline = false;
   bool _endGameAdDisplayed = false;
+  bool _onlineVsAiLocalFallbackSession = false;
 
   // ── Computed Properties ──
   Player get aiTurn => oppositePlayer(playerSide);
@@ -113,6 +121,13 @@ class AppModel extends ChangeNotifier {
   bool get usePairUndoRedo => playingWithAI && !isOnlineGameMode;
   bool get shouldLockReplayAfterEndAd =>
       isOnlineGameMode && gameOver && _endGameAdDisplayed;
+  bool get enableOnlineVsAiLocalFallback =>
+      _envOnlineVsAiLocalFallbackEnabled();
+  bool get isOnlineVsAiLocalFallbackSession => _onlineVsAiLocalFallbackSession;
+  bool get shouldRunLocalAiInOnlineVsAi =>
+      isOnlineGameMode &&
+      isOnlineVsAiLocalFallbackSession &&
+      enableOnlineVsAiLocalFallback;
 
   // ── Online PvP Waiting State ──
   String? currentGameInviteCode;
@@ -219,6 +234,8 @@ class AppModel extends ChangeNotifier {
     GameStateStorage.clearGameState();
     _sessionStartedOnline = false;
     _endGameAdDisplayed = false;
+    _onlineVsAiLocalFallbackSession = false;
+    _onlineVsAiLocalFallbackSession = false;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -231,6 +248,7 @@ class AppModel extends ChangeNotifier {
     timerService.stop();
     _sessionStartedOnline = false;
     _endGameAdDisplayed = false;
+    _onlineVsAiLocalFallbackSession = false;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -311,11 +329,17 @@ class AppModel extends ChangeNotifier {
     }
     _sessionStartedOnline = true;
     _endGameAdDisplayed = false;
+    _onlineVsAiLocalFallbackSession = false;
     await onlineEvents.startTracking(
       socketBaseUrl: socketBaseUrl,
       gameId: gameId,
       accessToken: token,
     );
+  }
+
+  void markOnlineVsAiLocalFallbackSession(bool enabled, {bool notify = false}) {
+    _onlineVsAiLocalFallbackSession = enabled;
+    if (notify) notifyListeners();
   }
 
   // ── Game Options ──

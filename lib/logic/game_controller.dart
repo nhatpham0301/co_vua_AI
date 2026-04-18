@@ -82,6 +82,7 @@ class GameController {
       } else {
         validMoves = [];
         var meta = board.push(move, getMeta: true);
+        _emitOnlineAiMoveIfEnabled(move, meta);
         DevLogger.instance.log(
           DevLogCategory.game,
           'AI move: ${move.from} → ${move.to}${meta.took ? " (capture)" : ""}${meta.isCheck ? " +" : ""}${meta.isCheckmate ? " #" : ""}',
@@ -219,9 +220,39 @@ class GameController {
     if (appModel.isAIsTurn &&
         clearRedo &&
         changeTurn &&
-        !appModel.isOnlineGameMode) {
+        (!appModel.isOnlineGameMode || appModel.shouldRunLocalAiInOnlineVsAi)) {
       _aiMove();
     }
+  }
+
+  void _emitOnlineAiMoveIfEnabled(Move move, MoveMeta meta) {
+    if (!appModel.shouldRunLocalAiInOnlineVsAi) return;
+
+    final gameId = appModel.onlineEvents.activeGameId;
+    if (gameId == null || gameId.isEmpty) return;
+
+    final from = _tileToAlgebraic(move.from);
+    final to = _tileToAlgebraic(move.to);
+    final promotion =
+        meta.promotion ? pieceTypeToString(move.promotionType) : null;
+
+    appModel.onlineEvents.emitMove(
+      gameId: gameId,
+      from: from,
+      to: to,
+      promotion: promotion,
+    );
+
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[ONLINE_AI_FALLBACK] emit ai move via socket | gameId=$gameId | $from -> $to${promotion != null ? ' | promotion=$promotion' : ''}',
+    );
+  }
+
+  String _tileToAlgebraic(int tile) {
+    final file = String.fromCharCode(97 + tileToCol(tile));
+    final rank = 8 - tileToRow(tile);
+    return '$file$rank';
   }
 
   void snapSprites() {

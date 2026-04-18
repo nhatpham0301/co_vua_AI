@@ -22,6 +22,7 @@ class OnlineGameEventsService {
 
   io.Socket? _socket;
   String? _activeGameId;
+  String? _accessToken;
 
   bool get isConnected => _socket?.connected ?? false;
   String? get activeGameId => _activeGameId;
@@ -47,7 +48,21 @@ class OnlineGameEventsService {
       uri,
       io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
-          .setAuth({'token': accessToken})
+          .setAuth({
+            'token': accessToken,
+            'Bearer': accessToken,
+            'authorization': 'Bearer $accessToken',
+          })
+          .setExtraHeaders({
+            'Authorization': 'Bearer $accessToken',
+            'authorization': 'Bearer $accessToken',
+            'x-access-token': accessToken,
+          })
+          .setQuery({
+            'token': accessToken,
+            'accessToken': accessToken,
+            'authorization': 'Bearer $accessToken',
+          })
           .setPath('/socket.io')
           .disableAutoConnect()
           .build(),
@@ -60,6 +75,7 @@ class OnlineGameEventsService {
 
     _socket = socket;
     _activeGameId = gameId;
+    _accessToken = accessToken;
 
     DevLogger.instance.log(
       DevLogCategory.http,
@@ -130,6 +146,7 @@ class OnlineGameEventsService {
 
     _socket = null;
     _activeGameId = null;
+    _accessToken = null;
   }
 
   /// Emit a move via socket (realtime submission for online games)
@@ -153,6 +170,17 @@ class OnlineGameEventsService {
       'from': from,
       'to': to,
       if (promotion != null) 'promotion': promotion,
+      if (_accessToken != null) 'token': _accessToken,
+      if (_accessToken != null) 'Bearer': _accessToken,
+      if (_accessToken != null) 'authorization': 'Bearer $_accessToken',
+      if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      if (_accessToken != null) 'accessToken': _accessToken,
+      if (_accessToken != null) 'bearerToken': 'Bearer $_accessToken',
+      if (_accessToken != null)
+        'auth': {
+          'token': _accessToken,
+          'authorization': 'Bearer $_accessToken',
+        },
     };
 
     _emitWithLog(socket, 'game:move', payload, gameId: gameId);

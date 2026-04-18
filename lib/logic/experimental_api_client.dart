@@ -98,14 +98,15 @@ class ExperimentalApiClient {
     required String to,
     String? promotion,
   }) async {
+    final body = <String, dynamic>{
+      'from': from,
+      'to': to,
+      if (promotion != null) 'promotion': promotion,
+    };
     final json = await _postJson(
       '/api/games/$gameId/moves',
       requiresAuth: true,
-      body: {
-        'from': from,
-        'to': to,
-        'promotion': promotion,
-      },
+      body: body,
     );
     return OnlineMoveSubmitResult.fromJson(json);
   }

@@ -337,7 +337,11 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               // Start background timer for AI fallback (30s)
               bool opponentJoined = false;
               Future.delayed(const Duration(seconds: 30), () async {
-                if (opponentJoined || !mounted) return;
+                if (opponentJoined ||
+                    !mounted ||
+                    !appModel.isWaitingForOpponent) {
+                  return;
+                }
 
                 DevLogger.instance.log(
                   DevLogCategory.game,

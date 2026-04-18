@@ -62,6 +62,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
       if (aiGameId is String && aiGameId.isNotEmpty && mounted) {
         await appModel.onlineEvents.stopTracking();
         await appModel.startOnlineEventTracking(aiGameId);
+        appModel.markOnlineVsAiLocalFallbackSession(true);
         appModel.setPlayerCount(1);
         appModel.isWaitingForOpponent = false;
         appModel.currentGameInviteCode = null;
