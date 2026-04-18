@@ -30,12 +30,14 @@ class QuickPlayBtn extends StatefulWidget {
   final bool hasSavedGame;
   final VoidCallback onGameFinished;
   final Widget Function(BuildContext context, bool isStarting)? buttonBuilder;
+  final ValueChanged<bool>? onStartingChanged;
 
   const QuickPlayBtn({
     super.key,
     required this.hasSavedGame,
     required this.onGameFinished,
     this.buttonBuilder,
+    this.onStartingChanged,
   });
 
   @override
@@ -167,6 +169,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
   Future<void> _start(BuildContext context) async {
     if (!mounted) return;
     setState(() => _isStarting = true);
+    widget.onStartingChanged?.call(true);
     try {
       final appModel = Provider.of<AppModel>(context, listen: false);
       final isLoggedIn = appModel.authService.isLoggedIn;
@@ -377,6 +380,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       rethrow;
     } finally {
       if (mounted) setState(() => _isStarting = false);
+      widget.onStartingChanged?.call(false);
     }
   }
 }

@@ -413,6 +413,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                           mirror: true,
                           moveTimeLimitSeconds: appModel.moveTimeLimit,
                           moveTimeLeft: appModel.moveTimeLeft,
+                          dockToMenu: true,
                           onTap: () => showCapturedPiecesSheet(
                             context,
                             appModel,

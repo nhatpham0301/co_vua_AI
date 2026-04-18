@@ -23,6 +23,7 @@ class MainMenuView extends StatefulWidget {
 
 class _MainMenuViewState extends State<MainMenuView> {
   bool _hasSavedGame = false;
+  bool _isGameStarting = false;
   List<LiveMatch> _matches = [];
   Timer? _ticker;
 
@@ -261,9 +262,13 @@ class _MainMenuViewState extends State<MainMenuView> {
                         QuickPlayBtn(
                           hasSavedGame: _hasSavedGame,
                           onGameFinished: _checkSavedGame,
+                          onStartingChanged: (isStarting) {
+                            if (!mounted) return;
+                            setState(() => _isGameStarting = isStarting);
+                          },
                           buttonBuilder: (ctx, isStarting) => _ImageHomeButton(
                             assetPath: 'assets/images/home/play_game.png',
-                            loading: isStarting,
+                            loading: false,
                             semanticLabel: l.play,
                           ),
                         ),
@@ -273,6 +278,65 @@ class _MainMenuViewState extends State<MainMenuView> {
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
                 ],
               ),
+              if (_isGameStarting)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.32),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 184,
+                          height: 74,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [Color(0xFF7A522F), Color(0xFF4A2E1C)],
+                            ),
+                            border: Border.all(
+                              color: const Color(0xFFF3CE82)
+                                  .withValues(alpha: 0.72),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.sports_esports_rounded,
+                                size: 18,
+                                color: Color(0xFFF4D59E),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Vào trận...',
+                                style: TextStyle(
+                                  color: Color(0xFFF8E1B8),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              CupertinoActivityIndicator(
+                                color: Color(0xFFF4D59E),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -297,14 +361,6 @@ class _HomeProfileHeader extends StatelessWidget {
     required this.onTapInbox,
     required this.onTapSettings,
   });
-
-  String _rankLabel(int elo) {
-    if (elo >= 2000) return 'ĐẠI SƯ';
-    if (elo >= 1700) return 'CAO THỦ';
-    if (elo >= 1400) return 'KỲ SĨ';
-    if (elo >= 1100) return 'TRUNG CẤP';
-    return 'TÂN THỦ';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -448,83 +504,6 @@ class _HomeProfileHeader extends StatelessWidget {
   }
 }
 
-class _HeaderResourceBar extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String value;
-
-  const _HeaderResourceBar({
-    required this.icon,
-    required this.iconColor,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.only(left: 8, right: 4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0A0A0A), Color(0xFF25190F)],
-        ),
-        border: Border.all(
-          color: const Color(0xFFF0C77D).withValues(alpha: 0.85),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: iconColor),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFF7D99F),
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                fontFamily: 'Jura',
-              ),
-            ),
-          ),
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(7),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF2B2B2B), Color(0xFF151515)],
-              ),
-              border: Border.all(
-                color: const Color(0xFFF0C478).withValues(alpha: 0.85),
-              ),
-            ),
-            child: const Icon(
-              CupertinoIcons.add,
-              size: 13,
-              color: Color(0xFFF4CC87),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HeaderRoundIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -624,51 +603,6 @@ class _ImageHomeButton extends StatelessWidget {
             assetPath,
             fit: BoxFit.contain,
           ),
-          if (loading)
-            Container(
-              width: 156,
-              height: 42,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF7A522F), Color(0xFF4A2E1C)],
-                ),
-                border: Border.all(
-                  color: const Color(0xFFF3CE82).withValues(alpha: 0.72),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(
-                    Icons.sports_esports_rounded,
-                    size: 16,
-                    color: Color(0xFFF4D59E),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Vào trận...',
-                    style: TextStyle(
-                      color: Color(0xFFF8E1B8),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  CupertinoActivityIndicator(color: Color(0xFFF4D59E)),
-                ],
-              ),
-            ),
         ],
       ),
     );

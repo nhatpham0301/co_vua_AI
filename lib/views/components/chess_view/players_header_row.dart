@@ -18,6 +18,7 @@ class MatchCornerProfile extends StatelessWidget {
   final int moveTimeLimitSeconds;
   final ValueListenable<Duration> moveTimeLeft;
   final VoidCallback onTap;
+  final bool dockToMenu;
 
   const MatchCornerProfile({
     super.key,
@@ -32,6 +33,7 @@ class MatchCornerProfile extends StatelessWidget {
     required this.moveTimeLimitSeconds,
     required this.moveTimeLeft,
     required this.onTap,
+    this.dockToMenu = false,
   });
 
   @override
@@ -40,6 +42,8 @@ class MatchCornerProfile extends StatelessWidget {
       onTap: onTap,
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment:
+            dockToMenu ? CrossAxisAlignment.center : CrossAxisAlignment.start,
         textDirection: mirror ? TextDirection.rtl : TextDirection.ltr,
         children: [
           _AvatarWithCountdown(
@@ -49,6 +53,7 @@ class MatchCornerProfile extends StatelessWidget {
             isActive: isActive,
             moveTimeLimitSeconds: moveTimeLimitSeconds,
             moveTimeLeft: moveTimeLeft,
+            dockToMenu: dockToMenu,
           ),
           const SizedBox(width: 8),
           _InfoPlates(
@@ -188,6 +193,7 @@ class _AvatarWithCountdown extends StatelessWidget {
   final bool isActive;
   final int moveTimeLimitSeconds;
   final ValueListenable<Duration> moveTimeLeft;
+  final bool dockToMenu;
 
   const _AvatarWithCountdown({
     required this.name,
@@ -196,13 +202,14 @@ class _AvatarWithCountdown extends StatelessWidget {
     required this.isActive,
     required this.moveTimeLimitSeconds,
     required this.moveTimeLeft,
+    required this.dockToMenu,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 74,
-      height: 92,
+      height: dockToMenu ? 62 : 92,
       child: ValueListenableBuilder<Duration>(
         valueListenable: moveTimeLeft,
         builder: (_, value, __) {
