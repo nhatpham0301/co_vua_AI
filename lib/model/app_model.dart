@@ -114,6 +114,11 @@ class AppModel extends ChangeNotifier {
   bool get shouldLockReplayAfterEndAd =>
       isOnlineGameMode && gameOver && _endGameAdDisplayed;
 
+  // ── Online PvP Waiting State ──
+  String? currentGameInviteCode;
+  bool isWaitingForOpponent = false;
+  bool opponentJoined = false;
+
   /// ID của đối thủ trong ván online (null nếu chưa có hoặc là AI game).
   String? get opponentUserId {
     final snap = onlineGameSnapshot;

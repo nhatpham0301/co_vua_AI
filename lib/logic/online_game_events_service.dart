@@ -132,6 +132,32 @@ class OnlineGameEventsService {
     _activeGameId = null;
   }
 
+  /// Emit a move via socket (realtime submission for online games)
+  void emitMove({
+    required String gameId,
+    required String from,
+    required String to,
+    String? promotion,
+  }) {
+    final socket = _socket;
+    if (socket == null) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] emitMove: socket not connected | gameId=$gameId',
+      );
+      return;
+    }
+
+    final payload = {
+      'gameId': gameId,
+      'from': from,
+      'to': to,
+      if (promotion != null) 'promotion': promotion,
+    };
+
+    _emitWithLog(socket, 'game:move', payload, gameId: gameId);
+  }
+
   void _bindGameEvents(io.Socket socket, String gameId) {
     DevLogger.instance.log(
       DevLogCategory.http,
@@ -271,7 +297,6 @@ class OnlineGameEventsService {
     print("URI: $uri");
     print("AccessToken mask: ${_maskToken(accessToken)}");
     print("access: $accessToken");
-
 
     try {
       final socket = io.io(

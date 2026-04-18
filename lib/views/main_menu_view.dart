@@ -229,26 +229,29 @@ class _MainMenuViewState extends State<MainMenuView> {
                               ),
                             ),
                           )
-                        : Row(
-                            children: [
-                              const Spacer(),
-                              _TopIconButton(
-                                icon: CupertinoIcons.person,
-                                label: l.loginTitle,
-                                onTap: _handleLogin,
-                              ),
-                              const SizedBox(width: 8),
-                              _TopIconButton(
-                                icon: CupertinoIcons.settings,
-                                label: l.settings,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    builder: (_) => SettingsView(),
+                        : Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                _GuestHeaderIconButton(
+                                  icon: CupertinoIcons.person,
+                                  label: l.loginTitle,
+                                  onTap: _handleLogin,
+                                ),
+                                const SizedBox(width: 6),
+                                _GuestHeaderIconButton(
+                                  icon: CupertinoIcons.settings,
+                                  label: l.settings,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (_) => SettingsView(),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                   ),
                   const Spacer(),
@@ -548,12 +551,12 @@ class _HeaderRoundIconButton extends StatelessWidget {
   }
 }
 
-class _TopIconButton extends StatelessWidget {
+class _GuestHeaderIconButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _TopIconButton({
+  const _GuestHeaderIconButton({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -564,18 +567,31 @@ class _TopIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black.withValues(alpha: 0.45),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.28),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF111111), Color(0xFF2A1E11)],
           ),
+          border: Border.all(
+            color: const Color(0xFFF1C67E).withValues(alpha: 0.9),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 7,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        child: Tooltip(
-          message: label,
-          child: Icon(icon, color: Colors.white, size: 20),
+        child: Center(
+          child: Tooltip(
+            message: label,
+            child: Icon(icon, color: const Color(0xFFF2CB8A), size: 16),
+          ),
         ),
       ),
     );

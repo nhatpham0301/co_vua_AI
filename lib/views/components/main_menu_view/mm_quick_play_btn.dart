@@ -276,7 +276,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       if (result == MatchResult.timeout) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[HOME_PLAY] Matchmaking timeout -> leave queue -> fallback AI game',
+          '[HOME_PLAY] Matchmaking timeout -> create PvP room -> wait 30s',
         );
         if (isLoggedIn) {
           try {
@@ -296,56 +296,117 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             );
           }
         }
-      }
 
-      if (isLoggedIn) {
-        try {
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[HOME_PLAY] Calling POST /api/games/vs-ai after matchmaking timeout ...',
-          );
-          final gameJson = await _withAuthRetry(
-            appModel: appModel,
-            action: 'createAiGame',
-            execute: () => appModel.apiClient.createAiGame(
-              aiLevel: appModel.aiDifficulty,
-              color:
-                  appModel.selectedSide == Player.player2 ? 'black' : 'white',
-              moveTimeLimit: appModel.moveTimeLimit,
-            ),
-          );
-          final gameId = gameJson['id'];
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[HOME_PLAY] POST /api/games/vs-ai success | gameId=$gameId',
-          );
-          if (gameId is String && gameId.isNotEmpty) {
-            await appModel.startOnlineEventTracking(gameId);
+        // Create PvP game room
+        if (isLoggedIn) {
+          try {
             DevLogger.instance.log(
               DevLogCategory.http,
-              '[HOME_PLAY] Realtime tracking attached | gameId=$gameId',
+              '[HOME_PLAY] Calling POST /api/games to create PvP room ...',
             );
-            onlineGameReady = true;
-          } else {
+            final pvpJson = await _withAuthRetry(
+              appModel: appModel,
+              action: 'createPvPGame',
+              execute: () => appModel.apiClient.createPvPGame(
+                moveTimeLimit: appModel.moveTimeLimit,
+              ),
+            );
+            final pvpGameId = pvpJson['id'];
+            final inviteCode = pvpJson['inviteCode'];
             DevLogger.instance.log(
               DevLogCategory.http,
-              '[HOME_PLAY] Skip socket tracking: missing gameId in createAiGame response',
+              '[HOME_PLAY] POST /api/games success | gameId=$pvpGameId | inviteCode=$inviteCode',
+            );
+
+            if (pvpGameId is String && pvpGameId.isNotEmpty) {
+              // Start socket tracking immediately and enter game
+              await appModel.startOnlineEventTracking(pvpGameId);
+
+              // Set waiting state with invite code
+              appModel.currentGameInviteCode = inviteCode;
+              appModel.isWaitingForOpponent = true;
+              appModel.opponentJoined = false;
+
+              onlineGameReady = true;
+
+              DevLogger.instance.log(
+                DevLogCategory.game,
+                '[HOME_PLAY] PvP room created | gameId=$pvpGameId | inviteCode=$inviteCode | entering ChessView',
+              );
+
+              // Start background timer for AI fallback (30s)
+              bool opponentJoined = false;
+              Future.delayed(const Duration(seconds: 30), () async {
+                if (opponentJoined || !mounted) return;
+
+                DevLogger.instance.log(
+                  DevLogCategory.game,
+                  '[HOME_PLAY] PvP 30s timeout -> no opponent joined -> create AI game',
+                );
+
+                try {
+                  final aiJson = await _withAuthRetry(
+                    appModel: appModel,
+                    action: 'createAiGame(fallback)',
+                    execute: () => appModel.apiClient.createAiGame(
+                      aiLevel: appModel.aiDifficulty,
+                      color: appModel.selectedSide == Player.player2
+                          ? 'black'
+                          : 'white',
+                      moveTimeLimit: appModel.moveTimeLimit,
+                    ),
+                  );
+                  final aiGameId = aiJson['id'];
+                  DevLogger.instance.log(
+                    DevLogCategory.http,
+                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) success | gameId=$aiGameId',
+                  );
+
+                  if (aiGameId is String && aiGameId.isNotEmpty && mounted) {
+                    // Stop PvP tracking, switch to AI
+                    await appModel.onlineEvents.stopTracking();
+                    await appModel.startOnlineEventTracking(aiGameId);
+                    appModel.setPlayerCount(1); // Enable AI
+                    appModel.isWaitingForOpponent = false;
+                    appModel.update();
+                  }
+                } on ApiException catch (e) {
+                  DevLogger.instance.log(
+                    DevLogCategory.http,
+                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) failed | $e',
+                  );
+                } catch (e) {
+                  DevLogger.instance.log(
+                    DevLogCategory.http,
+                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) failed | $e',
+                  );
+                }
+              });
+
+              // Mark opponent joined when game state updates with both players
+              // (This will be checked in the 30s timeout above)
+              // In ChessView or board update, when opponent's pieces appear, set opponentJoined = true
+            } else {
+              DevLogger.instance.log(
+                DevLogCategory.http,
+                '[HOME_PLAY] Skip PvP: missing gameId in response',
+              );
+            }
+          } on ApiException catch (e) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] POST /api/games failed | $e',
+            );
+            if (e.statusCode == 401) {
+              if (mounted) await _showSessionExpiredDialog(context);
+              return;
+            }
+          } catch (e) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[HOME_PLAY] POST /api/games failed | $e',
             );
           }
-        } on ApiException catch (e) {
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[HOME_PLAY] POST /api/games/vs-ai failed | $e',
-          );
-          if (e.statusCode == 401) {
-            await _showSessionExpiredDialog(context);
-            return;
-          }
-        } catch (e) {
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[HOME_PLAY] POST /api/games/vs-ai failed | $e',
-          );
         }
       }
 
@@ -357,7 +418,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         return;
       }
 
-      appModel.setPlayerCount(1);
+      appModel
+          .setPlayerCount(2); // PvP mode (socket handles moves, no local AI)
       if (!mounted) return;
       DevLogger.instance.log(
         DevLogCategory.game,

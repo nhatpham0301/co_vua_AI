@@ -211,9 +211,9 @@ class ExperimentalApiClient {
 
   // ── Create PvP game (auth) ─────────────────────────────────────────────────
   Future<Map<String, dynamic>> createPvPGame({
-    String timeControl = 'blitz_5',
+    String timeControl = 'rapid_15',
     bool isRated = true,
-    int moveTimeLimit = 0,
+    int moveTimeLimit = 60,
   }) {
     return _postJson('/api/games', requiresAuth: true, body: {
       'timeControl': timeControl,

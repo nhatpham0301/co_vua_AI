@@ -14,6 +14,7 @@ import 'components/chess_view/board_stage.dart';
 import 'components/chess_view/chess_actions.dart';
 import 'components/chess_view/chess_dialogs.dart';
 import 'components/chess_view/players_header_row.dart';
+import 'components/chess_view/waiting_opponent_dialog.dart';
 import 'components/chess_view/promotion_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_banner_ad.dart';
@@ -43,6 +44,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   int _readySeconds = 30;
   bool _isReady = false;
   Timer? _readyTimer;
+  bool _opponentJoinDetected = false;
+  bool _waitingDialogShown = false;
 
   _ChessViewState(this.appModel);
 
@@ -61,6 +64,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         _initFlameGame();
         _startReadyCountdown();
       }
+      // Show waiting dialog if in PvP waiting state
+      _checkAndShowWaitingDialog();
     });
   }
 
@@ -99,6 +104,20 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     appModel.timerService.resume();
     if (appModel.isAIsTurn && !appModel.gameOver) {
       appModel.gameController?.triggerAIMove();
+    }
+
+    // Show waiting dialog if in PvP waiting state
+    _checkAndShowWaitingDialog();
+  }
+
+  void _checkAndShowWaitingDialog() {
+    if (appModel.isWaitingForOpponent && !_waitingDialogShown && mounted) {
+      _waitingDialogShown = true;
+      showCupertinoDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => WaitingOpponentDialog(appModel: appModel),
+      );
     }
   }
 
@@ -151,6 +170,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   @override
   void dispose() {
     _readyTimer?.cancel();
+    // Reset waiting state
+    appModel.isWaitingForOpponent = false;
+    appModel.currentGameInviteCode = null;
+    appModel.opponentJoined = false;
     WidgetsBinding.instance.removeObserver(this);
     _confettiController.dispose();
     super.dispose();
@@ -196,6 +219,23 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
               child: CupertinoActivityIndicator(color: primary),
             ),
           );
+        }
+
+        // Check if opponent has joined (for PvP waiting state)
+        if (appModel.isWaitingForOpponent &&
+            !_opponentJoinDetected &&
+            appModel.gameController!.board.player2Pieces.isNotEmpty) {
+          // Opponent has joined when player2 pieces appear on board
+          _opponentJoinDetected = true;
+          _waitingDialogShown =
+              false; // Reset flag in case dialog needs to be shown again
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              appModel.opponentJoined = true;
+              appModel.isWaitingForOpponent = false;
+              appModel.update();
+            }
+          });
         }
 
         if (appModel.promotionRequested) {

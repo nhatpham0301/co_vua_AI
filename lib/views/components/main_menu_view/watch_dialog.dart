@@ -53,8 +53,9 @@ class WatchMatchesDialogContent extends StatelessWidget {
                     bottomPadding: 10,
                   ),
                 ),
+                const SizedBox(height: 8),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+                  padding: const EdgeInsets.only(bottom: 25),
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(

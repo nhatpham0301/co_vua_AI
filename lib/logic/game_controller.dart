@@ -216,7 +216,10 @@ class GameController {
     selectedPiece = null;
     // Single rebuild for all the state changes above
     appModel.update();
-    if (appModel.isAIsTurn && clearRedo && changeTurn) {
+    if (appModel.isAIsTurn &&
+        clearRedo &&
+        changeTurn &&
+        !appModel.isOnlineGameMode) {
       _aiMove();
     }
   }
