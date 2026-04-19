@@ -1,4 +1,5 @@
 import 'package:async/async.dart';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../model/app_model.dart';
@@ -25,6 +26,9 @@ class GameController {
 
   /// Called when the view needs to refresh sprites (e.g. after game restore).
   VoidCallback? onSnapSprites;
+
+  static const int _aiThinkDelayMinMs = 3000;
+  static const int _aiThinkDelayMaxMs = 5000;
 
   GameController(this.appModel) {}
 
@@ -65,8 +69,14 @@ class GameController {
 
   void _aiMove() async {
     if (appModel.gameOver) return;
-    await Future.delayed(Duration(milliseconds: 500));
-    if (appModel.gameOver) return;
+    final thinkDelayMs = _aiThinkDelayMinMs +
+        math.Random().nextInt(_aiThinkDelayMaxMs - _aiThinkDelayMinMs + 1);
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      'AI thinking for ${thinkDelayMs}ms before move',
+    );
+    await Future.delayed(Duration(milliseconds: thinkDelayMs));
+    if (appModel.gameOver || !appModel.isAIsTurn) return;
     var args = Map();
     args['aiPlayer'] = appModel.aiTurn;
     args['aiDifficulty'] = appModel.aiDifficulty;
@@ -75,7 +85,7 @@ class GameController {
       compute(calculateAIMove, args),
     );
     aiOperation?.value.then((move) {
-      if (move == null || appModel.gameOver) {
+      if (move == null || appModel.gameOver || !appModel.isAIsTurn) {
         DevLogger.instance
             .log(DevLogCategory.game, 'AI has no valid moves — ending game');
         appModel.endGame();

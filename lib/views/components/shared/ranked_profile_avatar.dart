@@ -12,6 +12,7 @@ class RankedProfileAvatar extends StatelessWidget {
   final bool showBadge;
   final bool showStars;
   final bool compactDecorations;
+  final bool hideAvatar;
   final double badgeScale;
   final EdgeInsetsGeometry margin;
 
@@ -24,6 +25,7 @@ class RankedProfileAvatar extends StatelessWidget {
     this.showBadge = true,
     this.showStars = true,
     this.compactDecorations = false,
+    this.hideAvatar = true,
     this.badgeScale = 1.0,
     this.margin = EdgeInsets.zero,
   });
@@ -51,16 +53,10 @@ class RankedProfileAvatar extends StatelessWidget {
     final starCount = _starCountForRank(rank);
 
     final badgeHeight =
-        avatarSize * (compactDecorations ? 0.43 : 0.54) * badgeScale;
-    final starSize = avatarSize * (compactDecorations ? 0.34 : 0.30);
-    final avatarRing = compactDecorations ? 2.3 : 2.6;
-    final badgeCenterY = avatarSize * (compactDecorations ? 0.88 : 0.90);
-    final badgeTop = badgeCenterY - (badgeHeight / 2);
-    final badgeBottom = badgeTop + badgeHeight;
-    final extraBelowAvatar = showBadge && badgeBottom > avatarSize
-        ? (badgeBottom - avatarSize)
-        : 0.0;
-    final frameHeight = avatarSize + extraBelowAvatar - 5;
+        avatarSize * (compactDecorations ? 0.92 : 1.0) * badgeScale;
+    final starSize = avatarSize * (compactDecorations ? 0.36 : 0.30);
+    final avatarInset = avatarSize * (compactDecorations ? 0.16 : 0.15);
+    final frameHeight = avatarSize;
     final sidePadding = compactDecorations ? 10.0 : 18.0;
 
     return Container(
@@ -76,31 +72,30 @@ class RankedProfileAvatar extends StatelessWidget {
               alignment: Alignment.topCenter,
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: avatarSize,
-                  height: avatarSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFFF1C57D),
-                      width: avatarRing,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.28),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(child: _buildAvatarContent()),
-                ),
                 if (showBadge)
-                  Positioned(
-                    top: badgeTop,
+                  SizedBox(
+                    width: avatarSize,
+                    height: avatarSize,
                     child: Image.asset(
                       rankBadgePath,
                       height: badgeHeight,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) =>
+                          SizedBox(height: badgeHeight),
+                    ),
+                  ),
+                if (!hideAvatar)
+                  Positioned(
+                    top: avatarInset,
+                    left: avatarInset,
+                    right: avatarInset,
+                    bottom: avatarInset,
+                    child: ClipOval(child: _buildAvatarContent()),
+                  ),
+                if (!showBadge)
+                  Positioned.fill(
+                    child: Image.asset(
+                      rankBadgePath,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) =>
                           SizedBox(height: badgeHeight),
@@ -115,13 +110,14 @@ class RankedProfileAvatar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(3, (index) {
-                  final active = index < starCount;
+                  // final active = index < starCount;
+                  final active = true;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 0.8),
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
                     child: Icon(
-                      true ? Icons.star_rounded : Icons.star_border_rounded,
+                      active ? Icons.star_rounded : Icons.star_border_rounded,
                       size: starSize,
-                      color: true
+                      color: active
                           ? const Color(0xFFFFD43C)
                           : const Color(0xFF6E542E),
                     ),

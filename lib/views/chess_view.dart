@@ -359,7 +359,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                               '$_readySeconds',
                               style: const TextStyle(
                                 color: Colors.black,
-                                fontSize: 68,
+                                fontSize: 50,
                                 fontWeight: FontWeight.w900,
                                 fontFamily: 'Jura',
                                 shadows: [
@@ -370,13 +370,13 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 0),
                             GestureDetector(
                               onTap: _onReadyPressed,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 34,
-                                  vertical: 11,
+                                  horizontal: 28,
+                                  vertical: 9,
                                 ),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(26),
@@ -405,7 +405,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                   'Sẵn sàng',
                                   style: TextStyle(
                                     color: Color(0xFF4B2B15),
-                                    fontSize: 34,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w900,
                                   ),
                                 ),

@@ -194,10 +194,12 @@ class ChessGame extends FlameGame with TapCallbacks {
     var theme = appModel.theme;
     _lightTilePaint = Paint()..color = theme.lightTile;
     _darkTilePaint = Paint()..color = theme.darkTile;
-    _moveHintPaint = Paint()..color = theme.moveHint;
+    _moveHintPaint = Paint()
+      ..color = const Color(0xFF39D353).withValues(alpha: 0.95);
     _checkHintPaint = Paint()..color = theme.checkHint;
     _latestMovePaint = Paint()..color = theme.latestMove;
-    _selectedPiecePaint = Paint()..color = theme.moveHint;
+    _selectedPiecePaint = Paint()
+      ..color = const Color(0xFF39D353).withValues(alpha: 0.95);
     _cachedThemeName = theme.name;
   }
 

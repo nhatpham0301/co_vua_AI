@@ -265,11 +265,17 @@ class _CountdownRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (math.min(size.width, size.height) / 2) - 1.5;
+    final progressColor = Color.lerp(
+          const Color(0xFFE14B4B),
+          const Color.fromARGB(255, 49, 255, 94),
+          progress.clamp(0.0, 1.0),
+        ) ??
+        const Color(0xFF31A8FF);
 
     final base = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.8
-      ..color = Colors.white.withValues(alpha: 0.2);
+      ..color = const Color(0xFF31A8FF).withValues(alpha: 0.18);
 
     canvas.drawCircle(center, radius, base);
 
@@ -279,15 +285,7 @@ class _CountdownRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.2
-      ..shader = SweepGradient(
-        startAngle: -math.pi / 2,
-        endAngle: 1.5 * math.pi,
-        colors: const [
-          Color(0xFFE15757),
-          Color(0xFFE3A64A),
-          Color(0xFFF3CE82),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
+      ..color = progressColor;
 
     final sweep = 2 * math.pi * progress;
     canvas.drawArc(

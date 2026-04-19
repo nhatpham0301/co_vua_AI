@@ -26,11 +26,10 @@ final List<String> sortedPieceThemes = () {
 class UserPreferences {
   SharedPreferences? _prefs;
 
-  // Keep offline defaults aligned with API new AI game defaults:
-  // timeControl = blitz_5 (5 minutes), moveTimeLimit = 0 (no per-move limit).
-  static const int _offlineDefaultTimeLimitMinutes = 5;
+  // Keep offline defaults aligned with the desired local play pacing.
+  static const int _offlineDefaultTimeLimitMinutes = 15;
   // Keep per-move countdown visible in player profile.
-  static const int _offlineDefaultMoveTimeLimitSeconds = 30;
+  static const int _offlineDefaultMoveTimeLimitSeconds = 60;
 
   static String _defaultApiBaseUrl() {
     final raw = dotenv.env['API_BASE_URL']?.trim();

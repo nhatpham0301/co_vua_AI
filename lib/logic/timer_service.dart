@@ -17,8 +17,8 @@ class TimerService {
   ValueNotifier<Duration> player2TimeLeft = ValueNotifier(Duration.zero);
   ValueNotifier<Duration> moveTimeLeft = ValueNotifier(Duration.zero);
 
-  int _timeLimit = 30; // minutes — 0 = no total limit
-  int _moveTimeLimitSeconds = 30; // seconds per move — 0 = no per-move limit
+  int _timeLimit = 15; // minutes — 0 = no total limit
+  int _moveTimeLimitSeconds = 60; // seconds per move — 0 = no per-move limit
 
   /// Called when any clock reaches zero.
   VoidCallback? onExpired;
@@ -26,7 +26,7 @@ class TimerService {
   int get timeLimit => _timeLimit;
   int get moveTimeLimitSeconds => _moveTimeLimitSeconds;
 
-  void configure(int timeLimitMinutes, {int moveTimeLimitSeconds = 30}) {
+  void configure(int timeLimitMinutes, {int moveTimeLimitSeconds = 60}) {
     _timeLimit = timeLimitMinutes;
     _moveTimeLimitSeconds = moveTimeLimitSeconds;
     player1TimeLeft.value = Duration(minutes: timeLimitMinutes);
