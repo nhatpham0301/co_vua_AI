@@ -26,6 +26,12 @@ final List<String> sortedPieceThemes = () {
 class UserPreferences {
   SharedPreferences? _prefs;
 
+  // Keep offline defaults aligned with API new AI game defaults:
+  // timeControl = blitz_5 (5 minutes), moveTimeLimit = 0 (no per-move limit).
+  static const int _offlineDefaultTimeLimitMinutes = 5;
+  // Keep per-move countdown visible in player profile.
+  static const int _offlineDefaultMoveTimeLimitSeconds = 30;
+
   static String _defaultApiBaseUrl() {
     final raw = dotenv.env['API_BASE_URL']?.trim();
     if (raw == null || raw.isEmpty) return 'https://giaitri.cloud';
@@ -33,16 +39,17 @@ class UserPreferences {
   }
 
   String pieceTheme = 'Default';
-  String themeName = 'Jargon Jade';
+  String themeName = 'Grey';
   bool showMoveHistory = true;
   bool allowUndoRedo = true;
   bool soundEnabled = true;
   bool showHints = true;
   bool showNotation = false;
-  bool enableRotation = true;
+  bool enableRotation = false;
   String? localeCode;
-  int timeLimitMinutes = 30; // 0 = unlimited
-  int moveTimeLimitSeconds = 30; // seconds per move, 0 = no per-move limit
+  int timeLimitMinutes = _offlineDefaultTimeLimitMinutes; // 0 = unlimited
+  int moveTimeLimitSeconds =
+      _offlineDefaultMoveTimeLimitSeconds; // 0 = no per-move limit
   String apiBaseUrl = _defaultApiBaseUrl();
 
   List<String> get pieceThemes => sortedPieceThemes;
@@ -72,17 +79,19 @@ class UserPreferences {
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
-    themeName = _prefs!.getString('themeName') ?? 'Jargon Jade';
-    pieceTheme = _prefs!.getString('pieceTheme') ?? 'Classic';
+    themeName = _prefs!.getString('themeName') ?? 'Grey';
+    pieceTheme = _prefs!.getString('pieceTheme') ?? 'Default';
     showMoveHistory = _prefs!.getBool('showMoveHistory') ?? true;
     soundEnabled = _prefs!.getBool('soundEnabled') ?? true;
     showHints = _prefs!.getBool('showHints') ?? true;
     showNotation = _prefs!.getBool('showNotation') ?? false;
-    enableRotation = _prefs!.getBool('enableRotation') ?? true;
+    enableRotation = _prefs!.getBool('enableRotation') ?? false;
     allowUndoRedo = _prefs!.getBool('allowUndoRedo') ?? true;
-    localeCode = _prefs!.getString('localeCode');
-    timeLimitMinutes = _prefs!.getInt('timeLimitMinutes') ?? 30;
-    moveTimeLimitSeconds = _prefs!.getInt('moveTimeLimitSeconds') ?? 30;
+    localeCode = _prefs!.getString('localeCode') ?? 'vi';
+    // Timer settings in Settings are removed for online-first flow.
+    // Force offline defaults to avoid stale persisted values.
+    timeLimitMinutes = _offlineDefaultTimeLimitMinutes;
+    moveTimeLimitSeconds = _offlineDefaultMoveTimeLimitSeconds;
     apiBaseUrl = _prefs!.getString('apiBaseUrl') ?? _defaultApiBaseUrl();
     onChanged?.call();
   }
@@ -176,17 +185,17 @@ class UserPreferences {
   }
 
   Future<void> resetToDefaults() async {
-    themeName = 'Jargon Jade';
+    themeName = 'Warm Tan';
     pieceTheme = 'Default';
     showMoveHistory = true;
     soundEnabled = true;
     showHints = true;
     showNotation = false;
-    enableRotation = true;
+    enableRotation = false;
     allowUndoRedo = true;
     localeCode = null;
-    timeLimitMinutes = 30;
-    moveTimeLimitSeconds = 30;
+    timeLimitMinutes = _offlineDefaultTimeLimitMinutes;
+    moveTimeLimitSeconds = _offlineDefaultMoveTimeLimitSeconds;
     apiBaseUrl = _defaultApiBaseUrl();
 
     _prefs ??= await SharedPreferences.getInstance();

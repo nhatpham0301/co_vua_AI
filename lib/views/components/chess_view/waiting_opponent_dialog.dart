@@ -31,12 +31,13 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   }
 
   void _startCountdown() {
-    _timeoutFuture = Future.delayed(const Duration(seconds: 10), () async {
+    /// Thay đổi thời gian chờ
+    _timeoutFuture = Future.delayed(const Duration(seconds: 5), () async {
       if (!mounted) return;
 
       DevLogger.instance.log(
         DevLogCategory.game,
-        '[WAITING_OPPONENT] 10s timeout -> no opponent joined -> fallback to AI',
+        '[WAITING_OPPONENT] 5s timeout -> no opponent joined -> fallback to AI',
       );
 
       if (mounted) Navigator.of(context).pop();
@@ -127,7 +128,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
               const Padding(
                 padding: EdgeInsets.only(bottom: 20),
                 child: Text(
-                  'Table code',
+                  'Bàn chờ',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -199,7 +200,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Waiting for players...',
+                'Chờ người chơi khác...',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
@@ -212,7 +213,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
                 children: [
                   Expanded(
                     child: _buildButton(
-                      label: 'Invite',
+                      label: 'Mã mời',
                       onPressed: _onInvitePressed,
                       bgColor: primary,
                     ),

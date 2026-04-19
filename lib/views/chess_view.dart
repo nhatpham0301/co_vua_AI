@@ -125,8 +125,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       BuildContext context, AppModel appModel, AppLocalizations l, int botElo) {
     final opponentId = appModel.opponentUserId;
     final isAI = appModel.playingWithAI;
+    final isGuestLocalTwoPlayer = !appModel.authService.isLoggedIn && !isAI;
     final diff = appModel.aiDifficulty.clamp(1, 5);
-    final opponentName = isAI ? l.botLevel(diff) : l.opponent;
+    final opponentName = isAI
+        ? l.botLevel(diff)
+        : (isGuestLocalTwoPlayer ? l.twoPlayer : l.opponent);
     final capturedPieces = appModel.capturedBlack; // quân trắng ăn quân đen
 
     if (opponentId != null && !isAI) {
@@ -420,7 +423,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         top: _kTopBannerSlotHeight + 16,
                         left: 10,
                         child: MatchCornerProfile(
-                          name: isAI ? l.botLevel(diff) : l.opponent,
+                          name: isAI
+                              ? l.botLevel(diff)
+                              : (!appModel.authService.isLoggedIn
+                                  ? l.twoPlayer
+                                  : l.opponent),
                           elo: botElo,
                           eloLabel: l.eloLabel(botElo),
                           totalTimeLeft: appModel.player2TimeLeft,
@@ -438,11 +445,13 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         right: 10,
                         bottom: 0,
                         child: MatchCornerProfile(
-                          name:
-                              appModel.authService.user?.username.isNotEmpty ==
+                          name: !appModel.authService.isLoggedIn
+                              ? l.onePlayer
+                              : (appModel.authService.user?.username
+                                          .isNotEmpty ==
                                       true
                                   ? appModel.authService.user!.username
-                                  : l.youPlayer,
+                                  : l.youPlayer),
                           elo: appModel.authService.user?.elo ?? 1200,
                           eloLabel: l
                               .eloLabel(appModel.authService.user?.elo ?? 1200),

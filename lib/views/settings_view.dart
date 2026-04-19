@@ -5,8 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../model/app_model.dart';
-import 'components/main_menu_view/game_options/time_increment_picker.dart';
-import 'components/main_menu_view/game_options/time_limit_picker.dart';
+import 'components/main_menu_view/game_options/game_mode_picker.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
 import 'components/settings_view/language_picker.dart';
@@ -83,13 +82,17 @@ class SettingsView extends StatelessWidget {
                         const LanguagePicker(),
                         const SizedBox(height: 10),
                         Consumer<AppModel>(
-                          builder: (context, appModel, child) =>
-                              Toggles(appModel),
+                          builder: (context, appModel, child) {
+                            if (appModel.authService.isLoggedIn) {
+                              return const SizedBox.shrink();
+                            }
+                            return _GuestGameModeSection(appModel: appModel);
+                          },
                         ),
                         const SizedBox(height: 10),
                         Consumer<AppModel>(
                           builder: (context, appModel, child) =>
-                              _TimerSettingsSection(appModel: appModel),
+                              Toggles(appModel),
                         ),
                       ],
                     ),
@@ -153,15 +156,13 @@ class _TopActionButton extends StatelessWidget {
   }
 }
 
-// ─── Timer Settings Section ───────────────────────────────────────────────────
-class _TimerSettingsSection extends StatelessWidget {
+class _GuestGameModeSection extends StatelessWidget {
   final AppModel appModel;
 
-  const _TimerSettingsSection({required this.appModel});
+  const _GuestGameModeSection({required this.appModel});
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
@@ -174,44 +175,13 @@ class _TimerSettingsSection extends StatelessWidget {
             bgMid.withValues(alpha: 0.68),
           ],
         ),
-        border:
-            Border.all(color: const Color(0xFFEBC889).withValues(alpha: 0.32)),
+        border: Border.all(
+          color: const Color(0xFFEBC889).withValues(alpha: 0.32),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                CupertinoIcons.clock_fill,
-                size: 16,
-                color: Color(0xFFF0D2A0),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                l.timerSettings,
-                style: const TextStyle(
-                  color: Color(0xFFF0D2A0),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.35,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TimeLimitPicker(
-            themed: true,
-            selectedTime: appModel.timeLimit,
-            setTime: appModel.setTimeLimit,
-          ),
-          const SizedBox(height: 10),
-          TimeMoveLimitPicker(
-            themed: true,
-            selectedLimit: appModel.moveTimeLimit,
-            setLimit: appModel.setMoveTimeLimit,
-          ),
-        ],
+      child: GameModePicker(
+        appModel.playerCount,
+        appModel.setPlayerCount,
       ),
     );
   }

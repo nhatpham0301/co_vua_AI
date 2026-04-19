@@ -27,24 +27,26 @@ class LanguagePicker extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Expanded(child: TextRegular(l.language)),
-              CupertinoSlidingSegmentedControl<String>(
-                groupValue: selectedLocale,
-                onValueChanged: (value) {
-                  if (value != null) {
-                    appModel.setLocale(value);
-                  }
-                },
-                children: {
-                  'vi': Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: TextDefault(l.vietnamese),
-                  ),
-                  'en': Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: TextDefault(l.english),
-                  ),
-                },
+              // Expanded(child: TextRegular(l.language)),
+              Expanded(
+                child: CupertinoSlidingSegmentedControl<String>(
+                  groupValue: selectedLocale,
+                  onValueChanged: (value) {
+                    if (value != null) {
+                      appModel.setLocale(value);
+                    }
+                  },
+                  children: {
+                    'vi': Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: TextDefault(l.vietnamese),
+                    ),
+                    'en': Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: TextDefault(l.english),
+                    ),
+                  },
+                ),
               ),
             ],
           ),

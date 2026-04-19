@@ -178,6 +178,22 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         '[HOME_PLAY] Tap PLAY | login=$isLoggedIn | savedGame=${widget.hasSavedGame}',
       );
 
+      if (!isLoggedIn) {
+        final localMode = appModel.playerCount == 2 ? 2 : 1;
+        appModel.setPlayerCount(localMode);
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Guest mode -> start local game | playerCount=$localMode',
+        );
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+        );
+        widget.onGameFinished();
+        return;
+      }
+
       final online = await _checkOnline();
       DevLogger.instance.log(
         DevLogCategory.system,

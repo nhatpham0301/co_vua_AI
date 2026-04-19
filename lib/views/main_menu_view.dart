@@ -26,6 +26,7 @@ class _MainMenuViewState extends State<MainMenuView> {
   bool _isGameStarting = false;
   List<LiveMatch> _matches = [];
   Timer? _ticker;
+  bool _guestModeInitialized = false;
 
   @override
   void initState() {
@@ -185,6 +186,17 @@ class _MainMenuViewState extends State<MainMenuView> {
             auth.user?.elo ?? model.homeOverviewSnapshot?.user?.elo ?? 0;
         final l = AppLocalizations.of(context)!;
 
+        if (!isLoggedIn && !_guestModeInitialized) {
+          _guestModeInitialized = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            model.setPlayerCount(1);
+          });
+        }
+        if (isLoggedIn) {
+          _guestModeInitialized = false;
+        }
+
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
@@ -230,25 +242,32 @@ class _MainMenuViewState extends State<MainMenuView> {
                             ),
                           )
                         : Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                _GuestHeaderIconButton(
-                                  icon: CupertinoIcons.person,
-                                  label: l.loginTitle,
-                                  onTap: _handleLogin,
-                                ),
-                                const SizedBox(width: 6),
-                                _GuestHeaderIconButton(
-                                  icon: CupertinoIcons.settings,
-                                  label: l.settings,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (_) => SettingsView(),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _GuestHeaderActionButton(
+                                      icon: CupertinoIcons.person_crop_circle,
+                                      label: l.loginTitle,
+                                      primary: true,
+                                      onTap: _handleLogin,
                                     ),
-                                  ),
+                                    _GuestHeaderActionButton(
+                                      icon: CupertinoIcons.settings,
+                                      label: l.settings,
+                                      primary: true,
+                                      onTap: () => Navigator.push(
+                                        context,
+                                        CupertinoPageRoute(
+                                          builder: (_) => SettingsView(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -551,14 +570,16 @@ class _HeaderRoundIconButton extends StatelessWidget {
   }
 }
 
-class _GuestHeaderIconButton extends StatelessWidget {
+class _GuestHeaderActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool primary;
   final VoidCallback onTap;
 
-  const _GuestHeaderIconButton({
+  const _GuestHeaderActionButton({
     required this.icon,
     required this.label,
+    this.primary = false,
     required this.onTap,
   });
 
@@ -567,31 +588,48 @@ class _GuestHeaderIconButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32,
-        height: 32,
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const LinearGradient(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF111111), Color(0xFF2A1E11)],
+            colors: primary
+                ? const [Color(0xFF4B2F1A), Color(0xFF2B1A0D)]
+                : const [Color(0xFF141414), Color(0xFF262626)],
           ),
           border: Border.all(
-            color: const Color(0xFFF1C67E).withValues(alpha: 0.9),
+            color: primary
+                ? const Color(0xFFF1C67E).withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.24),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 7,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Center(
-          child: Tooltip(
-            message: label,
-            child: Icon(icon, color: const Color(0xFFF2CB8A), size: 16),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: primary ? const Color(0xFFF4D396) : Colors.white70,
+              size: 15,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: primary ? const Color(0xFFF4D396) : Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

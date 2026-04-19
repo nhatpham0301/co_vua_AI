@@ -215,7 +215,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get showNotation => 'Hiện ký hiệu';
 
   @override
-  String get allowUndoRedo => 'Cho phép đi lại/làm lại';
+  String get allowUndoRedo => 'Cho phép đi lại';
 
   @override
   String get showMoveHistory => 'Hiện lịch sử nước đi';

@@ -18,14 +18,14 @@ void showExitDialog(BuildContext context) {
     title: l.leaveGameTitle,
     message: l.leaveGameSubtitle,
     actions: [
-      AppDialogAction(
-        label: l.saveAndExit,
-        isPrimary: true,
-        onPressed: () {
-          appModel.saveAndExitChessView();
-          Navigator.of(context).pop();
-        },
-      ),
+      // AppDialogAction(
+      //   label: l.saveAndExit,
+      //   isPrimary: true,
+      //   onPressed: () {
+      //     appModel.saveAndExitChessView();
+      //     Navigator.of(context).pop();
+      //   },
+      // ),
       AppDialogAction(
         label: l.exit,
         isDestructive: true,

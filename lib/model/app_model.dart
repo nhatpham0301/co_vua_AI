@@ -43,7 +43,7 @@ class AppModel extends ChangeNotifier {
   }
 
   // ── Game Settings ──
-  int playerCount = 1;
+  int playerCount = 1; // Default: offline AI mode
   int aiDifficulty = 3;
   Player selectedSide = Player.player1;
   Player playerSide = Player.player1;
