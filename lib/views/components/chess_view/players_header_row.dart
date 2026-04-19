@@ -208,8 +208,8 @@ class _AvatarWithCountdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 74,
-      height: dockToMenu ? 62 : 92,
+      width: 80,
+      height: dockToMenu ? 74 : 100,
       child: ValueListenableBuilder<Duration>(
         valueListenable: moveTimeLeft,
         builder: (_, value, __) {
@@ -243,6 +243,8 @@ class _AvatarWithCountdown extends StatelessWidget {
                   elo: elo,
                   avatarUrl: avatarUrl,
                   avatarSize: 50,
+                  compactDecorations: true,
+                  badgeScale: 1.22,
                 ),
               ),
             ],

@@ -118,7 +118,8 @@ class _SidePlayer extends StatelessWidget {
         RankedProfileAvatar(
           name: player.name,
           elo: player.elo,
-          avatarSize: 45,
+          avatarSize: 46,
+          badgeScale: 1.25,
         ),
       ],
     );

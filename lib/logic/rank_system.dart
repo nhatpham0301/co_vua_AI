@@ -10,11 +10,11 @@ class RankSystem {
   ];
 
   static const Map<int, String> rankNames = {
-    1: 'Tập sự',
-    2: 'Trung cấp',
-    3: 'Cao cấp',
-    4: 'Chuyên gia',
-    5: 'Đại kiện tướng',
+    1: 'Đồng',
+    2: 'Bạc',
+    3: 'Vàng',
+    4: 'Bạch kim',
+    5: 'Cao thủ',
   };
 
   static const Map<int, String> rankEnglish = {
@@ -30,15 +30,15 @@ class RankSystem {
     2: 'silver',
     3: 'gold',
     4: 'diamond',
-    5: 'king',
+    5: 'master',
   };
 
   /// Xác định rank dựa vào ELO score.
   static int getRankFromElo(int elo) {
-    if (elo >= 1650) return 5;
-    if (elo >= 1400) return 4;
-    if (elo >= 1100) return 3;
-    if (elo >= 800) return 2;
+    if (elo >= 1600) return 5;
+    if (elo >= 1500) return 4;
+    if (elo >= 1300) return 3;
+    if (elo > 1200) return 2;
     return 1;
   }
 

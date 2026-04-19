@@ -11,6 +11,8 @@ class RankedProfileAvatar extends StatelessWidget {
   final double avatarSize;
   final bool showBadge;
   final bool showStars;
+  final bool compactDecorations;
+  final double badgeScale;
   final EdgeInsetsGeometry margin;
 
   const RankedProfileAvatar({
@@ -21,6 +23,8 @@ class RankedProfileAvatar extends StatelessWidget {
     this.avatarSize = 72,
     this.showBadge = true,
     this.showStars = true,
+    this.compactDecorations = false,
+    this.badgeScale = 1.0,
     this.margin = EdgeInsets.zero,
   });
 
@@ -45,53 +49,82 @@ class RankedProfileAvatar extends StatelessWidget {
     final rank = RankSystem.getRankFromElo(elo);
     final rankBadgePath = RankSystem.getRankBadgePath(elo);
     final starCount = _starCountForRank(rank);
-    final badgeHeight = avatarSize * 0.48;
-    final starSize = avatarSize * 0.26;
+
+    final badgeHeight =
+        avatarSize * (compactDecorations ? 0.43 : 0.54) * badgeScale;
+    final starSize = avatarSize * (compactDecorations ? 0.34 : 0.30);
+    final avatarRing = compactDecorations ? 2.3 : 2.6;
+    final badgeCenterY = avatarSize * (compactDecorations ? 0.88 : 0.90);
+    final badgeTop = badgeCenterY - (badgeHeight / 2);
+    final badgeBottom = badgeTop + badgeHeight;
+    final extraBelowAvatar = showBadge && badgeBottom > avatarSize
+        ? (badgeBottom - avatarSize)
+        : 0.0;
+    final frameHeight = avatarSize + extraBelowAvatar - 5;
+    final sidePadding = compactDecorations ? 10.0 : 18.0;
 
     return Container(
       margin: margin,
-      width: avatarSize + 18,
+      width: avatarSize + sidePadding,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
+          SizedBox(
             width: avatarSize,
-            height: avatarSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFF1C57D), width: 2.6),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+            height: frameHeight,
+            child: Stack(
+              alignment: Alignment.topCenter,
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: avatarSize,
+                  height: avatarSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFFF1C57D),
+                      width: avatarRing,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(child: _buildAvatarContent()),
                 ),
+                if (showBadge)
+                  Positioned(
+                    top: badgeTop,
+                    child: Image.asset(
+                      rankBadgePath,
+                      height: badgeHeight,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) =>
+                          SizedBox(height: badgeHeight),
+                    ),
+                  ),
               ],
             ),
-            child: ClipOval(child: _buildAvatarContent()),
           ),
-          if (showBadge)
-            Transform.translate(
-              offset: const Offset(0, -25),
-              child: Image.asset(
-                rankBadgePath,
-                height: badgeHeight,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => SizedBox(height: badgeHeight),
-              ),
-            ),
           if (showStars)
-            Transform.translate(
-              offset: Offset(0, showBadge ? -38 : -2),
+            Padding(
+              padding: EdgeInsets.only(top: compactDecorations ? 0 : 0.5),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(3, (index) {
-                  return Icon(
-                    Icons.star_rounded,
-                    size: starSize,
-                    color: index < starCount
-                        ? const Color(0xFFFFD43C)
-                        : const Color(0xFF4E381E),
+                  final active = index < starCount;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 0.8),
+                    child: Icon(
+                      true ? Icons.star_rounded : Icons.star_border_rounded,
+                      size: starSize,
+                      color: true
+                          ? const Color(0xFFFFD43C)
+                          : const Color(0xFF6E542E),
+                    ),
                   );
                 }),
               ),
