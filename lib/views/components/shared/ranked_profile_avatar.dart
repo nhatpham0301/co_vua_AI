@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../../../logic/rank_system.dart';
 
 class RankedProfileAvatar extends StatelessWidget {
+  static const Color _activeStarColor = Color(0xFFFFD54F);
+  static const Color _inactiveStarColor = Color(0xFF7A5732);
+
   final String name;
   final int elo;
   final String? avatarUrl;
@@ -110,16 +113,13 @@ class RankedProfileAvatar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(3, (index) {
-                  // final active = index < starCount;
-                  final active = true;
+                  final active = index < starCount;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 0),
                     child: Icon(
-                      active ? Icons.star_rounded : Icons.star_border_rounded,
+                      Icons.star_rounded,
                       size: starSize,
-                      color: active
-                          ? const Color(0xFFFFD43C)
-                          : const Color(0xFF6E542E),
+                      color: active ? _activeStarColor : _inactiveStarColor,
                     ),
                   );
                 }),

@@ -32,7 +32,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
 
   void _startCountdown() {
     /// Thay đổi thời gian chờ
-    _timeoutFuture = Future.delayed(const Duration(seconds: 5), () async {
+    _timeoutFuture = Future.delayed(const Duration(seconds: 60), () async {
       if (!mounted) return;
 
       DevLogger.instance.log(

@@ -51,13 +51,14 @@ class GameController {
   void movePiece(int tile) {
     if (validMoves.contains(tile)) {
       validMoves = [];
-      var meta =
-          board.push(Move(selectedPiece?.tile ?? 0, tile), getMeta: true);
+      var move = Move(selectedPiece?.tile ?? 0, tile);
+      var meta = board.push(move, getMeta: true);
       DevLogger.instance.log(
         DevLogCategory.game,
         'Player move: ${selectedPiece?.type.name ?? "?"} ${selectedPiece?.tile} → $tile',
       );
       appModel.audio.playMovedSound();
+      _emitMoveIfOnline(move, meta);
       if (meta.promotion) {
         appModel.requestPromotion();
       }
@@ -92,7 +93,7 @@ class GameController {
       } else {
         validMoves = [];
         var meta = board.push(move, getMeta: true);
-        _emitOnlineAiMoveIfEnabled(move, meta);
+        _emitMoveIfOnline(move, meta);
         DevLogger.instance.log(
           DevLogCategory.game,
           'AI move: ${move.from} → ${move.to}${meta.took ? " (capture)" : ""}${meta.isCheck ? " +" : ""}${meta.isCheckmate ? " #" : ""}',
@@ -235,7 +236,7 @@ class GameController {
     }
   }
 
-  void _emitOnlineAiMoveIfEnabled(Move move, MoveMeta meta) {
+  void _emitMoveIfOnline(Move move, MoveMeta meta) {
     if (!appModel.shouldRunLocalAiInOnlineVsAi) return;
 
     final gameId = appModel.onlineEvents.activeGameId;
@@ -255,7 +256,7 @@ class GameController {
 
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[ONLINE_AI_FALLBACK] emit ai move via socket | gameId=$gameId | $from -> $to${promotion != null ? ' | promotion=$promotion' : ''}',
+      '[ONLINE] emit move via socket | gameId=$gameId | $from -> $to${promotion != null ? ' | promotion=$promotion' : ''}',
     );
   }
 

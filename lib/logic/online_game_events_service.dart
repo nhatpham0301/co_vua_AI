@@ -22,7 +22,7 @@ class OnlineGameEventsService {
 
   io.Socket? _socket;
   String? _activeGameId;
-  String? _accessToken;
+  bool _hasJoinedActiveGame = false;
 
   bool get isConnected => _socket?.connected ?? false;
   String? get activeGameId => _activeGameId;
@@ -48,21 +48,10 @@ class OnlineGameEventsService {
       uri,
       io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
-          .setAuth({
-            'token': accessToken,
-            'Bearer': accessToken,
-            'authorization': 'Bearer $accessToken',
-          })
-          .setExtraHeaders({
-            'Authorization': 'Bearer $accessToken',
-            'authorization': 'Bearer $accessToken',
-            'x-access-token': accessToken,
-          })
-          .setQuery({
-            'token': accessToken,
-            'accessToken': accessToken,
-            'authorization': 'Bearer $accessToken',
-          })
+          .setAuth({'token': accessToken})
+          .enableReconnection()
+          .setReconnectionAttempts(5)
+          .setReconnectionDelay(1000)
           .setPath('/socket.io')
           .disableAutoConnect()
           .build(),
@@ -70,42 +59,44 @@ class OnlineGameEventsService {
 
     DevLogger.instance.log(
       DevLogCategory.http,
-      '[SOCKET] auth mode=auth.token | len=${accessToken.length} | starts=${accessToken.substring(0, 20)}...',
+      '[SOCKET] auth mode=auth.token(raw_jwt) | len=${accessToken.length} | starts=${accessToken.substring(0, 20)}...',
     );
 
     _socket = socket;
     _activeGameId = gameId;
-    _accessToken = accessToken;
+    _hasJoinedActiveGame = false;
 
     DevLogger.instance.log(
       DevLogCategory.http,
-      '[SOCKET] Socket created | mode=auth.token | transports=websocket,polling | path=/socket.io | autoConnect=false | gameId=$gameId',
+      '[SOCKET] Socket created | mode=auth.token(raw_jwt) | transports=websocket,polling | reconnection=true(attempts=5,delay=1000ms) | path=/socket.io | autoConnect=false | gameId=$gameId',
     );
 
     socket.onConnect((_) {
+      final joinEvent = _hasJoinedActiveGame ? 'game:reconnect' : 'game:join';
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] connected | mode=auth.token | id=${socket.id ?? '-'} | gameId=$gameId',
+        '[SOCKET] connected | mode=auth.token(raw_jwt) | id=${socket.id ?? '-'} | gameId=$gameId | next=$joinEvent',
       );
-      _emitWithLog(socket, 'game:join', {'gameId': gameId}, gameId: gameId);
+      _emitWithLog(socket, joinEvent, {'gameId': gameId}, gameId: gameId);
+      _hasJoinedActiveGame = true;
     });
 
     socket.onConnectError((error) {
       final preview = _safePreview(error);
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] connect_error | mode=auth.token | gameId=$gameId | $preview',
+        '[SOCKET] connect_error | mode=auth.token(raw_jwt) | gameId=$gameId | $preview',
       );
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] auth.token with validated access token failed -> backend should verify socket auth middleware | gameId=$gameId',
+        '[SOCKET] auth.token failed -> if backend reports invalid token, refresh access token then reconnect | gameId=$gameId',
       );
     });
 
     socket.onError((error) {
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] error(callback) | mode=auth.token | gameId=$gameId | ${_safePreview(error)}',
+        '[SOCKET] error(callback) | mode=auth.token(raw_jwt) | gameId=$gameId | ${_safePreview(error)}',
       );
     });
 
@@ -146,7 +137,7 @@ class OnlineGameEventsService {
 
     _socket = null;
     _activeGameId = null;
-    _accessToken = null;
+    _hasJoinedActiveGame = false;
   }
 
   /// Emit a move via socket (realtime submission for online games)
@@ -170,17 +161,6 @@ class OnlineGameEventsService {
       'from': from,
       'to': to,
       if (promotion != null) 'promotion': promotion,
-      if (_accessToken != null) 'token': _accessToken,
-      if (_accessToken != null) 'Bearer': _accessToken,
-      if (_accessToken != null) 'authorization': 'Bearer $_accessToken',
-      if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      if (_accessToken != null) 'accessToken': _accessToken,
-      if (_accessToken != null) 'bearerToken': 'Bearer $_accessToken',
-      if (_accessToken != null)
-        'auth': {
-          'token': _accessToken,
-          'authorization': 'Bearer $_accessToken',
-        },
     };
 
     _emitWithLog(socket, 'game:move', payload, gameId: gameId);
@@ -331,7 +311,10 @@ class OnlineGameEventsService {
         uri,
         io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
-            .setAuth({'token': accessToken, 'Bearer': accessToken})
+            .setAuth({'token': accessToken})
+            .enableReconnection()
+            .setReconnectionAttempts(5)
+            .setReconnectionDelay(1000)
             .setPath('/socket.io')
             .disableAutoConnect()
             .build(),
