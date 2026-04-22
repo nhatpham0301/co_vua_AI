@@ -277,11 +277,12 @@ class AppModel extends ChangeNotifier {
       timerService.configure(prefs.timeLimitMinutes,
           moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
     } else {
-      // Use server-provided time control when available; fall back to prefs.
+      // Use server-provided time control when available; fall back to 15 min.
       final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;
       final minutesToUse =
-          serverMinutes != null && serverMinutes > 0 ? serverMinutes : 5;
-      timerService.configure(minutesToUse, moveTimeLimitSeconds: 0);
+          serverMinutes != null && serverMinutes > 0 ? serverMinutes : 15;
+      // Per-move limit default 60s for all game modes.
+      timerService.configure(minutesToUse, moveTimeLimitSeconds: 60);
     }
     audio.enabled = prefs.soundEnabled;
     // For online games, playerSide is assigned by the server via game:state.
@@ -558,8 +559,9 @@ class AppModel extends ChangeNotifier {
   void _handleSocketGameClock(Map<String, dynamic> data) {
     final whiteSec = (data['white'] as num?)?.round();
     final blackSec = (data['black'] as num?)?.round();
-    timerService.setServerClocks(
-        whiteSeconds: whiteSec, blackSeconds: blackSec);
+    // Only correct local clock if server value differs by more than 2 seconds.
+    // This prevents the 04:59/05:00 oscillation caused by server rounding.
+    _syncClocksIfDrifted(whiteSec, blackSec);
 
     // Sync whose turn it is from the server clock (authoritative).
     final activeColor = data['activeColor']?.toString();
@@ -577,8 +579,27 @@ class AppModel extends ChangeNotifier {
   void _syncClocksFromPayload(Map<String, dynamic> clocks) {
     final whiteSec = (clocks['white'] as num?)?.round();
     final blackSec = (clocks['black'] as num?)?.round();
+    // On move events, always accept the server value (authoritative after a move).
     timerService.setServerClocks(
         whiteSeconds: whiteSec, blackSeconds: blackSec);
+  }
+
+  /// Update a player clock only when the local value has drifted more than
+  /// [_clockDriftThresholdSeconds] from the server value.
+  static const int _clockDriftThresholdSeconds = 2;
+  void _syncClocksIfDrifted(int? whiteSec, int? blackSec) {
+    if (whiteSec != null) {
+      final localSec = timerService.player1TimeLeft.value.inSeconds;
+      if ((localSec - whiteSec).abs() > _clockDriftThresholdSeconds) {
+        timerService.setServerClocks(whiteSeconds: whiteSec);
+      }
+    }
+    if (blackSec != null) {
+      final localSec = timerService.player2TimeLeft.value.inSeconds;
+      if ((localSec - blackSec).abs() > _clockDriftThresholdSeconds) {
+        timerService.setServerClocks(blackSeconds: blackSec);
+      }
+    }
   }
 
   /// Handles `game:end` event from socket.

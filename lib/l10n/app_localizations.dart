@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @matchmakingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **''**
+  /// **'Matching by rank. If time runs out,\nwill automatically switch to AI.'**
   String get matchmakingSubtitle;
 
   /// No description provided for @gameMode.

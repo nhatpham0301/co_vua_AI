@@ -149,7 +149,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get matchmakingSubtitle =>
-      'Ghép trận theo ELO. Nếu hết thời gian\nsẽ tự động chuyển sang Bot.';
+      'Ghép trận theo bậc xếp hạng. Nếu hết thời gian\nsẽ tự động chuyển sang AI.';
 
   @override
   String get gameMode => 'Chế độ chơi';
