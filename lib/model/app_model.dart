@@ -89,6 +89,20 @@ class AppModel extends ChangeNotifier {
   String get apiBaseUrl => apiClient.baseUrl;
   String get socketBaseUrl => _envSocketBaseUrl();
 
+  /// Maps the user's configured time limit to the closest standard timeControl
+  /// string to send to the matchmaking API.
+  String get onlineTimeControl {
+    final m = prefs.timeLimitMinutes;
+    if (m <= 0) return 'rapid_15'; // unlimited → treat as rapid_15
+    if (m <= 1) return 'bullet_1';
+    if (m <= 3) return 'blitz_3';
+    if (m <= 5) return 'blitz_5';
+    if (m <= 10) return 'rapid_10';
+    if (m <= 15) return 'rapid_15';
+    if (m <= 30) return 'classical_30';
+    return 'classical_30';
+  }
+
   ValueNotifier<Duration> get player1TimeLeft => timerService.player1TimeLeft;
   set player1TimeLeft(ValueNotifier<Duration> val) =>
       timerService.player1TimeLeft.value = val.value;
@@ -532,11 +546,12 @@ class AppModel extends ChangeNotifier {
 
     final promotion = data['promotion']?.toString();
 
-    // Sync clocks from the move event.
-    final clocks = data['clocks'] as Map<String, dynamic>?;
-    if (clocks != null) {
-      _syncClocksFromPayload(clocks);
-    }
+    // NOTE: We intentionally skip clock sync here.
+    // The BE currently returns the initial clock values (e.g. {white:300,black:300})
+    // on every game:move:ok, causing the local countdown to reset on each move.
+    // Clock correction is handled by _handleSocketGameClock (drift-threshold check)
+    // and by _handleSocketGameState on reconnect.
+    // TODO: Re-enable once BE sends correct decremented clock values on game:move:ok.
 
     // Determine whose move this was.
     // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.

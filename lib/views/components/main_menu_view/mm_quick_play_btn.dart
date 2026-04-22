@@ -269,6 +269,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             appModel: appModel,
             action: 'joinMatchmaking',
             execute: () => appModel.apiClient.joinMatchmaking(
+              timeControl: appModel.onlineTimeControl,
               moveTimeLimit: appModel.moveTimeLimit,
             ),
           );
