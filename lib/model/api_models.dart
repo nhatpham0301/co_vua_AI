@@ -234,6 +234,9 @@ class OnlineGameSnapshot {
   final String? startedAt;
   final String? endedAt;
 
+  /// Raw time-control string from server, e.g. "blitz_5", "rapid_10".
+  final String? timeControl;
+
   OnlineGameSnapshot({
     required this.id,
     required this.status,
@@ -244,7 +247,18 @@ class OnlineGameSnapshot {
     required this.isAiGame,
     required this.startedAt,
     required this.endedAt,
+    this.timeControl,
   });
+
+  /// Parse time-control string into total minutes.
+  /// Format: "<label>_<minutes>" e.g. "blitz_5" → 5, "rapid_10" → 10.
+  /// Returns null if cannot parse.
+  int? get timeLimitMinutes {
+    if (timeControl == null) return null;
+    final parts = timeControl!.split('_');
+    if (parts.length >= 2) return int.tryParse(parts.last);
+    return null;
+  }
 
   factory OnlineGameSnapshot.fromJson(Map<String, dynamic> json) {
     return OnlineGameSnapshot(
@@ -257,6 +271,7 @@ class OnlineGameSnapshot {
       isAiGame: json['isAiGame'] as bool? ?? false,
       startedAt: json['startedAt'] as String?,
       endedAt: json['endedAt'] as String?,
+      timeControl: json['timeControl'] as String?,
     );
   }
 }

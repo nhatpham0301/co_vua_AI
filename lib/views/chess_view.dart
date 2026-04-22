@@ -110,11 +110,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     _readyTimer = null;
     setState(() => _isReady = true);
 
-    // For online PvP the server drives time via game:clock — keep local timer off.
-    if (!(appModel.isOnlineGameMode &&
-        !appModel.shouldRunLocalAiInOnlineVsAi)) {
-      appModel.timerService.resume();
-    }
+    appModel.timerService.resume();
     if (appModel.isAIsTurn && !appModel.gameOver) {
       appModel.gameController?.triggerAIMove();
     }
@@ -211,11 +207,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       }
     } else if (state == AppLifecycleState.resumed) {
       if (!appModel.gameOver) {
-        // Online PvP: server is authoritative for time — do not restart local timer.
-        if (!(appModel.isOnlineGameMode &&
-            !appModel.shouldRunLocalAiInOnlineVsAi)) {
-          appModel.timerService.resume();
-        }
+        appModel.timerService.resume();
       }
     }
   }
@@ -458,14 +450,28 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                               : (profile?['elo'] as num?)?.toInt() ?? botElo;
                           final opponentAvatar =
                               profile?['avatarUrl'] as String?;
+                          final isOnlinePvP = appModel.isOnlineGameMode &&
+                              !appModel.shouldRunLocalAiInOnlineVsAi;
+                          final iAmBlack =
+                              appModel.playerSide == Player.player2;
+                          // Top widget = opponent.
+                          // In online PvP: if I'm black, opponent is white → player1TimeLeft.
+                          final opponentClock = (isOnlinePvP && iAmBlack)
+                              ? appModel.player1TimeLeft
+                              : appModel.player2TimeLeft;
+                          final opponentActive = isOnlinePvP
+                              ? (appModel.turn != appModel.playerSide &&
+                                  !appModel.gameOver)
+                              : (appModel.isAIsTurn && !appModel.gameOver);
                           return MatchCornerProfile(
                             name: opponentName,
                             elo: opponentElo,
                             eloLabel: l.eloLabel(opponentElo),
-                            totalTimeLeft: appModel.player2TimeLeft,
-                            showTotalTime: appModel.timeLimit > 0,
+                            totalTimeLeft: opponentClock,
+                            showTotalTime:
+                                isOnlinePvP || appModel.timeLimit > 0,
                             avatarUrl: opponentAvatar,
-                            isActive: appModel.isAIsTurn && !appModel.gameOver,
+                            isActive: opponentActive,
                             mirror: false,
                             moveTimeLimitSeconds: appModel.moveTimeLimit,
                             moveTimeLeft: appModel.moveTimeLeft,
@@ -488,10 +494,22 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                           elo: appModel.authService.user?.elo ?? 1200,
                           eloLabel: l
                               .eloLabel(appModel.authService.user?.elo ?? 1200),
-                          totalTimeLeft: appModel.player1TimeLeft,
-                          showTotalTime: appModel.timeLimit > 0,
+                          // Bottom widget = local player.
+                          // In online PvP: if I'm black, my clock is player2TimeLeft.
+                          totalTimeLeft: (appModel.isOnlineGameMode &&
+                                  !appModel.shouldRunLocalAiInOnlineVsAi &&
+                                  appModel.playerSide == Player.player2)
+                              ? appModel.player2TimeLeft
+                              : appModel.player1TimeLeft,
+                          showTotalTime: (appModel.isOnlineGameMode &&
+                                  !appModel.shouldRunLocalAiInOnlineVsAi) ||
+                              appModel.timeLimit > 0,
                           avatarUrl: appModel.authService.user?.avatarUrl,
-                          isActive: !appModel.isAIsTurn && !appModel.gameOver,
+                          isActive: (appModel.isOnlineGameMode &&
+                                  !appModel.shouldRunLocalAiInOnlineVsAi)
+                              ? (appModel.turn == appModel.playerSide &&
+                                  !appModel.gameOver)
+                              : (!appModel.isAIsTurn && !appModel.gameOver),
                           mirror: true,
                           moveTimeLimitSeconds: appModel.moveTimeLimit,
                           moveTimeLeft: appModel.moveTimeLeft,

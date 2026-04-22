@@ -273,8 +273,16 @@ class AppModel extends ChangeNotifier {
     moveMetaList = [];
     capturedWhite = [];
     capturedBlack = [];
-    timerService.configure(prefs.timeLimitMinutes,
-        moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
+    if (!isOnlineGameMode) {
+      timerService.configure(prefs.timeLimitMinutes,
+          moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
+    } else {
+      // Use server-provided time control when available; fall back to prefs.
+      final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;
+      final minutesToUse =
+          serverMinutes != null && serverMinutes > 0 ? serverMinutes : 5;
+      timerService.configure(minutesToUse, moveTimeLimitSeconds: 0);
+    }
     audio.enabled = prefs.soundEnabled;
     // For online games, playerSide is assigned by the server via game:state.
     // Never override it here — it may have been set already by _handleSocketGameState
@@ -295,13 +303,8 @@ class AppModel extends ChangeNotifier {
     }
     gameController = GameController(this);
     timerService.start(() => turn, () => gameOver);
-
-    // For online PvP, the server is authoritative for time.
-    // Pause the local timer; ValueNotifiers will be updated exclusively
-    // by setServerClocks() on every game:clock / game:move:ok event.
-    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
-      timerService.pause();
-    }
+    // Online PvP: local timer runs for smooth display; server game:clock events
+    // sync/correct values every second. Game end is driven by game:end socket event.
 
     // Trigger AI move if it's AI's turn natively for standard games
     if (isAIsTurn && !gameOver) {
