@@ -87,6 +87,17 @@ class TimerService {
     }
   }
 
+  /// Sync clocks from server. Accepts milliseconds for each side.
+  /// Called on every `game:clock` and `game:move:ok` socket event.
+  void setServerClocks({int? whiteMs, int? blackMs}) {
+    if (whiteMs != null) {
+      player1TimeLeft.value = Duration(milliseconds: whiteMs);
+    }
+    if (blackMs != null) {
+      player2TimeLeft.value = Duration(milliseconds: blackMs);
+    }
+  }
+
   void pause() {
     _timer?.cancel();
     _timer = null;

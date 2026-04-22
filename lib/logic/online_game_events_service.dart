@@ -30,6 +30,7 @@ class OnlineGameEventsService {
   // ── Event callbacks (set by AppModel) ──
   void Function(Map<String, dynamic>)? onGameState;
   void Function(Map<String, dynamic>)? onGameMoveOk;
+  void Function(Map<String, dynamic>)? onGameClock;
   void Function(Map<String, dynamic>)? onGameEnd;
   void Function(Map<String, dynamic>)? onMatchFound;
   void Function(Map<String, dynamic>)? onMatchTimeout;
@@ -157,6 +158,7 @@ class OnlineGameEventsService {
     _hasJoinedActiveGame = false;
     onGameState = null;
     onGameMoveOk = null;
+    onGameClock = null;
     onGameEnd = null;
     onMatchFound = null;
     onMatchTimeout = null;
@@ -219,6 +221,9 @@ class OnlineGameEventsService {
         break;
       case 'game:move:ok':
         onGameMoveOk?.call(payload);
+        break;
+      case 'game:clock':
+        onGameClock?.call(payload);
         break;
       case 'game:end':
         onGameEnd?.call(payload);

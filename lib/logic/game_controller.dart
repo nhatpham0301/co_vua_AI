@@ -58,7 +58,10 @@ class GameController {
         'Player move: ${selectedPiece?.type.name ?? "?"} ${selectedPiece?.tile} → $tile',
       );
       appModel.audio.playMovedSound();
-      _emitMoveIfOnline(move, meta);
+      // For promotions, emit AFTER the promotion type is chosen (in promote()).
+      if (!meta.promotion) {
+        _emitMoveIfOnline(move, meta);
+      }
       if (meta.promotion) {
         appModel.requestPromotion();
       }
@@ -169,7 +172,68 @@ class GameController {
     board.moveStack.last.promotionType = type;
     board.addPromotedPiece(board.moveStack.last);
     appModel.moveMetaList.last.promotionType = type;
+    // Emit promotion move now that we have the final piece type.
+    final mso = board.moveStack.last;
+    final promoMove = Move(mso.move.from, mso.move.to, promotionType: type);
+    _emitMoveIfOnline(promoMove, appModel.moveMetaList.last);
     _moveCompletion(appModel.moveMetaList.last, updateMetaList: false);
+  }
+
+  /// Apply an opponent move received via socket. Does NOT re-emit to socket.
+  void applyRemoteMove({
+    required String from,
+    required String to,
+    String? promotion,
+  }) {
+    final fromTile = _algebraicToTile(from);
+    final toTile = _algebraicToTile(to);
+    final piece = board.tiles[fromTile];
+    if (piece == null) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[ONLINE] applyRemoteMove: no piece at $from (tile=$fromTile)',
+      );
+      return;
+    }
+    final promoType = promotion != null
+        ? _promoStringToPieceType(promotion)
+        : ChessPieceType.promotion;
+    final move = Move(fromTile, toTile, promotionType: promoType);
+    final meta = board.push(move, getMeta: true);
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[ONLINE] applyRemoteMove: $from → $to${promotion != null ? ' promo=$promotion' : ''}',
+    );
+    appModel.audio.playMovedSound();
+    if (meta.promotion && promotion != null) {
+      final resolvedType = _promoStringToPieceType(promotion);
+      board.moveStack.last.movedPiece?.type = resolvedType;
+      board.moveStack.last.promotionType = resolvedType;
+      board.addPromotedPiece(board.moveStack.last);
+      meta.promotionType = resolvedType;
+    }
+    _moveCompletion(meta);
+  }
+
+  int _algebraicToTile(String algebraic) {
+    final file = algebraic.codeUnitAt(0) - 97; // 'a'=0
+    final rank = 8 - int.parse(algebraic[1]); // '8'=row0
+    return rank * 8 + file;
+  }
+
+  ChessPieceType _promoStringToPieceType(String s) {
+    switch (s.toLowerCase()) {
+      case 'q':
+        return ChessPieceType.queen;
+      case 'r':
+        return ChessPieceType.rook;
+      case 'b':
+        return ChessPieceType.bishop;
+      case 'n':
+        return ChessPieceType.knight;
+      default:
+        return ChessPieceType.queen;
+    }
   }
 
   // ── Move Completion ──
@@ -237,7 +301,10 @@ class GameController {
   }
 
   void _emitMoveIfOnline(Move move, MoveMeta meta) {
-    if (!appModel.shouldRunLocalAiInOnlineVsAi) return;
+    // Emit for any online session EXCEPT local AI-fallback mode
+    // (in AI-fallback, moves are computed locally and don't go to the socket server).
+    if (!appModel.isOnlineGameMode) return;
+    if (appModel.shouldRunLocalAiInOnlineVsAi) return;
 
     final gameId = appModel.onlineEvents.activeGameId;
     if (gameId == null || gameId.isEmpty) return;

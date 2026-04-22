@@ -416,6 +416,8 @@ class AppModel extends ChangeNotifier {
     );
     // Register socket event handlers after tracking starts.
     onlineEvents.onGameState = _handleSocketGameState;
+    onlineEvents.onGameMoveOk = _handleSocketGameMoveOk;
+    onlineEvents.onGameClock = _handleSocketGameClock;
     onlineEvents.onGameEnd = _handleSocketGameEnd;
   }
 
@@ -438,21 +440,111 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Handles `game:state` event from socket.
-  /// Primary use: detect when a waiting PvP room transitions to `in_progress`
-  /// (i.e. the second player has joined).
+  /// Covers two cases:
+  ///   1. Matchmaking: waiting PvP room transitions to `in_progress` when both
+  ///      players have joined.
+  ///   2. Reconnect / initial join: apply board state, set player colour,
+  ///      sync clocks from the `players` and `clocks` payload fields.
   void _handleSocketGameState(Map<String, dynamic> data) {
     final status = data['status'] as String?;
     DevLogger.instance.log(
       DevLogCategory.game,
       '[SOCKET] game:state handler | status=$status | isWaiting=$isWaitingForOpponent',
     );
+
+    // ── Determine which colour this user is playing ──────────────────────────
+    final playersObj = data['players'] as Map<String, dynamic>?;
+    if (playersObj != null) {
+      final myId = authService.user?.id.trim() ?? '';
+      final whitePlayer = playersObj['white'] as Map<String, dynamic>?;
+      final blackPlayer = playersObj['black'] as Map<String, dynamic>?;
+      final whiteId = whitePlayer?['id']?.toString().trim() ?? '';
+      final blackId = blackPlayer?['id']?.toString().trim() ?? '';
+      if (myId.isNotEmpty) {
+        if (whiteId == myId) {
+          playerSide = Player.player1; // I am white
+          DevLogger.instance.log(DevLogCategory.game,
+              '[SOCKET] game:state: I am WHITE | whiteId=$whiteId');
+        } else if (blackId == myId) {
+          playerSide = Player.player2; // I am black
+          DevLogger.instance.log(DevLogCategory.game,
+              '[SOCKET] game:state: I am BLACK | blackId=$blackId');
+        }
+      }
+    }
+
+    // ── Sync current turn from FEN ───────────────────────────────────────────
+    final fen = data['fen'] as String?;
+    if (fen != null && fen.contains(' ')) {
+      final fenParts = fen.split(' ');
+      if (fenParts.length >= 2) {
+        turn = fenParts[1] == 'w' ? Player.player1 : Player.player2;
+        DevLogger.instance
+            .log(DevLogCategory.game, '[SOCKET] game:state: turn=${turn.name}');
+      }
+    }
+
+    // ── Sync clocks (present on reconnect) ──────────────────────────────────
+    final clocks = data['clocks'] as Map<String, dynamic>?;
+    if (clocks != null) {
+      _syncClocksFromPayload(clocks);
+    }
+
+    // ── Waiting-room transition ──────────────────────────────────────────────
     if (isWaitingForOpponent && status == 'in_progress') {
       isWaitingForOpponent = false;
       opponentJoined = true;
       notifyListeners();
-      // Hydrate opponent profile now that we know both players are present.
       unawaited(hydrateOpponentProfileFromSnapshot());
+      return;
     }
+
+    notifyListeners();
+  }
+
+  /// Handles `game:move:ok` — broadcast to all players after a valid move.
+  /// Applies the opponent's move to the local board if it was their turn.
+  void _handleSocketGameMoveOk(Map<String, dynamic> data) {
+    final from = data['from']?.toString();
+    final to = data['to']?.toString();
+    if (from == null || to == null) return;
+
+    final promotion = data['promotion']?.toString();
+
+    // Sync clocks from the move event.
+    final clocks = data['clocks'] as Map<String, dynamic>?;
+    if (clocks != null) {
+      _syncClocksFromPayload(clocks);
+    }
+
+    // Determine whose move this was.
+    // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.
+    final nextTurnRaw = data['turn']?.toString().toLowerCase() ?? '';
+    final myColor = playerSide == Player.player1 ? 'white' : 'black';
+    final opponentJustMoved = (nextTurnRaw == myColor);
+
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:move:ok | $from→$to | nextTurn=$nextTurnRaw | myColor=$myColor | opponentMoved=$opponentJustMoved',
+    );
+
+    if (opponentJustMoved && !gameOver) {
+      gameController?.applyRemoteMove(from: from, to: to, promotion: promotion);
+    }
+  }
+
+  /// Handles `game:clock` — server clock tick broadcast every second.
+  void _handleSocketGameClock(Map<String, dynamic> data) {
+    final whiteMs = (data['white'] as num?)?.toInt();
+    final blackMs = (data['black'] as num?)?.toInt();
+    timerService.setServerClocks(whiteMs: whiteMs, blackMs: blackMs);
+  }
+
+  /// Sync timer values from a clocks payload `{ white: ms, black: ms }`.
+  void _syncClocksFromPayload(Map<String, dynamic> clocks) {
+    final whiteMs = (clocks['white'] as num?)?.toInt();
+    final blackMs = (clocks['black'] as num?)?.toInt();
+    timerService.setServerClocks(whiteMs: whiteMs, blackMs: blackMs);
   }
 
   /// Handles `game:end` event from socket.
