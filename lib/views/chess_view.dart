@@ -110,7 +110,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     _readyTimer = null;
     setState(() => _isReady = true);
 
-    appModel.timerService.resume();
+    // For online PvP the server drives time via game:clock — keep local timer off.
+    if (!(appModel.isOnlineGameMode &&
+        !appModel.shouldRunLocalAiInOnlineVsAi)) {
+      appModel.timerService.resume();
+    }
     if (appModel.isAIsTurn && !appModel.gameOver) {
       appModel.gameController?.triggerAIMove();
     }
@@ -207,7 +211,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       }
     } else if (state == AppLifecycleState.resumed) {
       if (!appModel.gameOver) {
-        appModel.timerService.resume();
+        // Online PvP: server is authoritative for time — do not restart local timer.
+        if (!(appModel.isOnlineGameMode &&
+            !appModel.shouldRunLocalAiInOnlineVsAi)) {
+          appModel.timerService.resume();
+        }
       }
     }
   }
