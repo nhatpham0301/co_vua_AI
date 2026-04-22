@@ -51,7 +51,7 @@
   "watchMatchComingSoon": "Chế độ quan sát (observer) đang phát triển.",
 
   "matchmakingTitle": "Đang tìm đối thủ...",
-  "matchmakingSubtitle": "Ghép trận theo ELO. Nếu hết thời gian\nsẽ tự động chuyển sang Bot.",
+  "matchmakingSubtitle": "Ghép trận theo bậc xếp hạng. Nếu hết thời gian\nsẽ tự động chuyển sang AI.",
 
   "gameMode": "Chế độ chơi",
   "onePlayer": "Một người",

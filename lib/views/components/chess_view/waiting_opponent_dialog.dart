@@ -115,13 +115,15 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
 
   void _onExitPressed() {
     _dialogClosed = true;
-    Navigator.of(context).pop();
-    widget.appModel.isWaitingForOpponent = false;
-    widget.appModel.currentGameInviteCode = null;
-    // Delay update to avoid triggering listener after pop
-    Future.microtask(() {
-      if (mounted) widget.appModel.update();
-    });
+    final appModel = widget.appModel;
+    appModel.isWaitingForOpponent = false;
+    appModel.currentGameInviteCode = null;
+    appModel.opponentJoined = false;
+    appModel.exitChessView();
+
+    // Exit waiting dialog + chess screen and return to main menu.
+    Navigator.of(context, rootNavigator: true)
+        .popUntil((route) => route.isFirst);
   }
 
   @override

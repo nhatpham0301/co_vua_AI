@@ -147,8 +147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get matchmakingTitle => 'Finding opponent...';
 
   @override
-  String get matchmakingSubtitle =>
-      'Matching by ELO. If time runs out,\nwill automatically switch to Bot.';
+  String get matchmakingSubtitle => '';
 
   @override
   String get gameMode => 'Game Mode';

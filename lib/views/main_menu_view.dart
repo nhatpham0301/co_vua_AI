@@ -23,7 +23,6 @@ class MainMenuView extends StatefulWidget {
 
 class _MainMenuViewState extends State<MainMenuView> {
   bool _hasSavedGame = false;
-  bool _isGameStarting = false;
   List<LiveMatch> _matches = [];
   Timer? _ticker;
   bool _guestModeInitialized = false;
@@ -288,10 +287,6 @@ class _MainMenuViewState extends State<MainMenuView> {
                         QuickPlayBtn(
                           hasSavedGame: _hasSavedGame,
                           onGameFinished: _checkSavedGame,
-                          onStartingChanged: (isStarting) {
-                            if (!mounted) return;
-                            setState(() => _isGameStarting = isStarting);
-                          },
                           buttonBuilder: (ctx, isStarting) => _ImageHomeButton(
                             assetPath: 'assets/images/home/play_game.png',
                             loading: false,
@@ -304,65 +299,6 @@ class _MainMenuViewState extends State<MainMenuView> {
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
                 ],
               ),
-              if (_isGameStarting)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.32),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 184,
-                          height: 74,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFF7A522F), Color(0xFF4A2E1C)],
-                            ),
-                            border: Border.all(
-                              color: const Color(0xFFF3CE82)
-                                  .withValues(alpha: 0.72),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
-                                Icons.sports_esports_rounded,
-                                size: 18,
-                                color: Color(0xFFF4D59E),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Vào trận...',
-                                style: TextStyle(
-                                  color: Color(0xFFF8E1B8),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              CupertinoActivityIndicator(
-                                color: Color(0xFFF4D59E),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         );

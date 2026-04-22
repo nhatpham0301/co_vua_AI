@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @matchmakingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Matching by ELO. If time runs out,\nwill automatically switch to Bot.'**
+  /// **''**
   String get matchmakingSubtitle;
 
   /// No description provided for @gameMode.

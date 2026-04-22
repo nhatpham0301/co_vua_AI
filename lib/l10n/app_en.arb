@@ -57,7 +57,7 @@
   "watchMatchComingSoon": "Observer mode is under development.",
 
   "matchmakingTitle": "Finding opponent...",
-  "matchmakingSubtitle": "Matching by ELO. If time runs out,\nwill automatically switch to Bot.",
+  "matchmakingSubtitle": "Matching by rank. If time runs out,\nwill automatically switch to AI.",
 
   "gameMode": "Game Mode",
   "onePlayer": "One Player",

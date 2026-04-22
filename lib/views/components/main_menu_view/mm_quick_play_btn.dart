@@ -230,6 +230,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
       bool onlineGameReady = false;
       String? matchedGameId;
+      String createdInviteCode = '';
+      bool createdWaitingRoom = false;
       bool matchmakingDialogVisible = false;
 
       // Connect socket first so client can receive match events immediately.
@@ -339,7 +341,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       if (result == MatchResult.timeout) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[HOME_PLAY] Matchmaking timeout -> leave queue',
+          '[HOME_PLAY] Matchmaking timeout -> leave queue and auto-create room',
         );
         if (isLoggedIn) {
           try {
@@ -352,15 +354,44 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               DevLogCategory.http,
               '[HOME_PLAY] DELETE /api/matchmaking/leave success (timeout)',
             );
+
+            final created = await _withAuthRetry(
+              appModel: appModel,
+              action: 'createPvPGame(timeoutFallback)',
+              execute: () => appModel.apiClient.createPvPGame(
+                timeControl: 'blitz_5',
+                moveTimeLimit: appModel.moveTimeLimit,
+              ),
+            );
+            final createdGameId = (created['id']?.toString() ?? '').trim();
+            if (createdGameId.isNotEmpty) {
+              matchedGameId = createdGameId;
+              createdInviteCode =
+                  (created['inviteCode']?.toString() ?? '').trim();
+              createdWaitingRoom = true;
+              DevLogger.instance.log(
+                DevLogCategory.http,
+                '[HOME_PLAY] POST /api/games fallback success | gameId=$createdGameId | inviteCode=$createdInviteCode',
+              );
+            } else {
+              DevLogger.instance.log(
+                DevLogCategory.http,
+                '[HOME_PLAY] POST /api/games fallback failed: missing game id',
+              );
+            }
           } catch (e) {
             DevLogger.instance.log(
               DevLogCategory.http,
-              '[HOME_PLAY] DELETE /api/matchmaking/leave failed (timeout) | $e',
+              '[HOME_PLAY] Timeout fallback failed | $e',
             );
           }
         }
-        await appModel.onlineEvents.stopTracking();
-        return;
+        if (matchedGameId == null || matchedGameId!.isEmpty) {
+          await appModel.onlineEvents.stopTracking();
+          return;
+        }
+
+        result = MatchResult.matched;
       }
 
       if (result == MatchResult.matched) {
@@ -380,11 +411,17 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
           // Hydrate snapshot/profile for board orientation and header info.
           await appModel.fetchOnlineGameSnapshotPreview(gameId);
-          await appModel.hydrateOpponentProfileFromSnapshot();
-
-          appModel.currentGameInviteCode = null;
-          appModel.isWaitingForOpponent = false;
-          appModel.opponentJoined = true;
+          if (createdWaitingRoom) {
+            appModel.currentGameInviteCode =
+                createdInviteCode.isNotEmpty ? createdInviteCode : null;
+            appModel.isWaitingForOpponent = true;
+            appModel.opponentJoined = false;
+          } else {
+            await appModel.hydrateOpponentProfileFromSnapshot();
+            appModel.currentGameInviteCode = null;
+            appModel.isWaitingForOpponent = false;
+            appModel.opponentJoined = true;
+          }
           onlineGameReady = true;
         } on ApiException catch (e) {
           DevLogger.instance.log(
