@@ -87,14 +87,15 @@ class TimerService {
     }
   }
 
-  /// Sync clocks from server. Accepts milliseconds for each side.
+  /// Sync clocks from server.
+  /// The server sends values in **seconds** (e.g. blitz_5 → 300).
   /// Called on every `game:clock` and `game:move:ok` socket event.
-  void setServerClocks({int? whiteMs, int? blackMs}) {
-    if (whiteMs != null) {
-      player1TimeLeft.value = Duration(milliseconds: whiteMs);
+  void setServerClocks({int? whiteSeconds, int? blackSeconds}) {
+    if (whiteSeconds != null) {
+      player1TimeLeft.value = Duration(seconds: whiteSeconds);
     }
-    if (blackMs != null) {
-      player2TimeLeft.value = Duration(milliseconds: blackMs);
+    if (blackSeconds != null) {
+      player2TimeLeft.value = Duration(seconds: blackSeconds);
     }
   }
 

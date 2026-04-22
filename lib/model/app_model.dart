@@ -540,16 +540,19 @@ class AppModel extends ChangeNotifier {
 
   /// Handles `game:clock` — server clock tick broadcast every second.
   void _handleSocketGameClock(Map<String, dynamic> data) {
-    final whiteMs = (data['white'] as num?)?.toInt();
-    final blackMs = (data['black'] as num?)?.toInt();
-    timerService.setServerClocks(whiteMs: whiteMs, blackMs: blackMs);
+    final whiteSec = (data['white'] as num?)?.toInt();
+    final blackSec = (data['black'] as num?)?.toInt();
+    timerService.setServerClocks(
+        whiteSeconds: whiteSec, blackSeconds: blackSec);
   }
 
-  /// Sync timer values from a clocks payload `{ white: ms, black: ms }`.
+  /// Sync timer values from a clocks payload `{ white: sec, black: sec }`.
+  /// BE sends seconds (e.g. blitz_5 → 300).
   void _syncClocksFromPayload(Map<String, dynamic> clocks) {
-    final whiteMs = (clocks['white'] as num?)?.toInt();
-    final blackMs = (clocks['black'] as num?)?.toInt();
-    timerService.setServerClocks(whiteMs: whiteMs, blackMs: blackMs);
+    final whiteSec = (clocks['white'] as num?)?.toInt();
+    final blackSec = (clocks['black'] as num?)?.toInt();
+    timerService.setServerClocks(
+        whiteSeconds: whiteSec, blackSeconds: blackSec);
   }
 
   /// Handles `game:end` event from socket.
