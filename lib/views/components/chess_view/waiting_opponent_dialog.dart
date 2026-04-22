@@ -72,6 +72,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
       final aiJson = await appModel.apiClient.createAiGame(
         aiLevel: appModel.aiDifficulty,
         color: appModel.selectedSide.index == 1 ? 'black' : 'white',
+        timeControl: appModel.onlineTimeControl,
         moveTimeLimit: appModel.moveTimeLimit,
       );
 

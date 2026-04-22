@@ -360,7 +360,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               appModel: appModel,
               action: 'createPvPGame(timeoutFallback)',
               execute: () => appModel.apiClient.createPvPGame(
-                timeControl: 'blitz_5',
+                timeControl: appModel.onlineTimeControl,
                 moveTimeLimit: appModel.moveTimeLimit,
               ),
             );

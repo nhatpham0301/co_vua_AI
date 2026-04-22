@@ -247,12 +247,10 @@ class AppModel extends ChangeNotifier {
   AppModel() {
     // Wire up service callbacks
     prefs.onChanged = () {
-      // Re-apply timer config from prefs when settings change (only outside game)
+      // Re-apply fixed defaults when settings change (only outside game).
+      // Time limits are no longer user-configurable; always 15 min / 60 s.
       if (gameController == null) {
-        timerService.configure(
-          prefs.timeLimitMinutes,
-          moveTimeLimitSeconds: prefs.moveTimeLimitSeconds,
-        );
+        timerService.configure(15, moveTimeLimitSeconds: 60);
       }
       audio.enabled = prefs.soundEnabled;
       apiClient.setBaseUrl(prefs.apiBaseUrl);
@@ -288,8 +286,8 @@ class AppModel extends ChangeNotifier {
     capturedWhite = [];
     capturedBlack = [];
     if (!isOnlineGameMode) {
-      timerService.configure(prefs.timeLimitMinutes,
-          moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
+      // Fixed defaults: 15 min total, 60 s per move for all offline/AI games.
+      timerService.configure(15, moveTimeLimitSeconds: 60);
     } else {
       // Use server-provided time control when available; fall back to 15 min.
       final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;

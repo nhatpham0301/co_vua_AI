@@ -113,7 +113,7 @@ class LiveMatchCard {
         (json['black'] as Map<String, dynamic>?) ?? {},
       ),
       status: json['status'] as String? ?? 'unknown',
-      timeControl: json['timeControl'] as String? ?? 'blitz_5',
+      timeControl: json['timeControl'] as String? ?? 'rapid_15',
       fenPreview: json['fenPreview'] as String? ?? '',
       spectatorCount: (json['spectatorCount'] as num?)?.toInt() ?? 0,
       sourceType: json['sourceType'] as String? ?? 'human',

@@ -53,7 +53,7 @@ class ExperimentalApiClient {
   }
 
   Future<QuickPlayResult> quickPlay({
-    String timeControl = 'blitz_5',
+    String timeControl = 'rapid_15',
     String preferredSide = 'random',
     bool fallbackToAi = true,
     int fallbackTimeoutSec = 60,
@@ -199,7 +199,7 @@ class ExperimentalApiClient {
   Future<Map<String, dynamic>> createAiGame({
     int aiLevel = 3,
     String color = 'black',
-    String timeControl = 'blitz_5',
+    String timeControl = 'rapid_15',
     int moveTimeLimit = 0,
   }) {
     return _postJson('/api/games/vs-ai', requiresAuth: true, body: {
@@ -235,7 +235,7 @@ class ExperimentalApiClient {
 
   // ── Matchmaking (auth) ─────────────────────────────────────────────────────
   Future<Map<String, dynamic>> joinMatchmaking({
-    String timeControl = 'blitz_5',
+    String timeControl = 'rapid_15',
     int moveTimeLimit = 0,
   }) {
     return _postJson('/api/matchmaking/join', requiresAuth: true, body: {
