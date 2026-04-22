@@ -218,6 +218,11 @@ class AppModel extends ChangeNotifier {
   bool animateBoardRotation = false;
 
   bool get isBoardInverted {
+    // Online PvP: the local player always sits at the bottom.
+    // Board is fixed to playerSide, not rotated per turn.
+    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
+      return playerSide == Player.player2;
+    }
     if (playingWithAI) {
       return playerSide == Player.player2;
     } else {
@@ -290,6 +295,13 @@ class AppModel extends ChangeNotifier {
     }
     gameController = GameController(this);
     timerService.start(() => turn, () => gameOver);
+
+    // For online PvP, the server is authoritative for time.
+    // Pause the local timer; ValueNotifiers will be updated exclusively
+    // by setServerClocks() on every game:clock / game:move:ok event.
+    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
+      timerService.pause();
+    }
 
     // Trigger AI move if it's AI's turn natively for standard games
     if (isAIsTurn && !gameOver) {
@@ -539,18 +551,29 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Handles `game:clock` — server clock tick broadcast every second.
+  /// Uses `activeColor` to also keep `turn` in sync with the server.
   void _handleSocketGameClock(Map<String, dynamic> data) {
-    final whiteSec = (data['white'] as num?)?.toInt();
-    final blackSec = (data['black'] as num?)?.toInt();
+    final whiteSec = (data['white'] as num?)?.round();
+    final blackSec = (data['black'] as num?)?.round();
     timerService.setServerClocks(
         whiteSeconds: whiteSec, blackSeconds: blackSec);
+
+    // Sync whose turn it is from the server clock (authoritative).
+    final activeColor = data['activeColor']?.toString();
+    if (activeColor == 'white' && turn != Player.player1) {
+      turn = Player.player1;
+      notifyListeners();
+    } else if (activeColor == 'black' && turn != Player.player2) {
+      turn = Player.player2;
+      notifyListeners();
+    }
   }
 
   /// Sync timer values from a clocks payload `{ white: sec, black: sec }`.
-  /// BE sends seconds (e.g. blitz_5 → 300).
+  /// BE sends seconds (e.g. blitz_5 → 300). Use round() to handle floats.
   void _syncClocksFromPayload(Map<String, dynamic> clocks) {
-    final whiteSec = (clocks['white'] as num?)?.toInt();
-    final blackSec = (clocks['black'] as num?)?.toInt();
+    final whiteSec = (clocks['white'] as num?)?.round();
+    final blackSec = (clocks['black'] as num?)?.round();
     timerService.setServerClocks(
         whiteSeconds: whiteSec, blackSeconds: blackSec);
   }
