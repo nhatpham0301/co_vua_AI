@@ -223,6 +223,16 @@ class ExperimentalApiClient {
     });
   }
 
+  // ── Join PvP game by invite code (auth) ──────────────────────────────────
+  Future<Map<String, dynamic>> joinGameByCode(String inviteCode) {
+    final encoded = Uri.encodeComponent(inviteCode.trim());
+    return _postJson(
+      '/api/games/join/$encoded',
+      requiresAuth: true,
+      body: const {},
+    );
+  }
+
   // ── Matchmaking (auth) ─────────────────────────────────────────────────────
   Future<Map<String, dynamic>> joinMatchmaking({
     String timeControl = 'blitz_5',

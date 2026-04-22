@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
+import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
+import 'chess_view.dart';
 import 'components/main_menu_view/game_options/game_mode_picker.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
@@ -16,6 +18,138 @@ import 'components/shared/rounded_button.dart';
 import 'developer_view.dart';
 
 class SettingsView extends StatelessWidget {
+  Future<T> _withAuthRetry<T>({
+    required AppModel appModel,
+    required String action,
+    required Future<T> Function() execute,
+  }) async {
+    try {
+      return await execute();
+    } on ApiException catch (e) {
+      if (e.statusCode != 401) rethrow;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SETTINGS] $action unauthorized (401) -> refreshing token',
+      );
+      final refreshed = await appModel.authService.refreshTokens();
+      if (!refreshed) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[SETTINGS] $action refresh failed -> need re-login',
+        );
+        rethrow;
+      }
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SETTINGS] $action retry after refresh',
+      );
+      return execute();
+    }
+  }
+
+  Future<void> _joinGameByCode(
+    BuildContext context,
+    AppModel appModel,
+    String rawCode,
+  ) async {
+    final code = rawCode.trim().toUpperCase();
+    if (code.isEmpty) return;
+
+    if (!appModel.authService.isLoggedIn) {
+      showAppDialog<void>(
+        context: context,
+        title: 'Yeu cau dang nhap',
+        message: 'Can dang nhap de vao ban bang ma phong.',
+        actions: const [AppDialogAction(label: 'Dong')],
+      );
+      return;
+    }
+
+    try {
+      final joined = await _withAuthRetry(
+        appModel: appModel,
+        action: 'joinGameByCode',
+        execute: () => appModel.apiClient.joinGameByCode(code),
+      );
+      final gameId = joined['id']?.toString() ?? '';
+      if (gameId.isEmpty) {
+        showAppDialog<void>(
+          context: context,
+          title: 'Khong vao duoc ban',
+          message: 'Khong tim thay gameId hop le tu server.',
+          actions: const [AppDialogAction(label: 'Dong')],
+        );
+        return;
+      }
+
+      // Chuẩn flow: cập nhật snapshot từ response join trước khi mở socket.
+      appModel.applyJoinGameResponse(joined);
+
+      await appModel.startOnlineEventTracking(gameId);
+      appModel.currentGameInviteCode = null;
+      appModel.isWaitingForOpponent = false;
+      appModel.opponentJoined = true;
+      appModel.setPlayerCount(2);
+
+      // Nạp profile đối thủ từ GET /api/users/:id (public, không block nếu lỗi).
+      await appModel.hydrateOpponentProfileFromSnapshot();
+
+      if (!context.mounted) return;
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+      );
+    } on ApiException catch (e) {
+      showAppDialog<void>(
+        context: context,
+        title: 'Khong the vao ban',
+        message: e.toString(),
+        actions: const [AppDialogAction(label: 'Dong')],
+      );
+    } catch (e) {
+      showAppDialog<void>(
+        context: context,
+        title: 'Loi ket noi',
+        message: e.toString(),
+        actions: const [AppDialogAction(label: 'Dong')],
+      );
+    }
+  }
+
+  Future<void> _showJoinCodeDialog(BuildContext context, AppModel appModel) {
+    final ctrl = TextEditingController();
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Nhap ma vao ban'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: CupertinoTextField(
+            controller: ctrl,
+            placeholder: 'Vi du: ABC123',
+            textCapitalization: TextCapitalization.characters,
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Huy'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              final code = ctrl.text.trim();
+              Navigator.pop(dialogContext);
+              await _joinGameByCode(context, appModel, code);
+            },
+            child: const Text('Vao ban'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showResetConfirmation(BuildContext context, AppModel appModel) {
     final l = AppLocalizations.of(context)!;
     showAppDialog<void>(
@@ -90,6 +224,23 @@ class SettingsView extends StatelessWidget {
                           },
                         ),
                         const SizedBox(height: 10),
+                        Consumer<AppModel>(
+                          builder: (context, appModel, child) {
+                            if (!appModel.authService.isLoggedIn) {
+                              return const SizedBox.shrink();
+                            }
+                            return Column(
+                              children: [
+                                RoundedButton(
+                                  'Nhap ma vao ban',
+                                  onPressed: () =>
+                                      _showJoinCodeDialog(context, appModel),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                            );
+                          },
+                        ),
                         Consumer<AppModel>(
                           builder: (context, appModel, child) =>
                               Toggles(appModel),

@@ -83,14 +83,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         return;
       }
 
-      if (_readySeconds <= 1) {
+      final next = _readySeconds - 1;
+      setState(() => _readySeconds = next < 0 ? 0 : next);
+
+      if (_readySeconds == 0) {
         timer.cancel();
         appModel.exitChessView();
         Navigator.of(context).pop();
-        return;
       }
-
-      setState(() => _readySeconds--);
     });
     setState(() {});
   }
@@ -127,9 +127,15 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     final isAI = appModel.playingWithAI;
     final isGuestLocalTwoPlayer = !appModel.authService.isLoggedIn && !isAI;
     final diff = appModel.aiDifficulty.clamp(1, 5);
+    final profile = appModel.opponentProfile;
     final opponentName = isAI
         ? l.botLevel(diff)
-        : (isGuestLocalTwoPlayer ? l.twoPlayer : l.opponent);
+        : (profile?['username'] as String?)?.isNotEmpty == true
+            ? profile!['username'] as String
+            : (isGuestLocalTwoPlayer ? l.twoPlayer : l.opponent);
+    final opponentElo =
+        isAI ? botElo : (profile?['elo'] as num?)?.toInt() ?? botElo;
+    final opponentAvatar = isAI ? null : profile?['avatarUrl'] as String?;
     final capturedPieces = appModel.capturedBlack; // quân trắng ăn quân đen
 
     if (opponentId != null && !isAI) {
@@ -139,8 +145,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         builder: (_) => UserProfileDialog(
           userId: opponentId,
           userName: opponentName,
-          avatarUrl: null,
-          elo: botElo,
+          avatarUrl: opponentAvatar,
+          elo: opponentElo,
           capturedPieces: capturedPieces,
         ),
       );
@@ -422,24 +428,36 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       Positioned(
                         top: _kTopBannerSlotHeight + 16,
                         left: 10,
-                        child: MatchCornerProfile(
-                          name: isAI
+                        child: Builder(builder: (_) {
+                          final profile = appModel.opponentProfile;
+                          final opponentName = isAI
                               ? l.botLevel(diff)
-                              : (!appModel.authService.isLoggedIn
-                                  ? l.twoPlayer
-                                  : l.opponent),
-                          elo: botElo,
-                          eloLabel: l.eloLabel(botElo),
-                          totalTimeLeft: appModel.player2TimeLeft,
-                          showTotalTime: appModel.timeLimit > 0,
-                          avatarUrl: null,
-                          isActive: appModel.isAIsTurn && !appModel.gameOver,
-                          mirror: false,
-                          moveTimeLimitSeconds: appModel.moveTimeLimit,
-                          moveTimeLeft: appModel.moveTimeLeft,
-                          onTap: () => _showOpponentProfile(
-                              context, appModel, l, botElo),
-                        ),
+                              : (profile?['username'] as String?)?.isNotEmpty ==
+                                      true
+                                  ? profile!['username'] as String
+                                  : (!appModel.authService.isLoggedIn
+                                      ? l.twoPlayer
+                                      : l.opponent);
+                          final opponentElo = isAI
+                              ? botElo
+                              : (profile?['elo'] as num?)?.toInt() ?? botElo;
+                          final opponentAvatar =
+                              profile?['avatarUrl'] as String?;
+                          return MatchCornerProfile(
+                            name: opponentName,
+                            elo: opponentElo,
+                            eloLabel: l.eloLabel(opponentElo),
+                            totalTimeLeft: appModel.player2TimeLeft,
+                            showTotalTime: appModel.timeLimit > 0,
+                            avatarUrl: opponentAvatar,
+                            isActive: appModel.isAIsTurn && !appModel.gameOver,
+                            mirror: false,
+                            moveTimeLimitSeconds: appModel.moveTimeLimit,
+                            moveTimeLeft: appModel.moveTimeLeft,
+                            onTap: () => _showOpponentProfile(
+                                context, appModel, l, opponentElo),
+                          );
+                        }),
                       ),
                       Positioned(
                         right: 10,

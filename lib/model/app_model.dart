@@ -134,14 +134,84 @@ class AppModel extends ChangeNotifier {
   bool isWaitingForOpponent = false;
   bool opponentJoined = false;
 
+  /// Profile công khai của đối thủ trong ván online (null nếu chưa fetch hoặc là AI game).
+  Map<String, dynamic>? opponentProfile;
+
+  /// Xóa profile đối thủ (gọi khi thoát ván).
+  void clearOpponentProfile() {
+    opponentProfile = null;
+  }
+
   /// ID của đối thủ trong ván online (null nếu chưa có hoặc là AI game).
   String? get opponentUserId {
     final snap = onlineGameSnapshot;
     if (snap == null) return null;
     final myId = authService.user?.id;
-    if (snap.whiteId == myId) return snap.blackId;
-    if (snap.blackId == myId) return snap.whiteId;
-    return snap.whiteId ?? snap.blackId;
+    return _resolveOpponentId(
+      myUserId: myId,
+      whiteId: snap.whiteId,
+      blackId: snap.blackId,
+    );
+  }
+
+  /// Chuẩn hóa cách xác định opponentId từ whiteId/blackId theo user hiện tại.
+  String? _resolveOpponentId({
+    required String? myUserId,
+    required String? whiteId,
+    required String? blackId,
+  }) {
+    final me = myUserId?.trim() ?? '';
+    final white = whiteId?.trim() ?? '';
+    final black = blackId?.trim() ?? '';
+
+    if (me.isNotEmpty) {
+      if (white == me && black.isNotEmpty) return black;
+      if (black == me && white.isNotEmpty) return white;
+    }
+
+    if (white.isNotEmpty) return white;
+    if (black.isNotEmpty) return black;
+    return null;
+  }
+
+  /// Đồng bộ snapshot ngay từ response join để UI có đủ whiteId/blackId lập tức.
+  void applyJoinGameResponse(Map<String, dynamic> joinedJson) {
+    onlineGameSnapshot = OnlineGameSnapshot.fromJson(joinedJson);
+    notifyListeners();
+  }
+
+  /// Nạp profile public của đối thủ theo game snapshot hiện tại.
+  /// Không throw để tránh chặn luồng vào bàn nếu API profile lỗi tạm thời.
+  Future<void> hydrateOpponentProfileFromSnapshot() async {
+    final snap = onlineGameSnapshot;
+    if (snap == null || snap.isAiGame) {
+      opponentProfile = null;
+      notifyListeners();
+      return;
+    }
+
+    final opponentId = _resolveOpponentId(
+      myUserId: authService.user?.id,
+      whiteId: snap.whiteId,
+      blackId: snap.blackId,
+    );
+
+    if (opponentId == null || opponentId.isEmpty) {
+      opponentProfile = null;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final profile = await apiClient.fetchUserProfile(opponentId);
+      opponentProfile = profile;
+      notifyListeners();
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[PROFILE] fetch opponent failed | opponentId=$opponentId | error=$e',
+      );
+    }
   }
 
   // Used to prevent AnimatedRotation from sweeping across the screen when first loading the board.
@@ -187,6 +257,8 @@ class AppModel extends ChangeNotifier {
     stalemate = false;
     userWon = false;
     _endGameAdDisplayed = false;
+    onlineGameSnapshot = null;
+    opponentProfile = null;
     turn = Player.player1;
     moveMetaList = [];
     capturedWhite = [];
@@ -236,6 +308,7 @@ class AppModel extends ChangeNotifier {
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     _onlineVsAiLocalFallbackSession = false;
+    opponentProfile = null;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -249,6 +322,7 @@ class AppModel extends ChangeNotifier {
     _sessionStartedOnline = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
+    opponentProfile = null;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
