@@ -36,7 +36,11 @@ class GameController {
 
   void selectPiece(ChessPiece? piece) {
     if (piece != null) {
-      if (piece.player == appModel.turn) {
+      // In online PvP, only allow selecting own pieces on own turn.
+      final isOnlinePvP =
+          appModel.isOnlineGameMode && !appModel.shouldRunLocalAiInOnlineVsAi;
+      if (piece.player == appModel.turn &&
+          (!isOnlinePvP || piece.player == appModel.playerSide)) {
         selectedPiece = piece;
         if (selectedPiece != null) {
           validMoves = board.movesForPiece(piece);
@@ -49,6 +53,10 @@ class GameController {
   }
 
   void movePiece(int tile) {
+    // In online PvP, block moves when it is not the local player's turn.
+    if (appModel.isOnlineGameMode && !appModel.shouldRunLocalAiInOnlineVsAi) {
+      if (appModel.turn != appModel.playerSide) return;
+    }
     if (validMoves.contains(tile)) {
       validMoves = [];
       var move = Move(selectedPiece?.tile ?? 0, tile);

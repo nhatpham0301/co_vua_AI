@@ -279,8 +279,10 @@ class AppModel extends ChangeNotifier {
       playerSide = selectedSide;
     }
 
-    // In a 2-player game, rotation is always relative to player1 being at the bottom.
-    if (!playingWithAI) {
+    // In a local 2-player game, rotation is always relative to player1 being at
+    // the bottom. For online games, playerSide is assigned by the server inside
+    // _handleSocketGameState — do NOT override it here.
+    if (!playingWithAI && !isOnlineGameMode) {
       playerSide = Player.player1;
     }
     gameController = GameController(this);
