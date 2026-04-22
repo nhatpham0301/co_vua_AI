@@ -32,10 +32,11 @@ class OnlineGameEventsService {
   void Function(Map<String, dynamic>)? onGameMoveOk;
   void Function(Map<String, dynamic>)? onGameEnd;
   void Function(Map<String, dynamic>)? onMatchFound;
+  void Function(Map<String, dynamic>)? onMatchTimeout;
 
   Future<void> startTracking({
     required String socketBaseUrl,
-    required String gameId,
+    String? gameId,
     required String accessToken,
   }) async {
     await stopTracking();
@@ -78,12 +79,22 @@ class OnlineGameEventsService {
     );
 
     socket.onConnect((_) {
+      final effectiveGameId = gameId ?? '';
+      if (effectiveGameId.isEmpty) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[SOCKET] connected | mode=auth.token(raw_jwt) | id=${socket.id ?? '-'} | matchmaking_only=true',
+        );
+        return;
+      }
+
       final joinEvent = _hasJoinedActiveGame ? 'game:reconnect' : 'game:join';
       DevLogger.instance.log(
         DevLogCategory.http,
-        '[SOCKET] connected | mode=auth.token(raw_jwt) | id=${socket.id ?? '-'} | gameId=$gameId | next=$joinEvent',
+        '[SOCKET] connected | mode=auth.token(raw_jwt) | id=${socket.id ?? '-'} | gameId=$effectiveGameId | next=$joinEvent',
       );
-      _emitWithLog(socket, joinEvent, {'gameId': gameId}, gameId: gameId);
+      _emitWithLog(socket, joinEvent, {'gameId': effectiveGameId},
+          gameId: effectiveGameId);
       _hasJoinedActiveGame = true;
     });
 
@@ -113,7 +124,7 @@ class OnlineGameEventsService {
       );
     });
 
-    _bindGameEvents(socket, gameId);
+    _bindGameEvents(socket, gameId ?? '');
     DevLogger.instance.log(
       DevLogCategory.http,
       '[SOCKET] connect() called | mode=auth.token | gameId=$gameId',
@@ -148,6 +159,7 @@ class OnlineGameEventsService {
     onGameMoveOk = null;
     onGameEnd = null;
     onMatchFound = null;
+    onMatchTimeout = null;
   }
 
   /// Emit a move via socket (realtime submission for online games)
@@ -194,9 +206,8 @@ class OnlineGameEventsService {
         category,
         '[SOCKET][$eventName] gameId=$gameId | connected=${socket.connected} | payload=${_safePreview(data)}',
       );
-      final payload = data is Map
-          ? Map<String, dynamic>.from(data)
-          : <String, dynamic>{};
+      final payload =
+          data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
       _dispatchEvent(eventName, payload);
     });
   }
@@ -214,6 +225,9 @@ class OnlineGameEventsService {
         break;
       case 'match:found':
         onMatchFound?.call(payload);
+        break;
+      case 'match:timeout':
+        onMatchTimeout?.call(payload);
         break;
     }
   }

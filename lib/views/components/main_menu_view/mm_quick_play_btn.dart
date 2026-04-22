@@ -9,7 +9,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../logic/dev_logger.dart';
 import '../../../logic/experimental_api_client.dart';
 import '../../../model/app_model.dart';
-import '../../../model/player.dart';
 import '../../chess_view.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
@@ -230,6 +229,33 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       );
 
       bool onlineGameReady = false;
+      String? matchedGameId;
+      bool matchmakingDialogVisible = false;
+
+      // Connect socket first so client can receive match events immediately.
+      await appModel.startMatchmakingEventTracking();
+      appModel.onlineEvents.onMatchFound = (payload) {
+        final gameId = payload['gameId']?.toString();
+        if (gameId == null || gameId.isEmpty) return;
+        matchedGameId = gameId;
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] match:found received | gameId=$gameId',
+        );
+        if (mounted && matchmakingDialogVisible) {
+          Navigator.of(context, rootNavigator: true).pop(MatchResult.matched);
+        }
+      };
+
+      appModel.onlineEvents.onMatchTimeout = (payload) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] match:timeout received | payload=$payload',
+        );
+        if (mounted && matchmakingDialogVisible) {
+          Navigator.of(context, rootNavigator: true).pop(MatchResult.timeout);
+        }
+      };
 
       if (isLoggedIn) {
         try {
@@ -244,23 +270,42 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               moveTimeLimit: appModel.moveTimeLimit,
             ),
           );
+          final joinStatus =
+              (joinJson['status']?.toString() ?? '').trim().toLowerCase();
+          final joinGameId = (joinJson['gameId']?.toString() ?? '').trim();
+          if (joinStatus == 'matched' && joinGameId.isNotEmpty) {
+            matchedGameId = joinGameId;
+            DevLogger.instance.log(
+              DevLogCategory.game,
+              '[HOME_PLAY] Matchmaking matched in HTTP response | gameId=$joinGameId',
+            );
+          }
           DevLogger.instance.log(
             DevLogCategory.http,
-            '[HOME_PLAY] Matchmaking joined | ${joinJson['message'] ?? 'ok'}',
+            '[HOME_PLAY] Matchmaking joined | status=${joinJson['status'] ?? '-'} | ${joinJson['message'] ?? 'ok'}',
           );
         } catch (e) {
           DevLogger.instance.log(
             DevLogCategory.http,
             '[HOME_PLAY] POST /api/matchmaking/join failed | $e',
           );
+          await appModel.onlineEvents.stopTracking();
+          return;
         }
       }
 
-      final result = await showCupertinoModalPopup<MatchResult>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const MatchmakingDialog(timeoutSeconds: 0),
-      );
+      MatchResult? result;
+      if (matchedGameId != null && matchedGameId!.isNotEmpty) {
+        result = MatchResult.matched;
+      } else {
+        matchmakingDialogVisible = true;
+        result = await showCupertinoModalPopup<MatchResult>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const MatchmakingDialog(timeoutSeconds: 10),
+        );
+        matchmakingDialogVisible = false;
+      }
       if (!mounted) return;
 
       DevLogger.instance.log(
@@ -287,12 +332,14 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             );
           }
         }
+        await appModel.onlineEvents.stopTracking();
         return;
       }
+
       if (result == MatchResult.timeout) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[HOME_PLAY] Matchmaking timeout -> create PvP room -> wait 30s',
+          '[HOME_PLAY] Matchmaking timeout -> leave queue',
         );
         if (isLoggedIn) {
           try {
@@ -312,121 +359,47 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             );
           }
         }
+        await appModel.onlineEvents.stopTracking();
+        return;
+      }
 
-        // Create PvP game room
-        if (isLoggedIn) {
-          try {
-            DevLogger.instance.log(
-              DevLogCategory.http,
-              '[HOME_PLAY] Calling POST /api/games to create PvP room ...',
-            );
-            final pvpJson = await _withAuthRetry(
-              appModel: appModel,
-              action: 'createPvPGame',
-              execute: () => appModel.apiClient.createPvPGame(
-                moveTimeLimit: appModel.moveTimeLimit,
-              ),
-            );
-            final pvpGameId = pvpJson['id'];
-            final inviteCode = pvpJson['inviteCode'];
-            DevLogger.instance.log(
-              DevLogCategory.http,
-              '[HOME_PLAY] POST /api/games success | gameId=$pvpGameId | inviteCode=$inviteCode',
-            );
+      if (result == MatchResult.matched) {
+        final gameId = matchedGameId;
+        if (gameId == null || gameId.isEmpty) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] match:found missing gameId -> abort',
+          );
+          await appModel.onlineEvents.stopTracking();
+          return;
+        }
 
-            if (pvpGameId is String && pvpGameId.isNotEmpty) {
-              // Start socket tracking immediately and enter game
-              await appModel.startOnlineEventTracking(pvpGameId);
+        try {
+          // Switch socket from matchmaking channel to game room tracking.
+          await appModel.startOnlineEventTracking(gameId);
 
-              // Set waiting state with invite code
-              appModel.currentGameInviteCode = inviteCode;
-              appModel.isWaitingForOpponent = true;
-              appModel.opponentJoined = false;
+          // Hydrate snapshot/profile for board orientation and header info.
+          await appModel.fetchOnlineGameSnapshotPreview(gameId);
+          await appModel.hydrateOpponentProfileFromSnapshot();
 
-              onlineGameReady = true;
-
-              DevLogger.instance.log(
-                DevLogCategory.game,
-                '[HOME_PLAY] PvP room created | gameId=$pvpGameId | inviteCode=$inviteCode | entering ChessView',
-              );
-
-              // Start background timer for AI fallback (30s)
-              bool opponentJoined = false;
-              Future.delayed(const Duration(seconds: 30), () async {
-                if (opponentJoined ||
-                    !mounted ||
-                    !appModel.isWaitingForOpponent) {
-                  return;
-                }
-
-                DevLogger.instance.log(
-                  DevLogCategory.game,
-                  '[HOME_PLAY] PvP 30s timeout -> no opponent joined -> create AI game',
-                );
-
-                try {
-                  final aiJson = await _withAuthRetry(
-                    appModel: appModel,
-                    action: 'createAiGame(fallback)',
-                    execute: () => appModel.apiClient.createAiGame(
-                      aiLevel: appModel.aiDifficulty,
-                      color: appModel.selectedSide == Player.player2
-                          ? 'black'
-                          : 'white',
-                      moveTimeLimit: appModel.moveTimeLimit,
-                    ),
-                  );
-                  final aiGameId = aiJson['id'];
-                  DevLogger.instance.log(
-                    DevLogCategory.http,
-                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) success | gameId=$aiGameId',
-                  );
-
-                  if (aiGameId is String && aiGameId.isNotEmpty && mounted) {
-                    // Stop PvP tracking, switch to AI
-                    await appModel.onlineEvents.stopTracking();
-                    await appModel.startOnlineEventTracking(aiGameId);
-                    appModel.setPlayerCount(1); // Enable AI
-                    appModel.isWaitingForOpponent = false;
-                    appModel.update();
-                  }
-                } on ApiException catch (e) {
-                  DevLogger.instance.log(
-                    DevLogCategory.http,
-                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) failed | $e',
-                  );
-                } catch (e) {
-                  DevLogger.instance.log(
-                    DevLogCategory.http,
-                    '[HOME_PLAY] POST /api/games/vs-ai (fallback) failed | $e',
-                  );
-                }
-              });
-
-              // Mark opponent joined when game state updates with both players
-              // (This will be checked in the 30s timeout above)
-              // In ChessView or board update, when opponent's pieces appear, set opponentJoined = true
-            } else {
-              DevLogger.instance.log(
-                DevLogCategory.http,
-                '[HOME_PLAY] Skip PvP: missing gameId in response',
-              );
-            }
-          } on ApiException catch (e) {
-            DevLogger.instance.log(
-              DevLogCategory.http,
-              '[HOME_PLAY] POST /api/games failed | $e',
-            );
-            if (e.statusCode == 401) {
-              if (mounted) await _showSessionExpiredDialog(context);
-              return;
-            }
-          } catch (e) {
-            DevLogger.instance.log(
-              DevLogCategory.http,
-              '[HOME_PLAY] POST /api/games failed | $e',
-            );
+          appModel.currentGameInviteCode = null;
+          appModel.isWaitingForOpponent = false;
+          appModel.opponentJoined = true;
+          onlineGameReady = true;
+        } on ApiException catch (e) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] start matched game failed | $e',
+          );
+          if (e.statusCode == 401) {
+            if (mounted) await _showSessionExpiredDialog(context);
+            return;
           }
+        } catch (e) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[HOME_PLAY] start matched game failed | $e',
+          );
         }
       }
 

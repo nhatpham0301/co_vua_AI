@@ -26,7 +26,7 @@ class LiveMatch {
   });
 }
 
-enum MatchResult { timeout, cancelled }
+enum MatchResult { matched, timeout, cancelled }
 
 // ─── Match generator ─────────────────────────────────────────────────────────
 class MatchGen {

@@ -419,6 +419,24 @@ class AppModel extends ChangeNotifier {
     onlineEvents.onGameEnd = _handleSocketGameEnd;
   }
 
+  Future<void> startMatchmakingEventTracking() async {
+    final token = await authService.ensureValidAccessToken();
+    if (token == null || token.isEmpty) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] Skip matchmaking tracking: no valid access token available',
+      );
+      return;
+    }
+    _sessionStartedOnline = true;
+    _endGameAdDisplayed = false;
+    _onlineVsAiLocalFallbackSession = false;
+    await onlineEvents.startTracking(
+      socketBaseUrl: socketBaseUrl,
+      accessToken: token,
+    );
+  }
+
   /// Handles `game:state` event from socket.
   /// Primary use: detect when a waiting PvP room transitions to `in_progress`
   /// (i.e. the second player has joined).
