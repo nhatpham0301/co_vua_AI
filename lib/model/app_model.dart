@@ -271,19 +271,22 @@ class AppModel extends ChangeNotifier {
     timerService.configure(prefs.timeLimitMinutes,
         moveTimeLimitSeconds: prefs.moveTimeLimitSeconds);
     audio.enabled = prefs.soundEnabled;
-    if (selectedSide == Player.random) {
-      playerSide = math.Random.secure().nextInt(2) == 0
-          ? Player.player1
-          : Player.player2;
-    } else {
-      playerSide = selectedSide;
-    }
-
-    // In a local 2-player game, rotation is always relative to player1 being at
-    // the bottom. For online games, playerSide is assigned by the server inside
-    // _handleSocketGameState — do NOT override it here.
-    if (!playingWithAI && !isOnlineGameMode) {
-      playerSide = Player.player1;
+    // For online games, playerSide is assigned by the server via game:state.
+    // Never override it here — it may have been set already by _handleSocketGameState
+    // before newGame() was called, and it will be (re-)set by the event if it
+    // arrives later.
+    if (!isOnlineGameMode) {
+      if (selectedSide == Player.random) {
+        playerSide = math.Random.secure().nextInt(2) == 0
+            ? Player.player1
+            : Player.player2;
+      } else {
+        playerSide = selectedSide;
+      }
+      // In a local 2-player game, rotation is always relative to player1 at bottom.
+      if (!playingWithAI) {
+        playerSide = Player.player1;
+      }
     }
     gameController = GameController(this);
     timerService.start(() => turn, () => gameOver);
@@ -451,7 +454,7 @@ class AppModel extends ChangeNotifier {
     final status = data['status'] as String?;
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[SOCKET] game:state handler | status=$status | isWaiting=$isWaitingForOpponent',
+      '[SOCKET] game:state handler | status=$status | isWaiting=$isWaitingForOpponent | fullPayload=$data',
     );
 
     // ── Determine which colour this user is playing ──────────────────────────
