@@ -10,9 +10,9 @@ import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
 import 'components/main_menu_view/mm_models.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
-import 'components/shared/ranked_profile_avatar.dart';
 import 'components/main_menu_view/user_profile_dialog.dart';
 import 'components/main_menu_view/watch_dialog.dart';
+import 'components/shared/ranked_profile_avatar.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 

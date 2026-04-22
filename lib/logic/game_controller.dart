@@ -1,9 +1,9 @@
-import 'package:async/async.dart';
 import 'dart:math' as math;
+
+import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 
 import '../model/app_model.dart';
-
 import 'chess_board.dart';
 import 'chess_piece.dart';
 import 'dev_logger.dart';

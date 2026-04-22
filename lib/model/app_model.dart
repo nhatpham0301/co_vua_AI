@@ -257,8 +257,13 @@ class AppModel extends ChangeNotifier {
     stalemate = false;
     userWon = false;
     _endGameAdDisplayed = false;
-    onlineGameSnapshot = null;
-    opponentProfile = null;
+    // Preserve online snapshot & opponent profile when entering an online game
+    // session – they were fetched right before ChessView was pushed and must
+    // survive the newGame() reset that ChessView.initState() calls.
+    if (!isOnlineGameMode) {
+      onlineGameSnapshot = null;
+      opponentProfile = null;
+    }
     turn = Player.player1;
     moveMetaList = [];
     capturedWhite = [];
@@ -409,6 +414,38 @@ class AppModel extends ChangeNotifier {
       gameId: gameId,
       accessToken: token,
     );
+    // Register socket event handlers after tracking starts.
+    onlineEvents.onGameState = _handleSocketGameState;
+    onlineEvents.onGameEnd = _handleSocketGameEnd;
+  }
+
+  /// Handles `game:state` event from socket.
+  /// Primary use: detect when a waiting PvP room transitions to `in_progress`
+  /// (i.e. the second player has joined).
+  void _handleSocketGameState(Map<String, dynamic> data) {
+    final status = data['status'] as String?;
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:state handler | status=$status | isWaiting=$isWaitingForOpponent',
+    );
+    if (isWaitingForOpponent && status == 'in_progress') {
+      isWaitingForOpponent = false;
+      opponentJoined = true;
+      notifyListeners();
+      // Hydrate opponent profile now that we know both players are present.
+      unawaited(hydrateOpponentProfileFromSnapshot());
+    }
+  }
+
+  /// Handles `game:end` event from socket.
+  void _handleSocketGameEnd(Map<String, dynamic> data) {
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:end handler | data=${data.toString().substring(0, data.toString().length.clamp(0, 120))}',
+    );
+    if (!gameOver) {
+      endGame();
+    }
   }
 
   void markOnlineVsAiLocalFallbackSession(bool enabled, {bool notify = false}) {

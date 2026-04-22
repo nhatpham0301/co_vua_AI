@@ -14,8 +14,8 @@ import 'components/chess_view/board_stage.dart';
 import 'components/chess_view/chess_actions.dart';
 import 'components/chess_view/chess_dialogs.dart';
 import 'components/chess_view/players_header_row.dart';
-import 'components/chess_view/waiting_opponent_dialog.dart';
 import 'components/chess_view/promotion_dialog.dart';
+import 'components/chess_view/waiting_opponent_dialog.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_banner_ad.dart';
 import 'components/main_menu_view/mm_palette.dart';
@@ -62,7 +62,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       } else {
         appModel.newGame(notify: false);
         _initFlameGame();
-        _startReadyCountdown();
+        // When waiting for opponent, pause timers and show waiting dialog.
+        // When not waiting, start the ready countdown immediately.
+        if (appModel.isWaitingForOpponent) {
+          appModel.timerService.pause();
+          appModel.gameController?.cancelAIMove();
+        } else {
+          _startReadyCountdown();
+        }
       }
       // Show waiting dialog if in PvP waiting state
       _checkAndShowWaitingDialog();
@@ -89,7 +96,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       if (_readySeconds == 0) {
         timer.cancel();
         appModel.exitChessView();
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
       }
     });
     setState(() {});
@@ -230,19 +239,17 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           );
         }
 
-        // Check if opponent has joined (for PvP waiting state)
-        if (appModel.isWaitingForOpponent &&
-            !_opponentJoinDetected &&
-            appModel.gameController!.board.player2Pieces.isNotEmpty) {
-          // Opponent has joined when player2 pieces appear on board
+        // Start countdown when ready:
+        // 1. Opponent joined in PvP mode, OR
+        // 2. Switched to AI mode (fallback from PvP timeout)
+        if ((appModel.opponentJoined ||
+                (appModel.playingWithAI && appModel.isOnlineGameMode)) &&
+            !_opponentJoinDetected) {
           _opponentJoinDetected = true;
-          _waitingDialogShown =
-              false; // Reset flag in case dialog needs to be shown again
+          _waitingDialogShown = false;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              appModel.opponentJoined = true;
-              appModel.isWaitingForOpponent = false;
-              appModel.update();
+              _startReadyCountdown();
             }
           });
         }

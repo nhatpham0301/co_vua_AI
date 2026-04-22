@@ -21,18 +21,38 @@ class WaitingOpponentDialog extends StatefulWidget {
 }
 
 class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
-  late Future<void> _timeoutFuture;
   bool _codeCopied = false;
+  bool _dialogClosed = false;
 
   @override
   void initState() {
     super.initState();
+    widget.appModel.addListener(_onModelChanged);
     _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    widget.appModel.removeListener(_onModelChanged);
+    super.dispose();
+  }
+
+  /// Close this dialog automatically when the opponent has joined.
+  void _onModelChanged() {
+    if (!mounted || _dialogClosed) return;
+    if (widget.appModel.opponentJoined ||
+        !widget.appModel.isWaitingForOpponent) {
+      _dialogClosed = true;
+      // Use Future.microtask to safely pop after current event loop
+      Future.microtask(() {
+        if (mounted) Navigator.of(context).pop();
+      });
+    }
   }
 
   void _startCountdown() {
     /// Thay đổi thời gian chờ
-    _timeoutFuture = Future.delayed(const Duration(seconds: 60), () async {
+    Future.delayed(const Duration(seconds: 10), () async {
       if (!mounted) return;
 
       DevLogger.instance.log(
@@ -40,6 +60,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
         '[WAITING_OPPONENT] 5s timeout -> no opponent joined -> fallback to AI',
       );
 
+      _dialogClosed = true;
       if (mounted) Navigator.of(context).pop();
       await _createAIGameFallback();
     });
@@ -66,6 +87,8 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
         appModel.markOnlineVsAiLocalFallbackSession(true);
         appModel.setPlayerCount(1);
         appModel.isWaitingForOpponent = false;
+        // Reset opponent joined flag so countdown can trigger in ChessView
+        appModel.opponentJoined = false;
         appModel.currentGameInviteCode = null;
         appModel.update();
       }
@@ -91,15 +114,23 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   }
 
   void _onExitPressed() {
+    _dialogClosed = true;
     Navigator.of(context).pop();
     widget.appModel.isWaitingForOpponent = false;
     widget.appModel.currentGameInviteCode = null;
-    widget.appModel.update();
+    // Delay update to avoid triggering listener after pop
+    Future.microtask(() {
+      if (mounted) widget.appModel.update();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final inviteCode = widget.appModel.currentGameInviteCode ?? '';
+    final appModel = widget.appModel;
+    final inviteCode = appModel.currentGameInviteCode ?? '';
+    final gameId = appModel.onlineGameSnapshot?.id ?? '';
+    final timeLimit = appModel.timeLimit;
+    final playerColor = appModel.playerSide.index == 0 ? 'Trắng' : 'Đen';
 
     return Material(
       color: Colors.transparent,
@@ -126,7 +157,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Padding(
-                padding: EdgeInsets.only(bottom: 20),
+                padding: EdgeInsets.only(bottom: 16),
                 child: Text(
                   'Bàn chờ',
                   style: TextStyle(
@@ -135,6 +166,32 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
                     color: primaryLight,
                     letterSpacing: 1,
                   ),
+                ),
+              ),
+              // Game info box
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: bgDark,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: primary.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow(
+                        'Bàn:',
+                        gameId.isNotEmpty
+                            ? gameId.substring(0, (gameId.length / 2).toInt())
+                            : '-'),
+                    _buildInfoRow('Thời gian:',
+                        timeLimit > 0 ? '${timeLimit} phút' : 'Không giới hạn'),
+                    _buildInfoRow('Màu của bạn:', playerColor),
+                  ],
                 ),
               ),
               Row(
@@ -273,9 +330,29 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
     );
   }
 
-  @override
-  void dispose() {
-    _timeoutFuture.ignore();
-    super.dispose();
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: primaryLight,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

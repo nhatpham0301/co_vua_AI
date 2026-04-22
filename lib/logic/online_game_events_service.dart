@@ -27,6 +27,12 @@ class OnlineGameEventsService {
   bool get isConnected => _socket?.connected ?? false;
   String? get activeGameId => _activeGameId;
 
+  // ── Event callbacks (set by AppModel) ──
+  void Function(Map<String, dynamic>)? onGameState;
+  void Function(Map<String, dynamic>)? onGameMoveOk;
+  void Function(Map<String, dynamic>)? onGameEnd;
+  void Function(Map<String, dynamic>)? onMatchFound;
+
   Future<void> startTracking({
     required String socketBaseUrl,
     required String gameId,
@@ -138,6 +144,10 @@ class OnlineGameEventsService {
     _socket = null;
     _activeGameId = null;
     _hasJoinedActiveGame = false;
+    onGameState = null;
+    onGameMoveOk = null;
+    onGameEnd = null;
+    onMatchFound = null;
   }
 
   /// Emit a move via socket (realtime submission for online games)
@@ -184,7 +194,28 @@ class OnlineGameEventsService {
         category,
         '[SOCKET][$eventName] gameId=$gameId | connected=${socket.connected} | payload=${_safePreview(data)}',
       );
+      final payload = data is Map
+          ? Map<String, dynamic>.from(data)
+          : <String, dynamic>{};
+      _dispatchEvent(eventName, payload);
     });
+  }
+
+  void _dispatchEvent(String eventName, Map<String, dynamic> payload) {
+    switch (eventName) {
+      case 'game:state':
+        onGameState?.call(payload);
+        break;
+      case 'game:move:ok':
+        onGameMoveOk?.call(payload);
+        break;
+      case 'game:end':
+        onGameEnd?.call(payload);
+        break;
+      case 'match:found':
+        onMatchFound?.call(payload);
+        break;
+    }
   }
 
   void _emitWithLog(
