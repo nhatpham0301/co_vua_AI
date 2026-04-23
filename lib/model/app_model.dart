@@ -127,6 +127,11 @@ class AppModel extends ChangeNotifier {
   bool _endGameAdDisplayed = false;
   bool _onlineVsAiLocalFallbackSession = false;
 
+  // Track previous server clock values to detect frozen (non-decrementing) server clocks.
+  // Used in _syncClocksIfDrifted to avoid resetting local timer from stale server data.
+  int? _prevServerWhiteSec;
+  int? _prevServerBlackSec;
+
   // ── Computed Properties ──
   Player get aiTurn => oppositePlayer(playerSide);
   bool get isAIsTurn => playingWithAI && (turn == aiTurn);
@@ -274,6 +279,8 @@ class AppModel extends ChangeNotifier {
     stalemate = false;
     userWon = false;
     _endGameAdDisplayed = false;
+    _prevServerWhiteSec = null;
+    _prevServerBlackSec = null;
     // Preserve online snapshot & opponent profile when entering an online game
     // session – they were fetched right before ChessView was pushed and must
     // survive the newGame() reset that ChessView.initState() calls.
@@ -345,7 +352,8 @@ class AppModel extends ChangeNotifier {
     _sessionStartedOnline = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
-    _onlineVsAiLocalFallbackSession = false;
+    _prevServerWhiteSec = null;
+    _prevServerBlackSec = null;
     opponentProfile = null;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
@@ -520,10 +528,14 @@ class AppModel extends ChangeNotifier {
     // ── Sync clocks (per BE_TIMER.md: initial or latest clocks from server) ──
     final clocks = data['clocks'] as Map<String, dynamic>?;
     if (clocks != null) {
-      _syncClocksFromPayload(clocks);
+      _syncClocksFromPayload(clocks, source: 'game:state');
+      // Reset frozen-clock tracking after a hard sync from game:state.
+      _prevServerWhiteSec = null;
+      _prevServerBlackSec = null;
+    } else {
       DevLogger.instance.log(
         DevLogCategory.game,
-        '[SOCKET] game:state: clocks synced | white=${clocks['white']} | black=${clocks['black']}',
+        '[TIMER][game:state] WARNING: no clocks field in payload',
       );
     }
 
@@ -553,11 +565,16 @@ class AppModel extends ChangeNotifier {
 
     final promotion = data['promotion']?.toString();
 
-    // Sync clocks after move — BE sends decremented values
+    // NOTE: game:move:ok clock values are intentionally NOT applied here.
+    // The server sends incorrect values for the player who just moved (clock is
+    // bumped UP instead of decremented — likely due to server-side increment logic).
+    // Timer accuracy is maintained by the local countdown + game:clock drift correction.
     final clocks = data['clocks'] as Map<String, dynamic>?;
-    if (clocks != null) {
-      _syncClocksFromPayload(clocks);
-    }
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[TIMER][move:ok] SKIP sync | local white=${timerService.player1TimeLeft.value.inSeconds}s'
+      ' black=${timerService.player2TimeLeft.value.inSeconds}s | raw clocks=$clocks',
+    );
 
     // Determine whose move this was.
     // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.
@@ -587,8 +604,11 @@ class AppModel extends ChangeNotifier {
   /// Per BE_TIMER.md: sync clocks with drift threshold, update activeColor to keep turn in sync.
   /// Only correct local clock if drifted by more than 2 seconds (prevents oscillation).
   void _handleSocketGameClock(Map<String, dynamic> data) {
-    final whiteSec = (data['white'] as num?)?.round();
-    final blackSec = (data['black'] as num?)?.round();
+    final rawWhite = data['white'] as num?;
+    final rawBlack = data['black'] as num?;
+    // Use truncate (floor) instead of round to avoid 909.996 → 910
+    final whiteSec = rawWhite?.truncate();
+    final blackSec = rawBlack?.truncate();
 
     // Sync clocks with drift threshold check
     _syncClocksIfDrifted(whiteSec, blackSec);
@@ -606,7 +626,8 @@ class AppModel extends ChangeNotifier {
 
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[SOCKET] game:clock | white=$whiteSec | black=$blackSec | activeColor=$activeColor | turnChanged=$turnChanged',
+      '[SOCKET] game:clock | raw white=$rawWhite→$whiteSec | raw black=$rawBlack→$blackSec'
+      ' | activeColor=$activeColor | turnChanged=$turnChanged',
     );
 
     if (turnChanged) notifyListeners();
@@ -615,43 +636,68 @@ class AppModel extends ChangeNotifier {
   /// Sync timer values from a clocks payload per BE_TIMER.md contract.
   /// BE sends clocks in seconds (e.g. blitz_5 → 300).
   /// Called on game:state, game:move:ok, and game:clock events.
-  void _syncClocksFromPayload(Map<String, dynamic> clocks) {
-    final whiteSec = (clocks['white'] as num?)?.round();
-    final blackSec = (clocks['black'] as num?)?.round();
+  void _syncClocksFromPayload(Map<String, dynamic> clocks,
+      {String source = 'unknown'}) {
+    final rawWhite = clocks['white'] as num?;
+    final rawBlack = clocks['black'] as num?;
+    // Use truncate (floor) instead of round to avoid 909.996 → 910
+    final whiteSec = rawWhite?.truncate();
+    final blackSec = rawBlack?.truncate();
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[TIMER] _syncClocksFromPayload | white=$whiteSec | black=$blackSec',
+      '[TIMER][$source] raw white=$rawWhite → $whiteSec | raw black=$rawBlack → $blackSec'
+      ' | local white=${timerService.player1TimeLeft.value.inSeconds}s'
+      ' | local black=${timerService.player2TimeLeft.value.inSeconds}s',
     );
     // Always accept server value (source of truth)
     timerService.setServerClocks(
-        whiteSeconds: whiteSec, blackSeconds: blackSec);
+        whiteSeconds: whiteSec, blackSeconds: blackSec, source: source);
   }
 
-  /// Update player clocks only when drifted more than threshold from server.
-  /// Per BE_TIMER.md: detect and correct drift caused by network/rounding.
-  /// Threshold of 2 seconds prevents oscillation (04:59/05:00 jitter).
+  /// Update player clocks only when the server is actively decrementing AND local
+  /// has drifted beyond the threshold.
+  ///
+  /// Key guard: only correct when `serverSec < _prevServerSec` (server is counting down).
+  /// If the server sends the same value repeatedly (frozen/buggy), we skip correction so
+  /// the local countdown continues uninterrupted.
   static const int _clockDriftThresholdSeconds = 2;
   void _syncClocksIfDrifted(int? whiteSec, int? blackSec) {
     if (whiteSec != null) {
+      final prev = _prevServerWhiteSec;
+      _prevServerWhiteSec = whiteSec;
+      final serverDecrementing = prev != null && whiteSec < prev;
       final localSec = timerService.player1TimeLeft.value.inSeconds;
       final drift = (localSec - whiteSec).abs();
-      if (drift > _clockDriftThresholdSeconds) {
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[TIMER] White clock drift detected | local=$localSec | server=$whiteSec | drift=$drift → correcting',
-        );
-        timerService.setServerClocks(whiteSeconds: whiteSec);
+      final corrected =
+          serverDecrementing && drift > _clockDriftThresholdSeconds;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[TIMER][DRIFT] white: local=${localSec}s server=${whiteSec}s'
+        ' prev=${prev}s decrementing=$serverDecrementing drift=${drift}s'
+        ' → ${corrected ? 'CORRECTED' : 'skipped'}',
+      );
+      if (corrected) {
+        timerService.setServerClocks(
+            whiteSeconds: whiteSec, source: 'clock:drift');
       }
     }
     if (blackSec != null) {
+      final prev = _prevServerBlackSec;
+      _prevServerBlackSec = blackSec;
+      final serverDecrementing = prev != null && blackSec < prev;
       final localSec = timerService.player2TimeLeft.value.inSeconds;
       final drift = (localSec - blackSec).abs();
-      if (drift > _clockDriftThresholdSeconds) {
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[TIMER] Black clock drift detected | local=$localSec | server=$blackSec | drift=$drift → correcting',
-        );
-        timerService.setServerClocks(blackSeconds: blackSec);
+      final corrected =
+          serverDecrementing && drift > _clockDriftThresholdSeconds;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[TIMER][DRIFT] black: local=${localSec}s server=${blackSec}s'
+        ' prev=${prev}s decrementing=$serverDecrementing drift=${drift}s'
+        ' → ${corrected ? 'CORRECTED' : 'skipped'}',
+      );
+      if (corrected) {
+        timerService.setServerClocks(
+            blackSeconds: blackSec, source: 'clock:drift');
       }
     }
   }

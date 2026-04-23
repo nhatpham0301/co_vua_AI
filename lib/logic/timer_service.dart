@@ -90,12 +90,20 @@ class TimerService {
   /// Sync clocks from server.
   /// The server sends values in **seconds** (e.g. blitz_5 → 300).
   /// Called on every `game:clock` and `game:move:ok` socket event.
-  void setServerClocks({int? whiteSeconds, int? blackSeconds}) {
+  void setServerClocks({int? whiteSeconds, int? blackSeconds, String? source}) {
     if (whiteSeconds != null) {
+      final oldW = player1TimeLeft.value.inSeconds;
       player1TimeLeft.value = Duration(seconds: whiteSeconds);
+      final src = source != null ? ' [src=$source]' : '';
+      print(
+          '[TIMER][SET]$src white: ${oldW}s → ${whiteSeconds}s (delta=${whiteSeconds - oldW})');
     }
     if (blackSeconds != null) {
+      final oldB = player2TimeLeft.value.inSeconds;
       player2TimeLeft.value = Duration(seconds: blackSeconds);
+      final src = source != null ? ' [src=$source]' : '';
+      print(
+          '[TIMER][SET]$src black: ${oldB}s → ${blackSeconds}s (delta=${blackSeconds - oldB})');
     }
   }
 
