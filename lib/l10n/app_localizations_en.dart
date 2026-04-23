@@ -154,7 +154,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gameMode => 'Game Mode';
 
   @override
-  String get onePlayer => 'One Player';
+  String get onePlayer => 'Player 1';
 
   @override
   String get twoPlayer => 'Two Player';
@@ -269,7 +269,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String botLevel(int level) {
-    return 'BOT LV.$level';
+    return 'Player 2';
   }
 
   @override

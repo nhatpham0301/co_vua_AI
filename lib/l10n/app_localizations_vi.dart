@@ -155,7 +155,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get gameMode => 'Chế độ chơi';
 
   @override
-  String get onePlayer => 'Một người';
+  String get onePlayer => 'Người chơi 1';
 
   @override
   String get twoPlayer => 'Hai người';
@@ -270,7 +270,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String botLevel(int level) {
-    return 'BOT LV.$level';
+    return 'Người chơi 2';
   }
 
   @override

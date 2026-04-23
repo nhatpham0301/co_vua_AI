@@ -54,7 +54,7 @@
   "matchmakingSubtitle": "Ghép trận theo bậc xếp hạng. Nếu hết thời gian\nsẽ tự động chuyển sang AI.",
 
   "gameMode": "Chế độ chơi",
-  "onePlayer": "Một người",
+  "onePlayer": "Người chơi 1",
   "twoPlayer": "Hai người",
   "aiDifficulty": "Độ khó AI",
   "side": "Màu quân",
@@ -93,7 +93,7 @@
   "rankName5": "Đại kiện tướng",
   "youPlayer": "BẠN",
   "opponent": "ĐỐI THỦ",
-  "botLevel": "BOT LV.{level}",
+  "botLevel": "Người chơi 2",
   "eloLabel": "{elo} ELO",
 
   "capturedYourPieces": "Quân của bạn đã mất",

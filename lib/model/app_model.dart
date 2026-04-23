@@ -263,7 +263,7 @@ class AppModel extends ChangeNotifier {
       apiClient.setBaseUrl(prefs.apiBaseUrl);
       notifyListeners();
     };
-    timerService.onExpired = () => endGame();
+    timerService.onExpired = _handleTimerExpired;
     audio.enabled = prefs.soundEnabled;
     authService.addListener(() => notifyListeners());
 
@@ -413,14 +413,7 @@ class AppModel extends ChangeNotifier {
       );
     }
 
-    audio.playGameEndSound(
-      stalemate: stalemate,
-      playingWithAI: playingWithAI,
-      playerSide: playerSide,
-      turn: turn,
-      player1TimeLeft: player1TimeLeft.value,
-      player2TimeLeft: player2TimeLeft.value,
-    );
+    audio.playGameEndSound(stalemate: stalemate, userWon: userWon);
 
     GameStateStorage.clearGameState();
     unawaited(adService.onGameEnded());
@@ -431,6 +424,39 @@ class AppModel extends ChangeNotifier {
   void undoEndGame({bool silent = false}) {
     gameOver = false;
     if (!silent) notifyListeners();
+  }
+
+  void _handleTimerExpired() {
+    final timedOutPlayer = _resolveTimedOutPlayer();
+    if (timedOutPlayer == null) {
+      endGame();
+      return;
+    }
+
+    final isOnlinePvP = isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi;
+    if (isOnlinePvP) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[TIMER] local timeout reached for ${timedOutPlayer.name}; waiting for authoritative game:end from server',
+      );
+      timerService.pause();
+      return;
+    }
+
+    endGame(forceUserWon: timedOutPlayer != playerSide);
+  }
+
+  Player? _resolveTimedOutPlayer() {
+    if (timerService.player1TimeLeft.value == Duration.zero) {
+      return Player.player1;
+    }
+    if (timerService.player2TimeLeft.value == Duration.zero) {
+      return Player.player2;
+    }
+    if (timerService.moveTimeLeft.value == Duration.zero) {
+      return turn;
+    }
+    return null;
   }
 
   void changeTurn({bool silent = false}) {

@@ -165,8 +165,7 @@ class _TurnBar extends StatelessWidget {
             dotColor = Colors.white38;
           }
         } else {
-          label =
-              showAiState ? l.aiThinking(appModel.aiDifficulty) : l.yourTurn;
+          label = showAiState ? l.botLevel(appModel.aiDifficulty) : l.yourTurn;
           dotColor = showAiState ? Colors.white38 : primary;
         }
 

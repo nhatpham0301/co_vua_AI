@@ -49,7 +49,7 @@ class GameStatus extends StatelessWidget {
     if (!s.gameOver) {
       if (s.playerCount == 1) {
         if (s.isAIsTurn) {
-          return l.aiThinking(s.aiDifficulty);
+          return l.botLevel(s.aiDifficulty);
         } else {
           return l.yourTurn;
         }
@@ -63,22 +63,8 @@ class GameStatus extends StatelessWidget {
     } else {
       if (s.stalemate) {
         return l.stalemate;
-      } else {
-        if (s.playerCount == 1) {
-          if (s.isAIsTurn) {
-            return l.youWin;
-          } else {
-            return l.youLose;
-          }
-        } else {
-          // P2P (local or online): use userWon which is set correctly per player
-          if (s.userWon) {
-            return l.youWin;
-          } else {
-            return l.youLose;
-          }
-        }
       }
+      return s.userWon ? l.youWin : l.youLose;
     }
   }
 }

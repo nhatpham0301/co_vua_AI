@@ -383,7 +383,7 @@ abstract class AppLocalizations {
   /// No description provided for @onePlayer.
   ///
   /// In en, this message translates to:
-  /// **'One Player'**
+  /// **'Player 1'**
   String get onePlayer;
 
   /// No description provided for @twoPlayer.
@@ -605,7 +605,7 @@ abstract class AppLocalizations {
   /// No description provided for @botLevel.
   ///
   /// In en, this message translates to:
-  /// **'BOT LV.{level}'**
+  /// **'Player 2'**
   String botLevel(int level);
 
   /// No description provided for @eloLabel.

@@ -42,7 +42,7 @@ List<AppTheme> _buildThemeList() {
       darkTile: Color(0xff808080),
       moveHint: Color(0xdd555555),
       checkHint: Color(0xff333333),
-      latestMove: Color(0xdddddddd),
+      latestMove: Color(0xCCD8B04C),
       notation: Color(0xFFFFFFFF),
     ),
     AppTheme(
