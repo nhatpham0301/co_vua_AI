@@ -733,14 +733,24 @@ class AppModel extends ChangeNotifier {
     opponentDisconnected = false;
 
     if (!gameOver) {
-      // For online PvP, derive userWon from the server's authoritative winner.
+      // For online PvP, derive userWon exclusively from the server's winner field.
+      // Never fall back to didUserWin() which gives wrong results for online games.
       bool? forceWon;
-      if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi && winner != null) {
+      if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
         final iAmWhite = playerSide == Player.player1;
-        forceWon = (winner == 'white') == iAmWhite;
+        // winner can be "white", "black", or null/absent (draw/stalemate)
+        if (winner == 'white' || winner == 'black') {
+          forceWon = (winner == 'white') == iAmWhite;
+        } else {
+          // draw or stalemate — nobody wins
+          forceWon = false;
+          if (status == 'stalemate' || status == 'draw') {
+            stalemate = true;
+          }
+        }
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[SOCKET] game:end: winner=$winner iAmWhite=$iAmWhite → userWon=$forceWon',
+          '[SOCKET] game:end: winner=$winner iAmWhite=$iAmWhite playerSide=${playerSide.name} → userWon=$forceWon stalemate=$stalemate',
         );
       }
       endGame(forceUserWon: forceWon);

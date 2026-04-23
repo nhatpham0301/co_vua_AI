@@ -284,7 +284,15 @@ class GameController {
       }
       meta.isCheck = false;
       meta.isCheckmate = true;
-      appModel.endGame(silent: true);
+      // In online PvP, do NOT call endGame() locally — the server's game:end
+      // event is the authoritative source for winner determination.
+      // Calling endGame() here would bypass forceUserWon and use didUserWin()
+      // which returns true for both players in P2P mode (wrong result).
+      final isOnlinePvP =
+          appModel.isOnlineGameMode && !appModel.shouldRunLocalAiInOnlineVsAi;
+      if (!isOnlinePvP) {
+        appModel.endGame(silent: true);
+      }
     }
     if (undoing) {
       appModel.popMoveMeta(silent: true);

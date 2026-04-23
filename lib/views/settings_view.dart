@@ -121,12 +121,12 @@ class SettingsView extends StatelessWidget {
     return showCupertinoDialog<void>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Nhap ma vao ban'),
+        title: const Text('Nhập mã vào bàn'),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: CupertinoTextField(
             controller: ctrl,
-            placeholder: 'Vi du: ABC123',
+            placeholder: 'Ví dụ: ABC123',
             textCapitalization: TextCapitalization.characters,
             autofocus: true,
           ),
@@ -134,7 +134,7 @@ class SettingsView extends StatelessWidget {
         actions: [
           CupertinoDialogAction(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Huy'),
+            child: const Text('Hủy'),
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
@@ -143,7 +143,7 @@ class SettingsView extends StatelessWidget {
               Navigator.pop(dialogContext);
               await _joinGameByCode(context, appModel, code);
             },
-            child: const Text('Vao ban'),
+            child: const Text('Vào bàn'),
           ),
         ],
       ),
@@ -232,7 +232,7 @@ class SettingsView extends StatelessWidget {
                             return Column(
                               children: [
                                 RoundedButton(
-                                  'Nhap ma vao ban',
+                                  'Nhập mã vào bàn',
                                   onPressed: () =>
                                       _showJoinCodeDialog(context, appModel),
                                 ),
