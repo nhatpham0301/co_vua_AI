@@ -517,16 +517,24 @@ class AppModel extends ChangeNotifier {
       }
     }
 
-    // ── Sync clocks (present on reconnect) ──────────────────────────────────
+    // ── Sync clocks (per BE_TIMER.md: initial or latest clocks from server) ──
     final clocks = data['clocks'] as Map<String, dynamic>?;
     if (clocks != null) {
       _syncClocksFromPayload(clocks);
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SOCKET] game:state: clocks synced | white=${clocks['white']} | black=${clocks['black']}',
+      );
     }
 
     // ── Waiting-room transition ──────────────────────────────────────────────
     if (isWaitingForOpponent && status == 'in_progress') {
       isWaitingForOpponent = false;
       opponentJoined = true;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SOCKET] game:state: both players joined, transitioning to in_progress',
+      );
       notifyListeners();
       unawaited(hydrateOpponentProfileFromSnapshot());
       return;
@@ -536,6 +544,7 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Handles `game:move:ok` — broadcast to all players after a valid move.
+  /// Per BE_TIMER.md: clocks in this event are DECREMENTED after the move.
   /// Applies the opponent's move to the local board if it was their turn.
   void _handleSocketGameMoveOk(Map<String, dynamic> data) {
     final from = data['from']?.toString();
@@ -544,12 +553,11 @@ class AppModel extends ChangeNotifier {
 
     final promotion = data['promotion']?.toString();
 
-    // NOTE: We intentionally skip clock sync here.
-    // The BE currently returns the initial clock values (e.g. {white:300,black:300})
-    // on every game:move:ok, causing the local countdown to reset on each move.
-    // Clock correction is handled by _handleSocketGameClock (drift-threshold check)
-    // and by _handleSocketGameState on reconnect.
-    // TODO: Re-enable once BE sends correct decremented clock values on game:move:ok.
+    // Sync clocks after move — BE sends decremented values
+    final clocks = data['clocks'] as Map<String, dynamic>?;
+    if (clocks != null) {
+      _syncClocksFromPayload(clocks);
+    }
 
     // Determine whose move this was.
     // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.
@@ -557,70 +565,112 @@ class AppModel extends ChangeNotifier {
     final myColor = playerSide == Player.player1 ? 'white' : 'black';
     final opponentJustMoved = (nextTurnRaw == myColor);
 
+    // Update turn from move event (authoritative)
+    if (nextTurnRaw == 'white' && turn != Player.player1) {
+      turn = Player.player1;
+    } else if (nextTurnRaw == 'black' && turn != Player.player2) {
+      turn = Player.player2;
+    }
+
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[SOCKET] game:move:ok | $from→$to | nextTurn=$nextTurnRaw | myColor=$myColor | opponentMoved=$opponentJustMoved',
+      '[SOCKET] game:move:ok | $from→$to | turn=$nextTurnRaw | myColor=$myColor | opponentMoved=$opponentJustMoved | clocks=$clocks',
     );
 
     if (opponentJustMoved && !gameOver) {
       gameController?.applyRemoteMove(from: from, to: to, promotion: promotion);
     }
+    notifyListeners();
   }
 
   /// Handles `game:clock` — server clock tick broadcast every second.
-  /// Uses `activeColor` to also keep `turn` in sync with the server.
+  /// Per BE_TIMER.md: sync clocks with drift threshold, update activeColor to keep turn in sync.
+  /// Only correct local clock if drifted by more than 2 seconds (prevents oscillation).
   void _handleSocketGameClock(Map<String, dynamic> data) {
     final whiteSec = (data['white'] as num?)?.round();
     final blackSec = (data['black'] as num?)?.round();
-    // Only correct local clock if server value differs by more than 2 seconds.
-    // This prevents the 04:59/05:00 oscillation caused by server rounding.
+
+    // Sync clocks with drift threshold check
     _syncClocksIfDrifted(whiteSec, blackSec);
 
-    // Sync whose turn it is from the server clock (authoritative).
+    // Sync whose turn it is from server activeColor (authoritative)
     final activeColor = data['activeColor']?.toString();
+    bool turnChanged = false;
     if (activeColor == 'white' && turn != Player.player1) {
       turn = Player.player1;
-      notifyListeners();
+      turnChanged = true;
     } else if (activeColor == 'black' && turn != Player.player2) {
       turn = Player.player2;
-      notifyListeners();
+      turnChanged = true;
     }
+
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:clock | white=$whiteSec | black=$blackSec | activeColor=$activeColor | turnChanged=$turnChanged',
+    );
+
+    if (turnChanged) notifyListeners();
   }
 
-  /// Sync timer values from a clocks payload `{ white: sec, black: sec }`.
-  /// BE sends seconds (e.g. blitz_5 → 300). Use round() to handle floats.
+  /// Sync timer values from a clocks payload per BE_TIMER.md contract.
+  /// BE sends clocks in seconds (e.g. blitz_5 → 300).
+  /// Called on game:state, game:move:ok, and game:clock events.
   void _syncClocksFromPayload(Map<String, dynamic> clocks) {
     final whiteSec = (clocks['white'] as num?)?.round();
     final blackSec = (clocks['black'] as num?)?.round();
-    // On move events, always accept the server value (authoritative after a move).
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[TIMER] _syncClocksFromPayload | white=$whiteSec | black=$blackSec',
+    );
+    // Always accept server value (source of truth)
     timerService.setServerClocks(
         whiteSeconds: whiteSec, blackSeconds: blackSec);
   }
 
-  /// Update a player clock only when the local value has drifted more than
-  /// [_clockDriftThresholdSeconds] from the server value.
+  /// Update player clocks only when drifted more than threshold from server.
+  /// Per BE_TIMER.md: detect and correct drift caused by network/rounding.
+  /// Threshold of 2 seconds prevents oscillation (04:59/05:00 jitter).
   static const int _clockDriftThresholdSeconds = 2;
   void _syncClocksIfDrifted(int? whiteSec, int? blackSec) {
     if (whiteSec != null) {
       final localSec = timerService.player1TimeLeft.value.inSeconds;
-      if ((localSec - whiteSec).abs() > _clockDriftThresholdSeconds) {
+      final drift = (localSec - whiteSec).abs();
+      if (drift > _clockDriftThresholdSeconds) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[TIMER] White clock drift detected | local=$localSec | server=$whiteSec | drift=$drift → correcting',
+        );
         timerService.setServerClocks(whiteSeconds: whiteSec);
       }
     }
     if (blackSec != null) {
       final localSec = timerService.player2TimeLeft.value.inSeconds;
-      if ((localSec - blackSec).abs() > _clockDriftThresholdSeconds) {
+      final drift = (localSec - blackSec).abs();
+      if (drift > _clockDriftThresholdSeconds) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[TIMER] Black clock drift detected | local=$localSec | server=$blackSec | drift=$drift → correcting',
+        );
         timerService.setServerClocks(blackSeconds: blackSec);
       }
     }
   }
 
   /// Handles `game:end` event from socket.
+  /// Per BE_TIMER.md: stop timer immediately and end game.
   void _handleSocketGameEnd(Map<String, dynamic> data) {
+    final status = data['status']?.toString() ?? 'unknown';
+    final winner = data['winner']?.toString();
+    final reason = data['reason']?.toString();
+
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[SOCKET] game:end handler | data=${data.toString().substring(0, data.toString().length.clamp(0, 120))}',
+      '[SOCKET] game:end handler | status=$status | winner=$winner | reason=$reason',
     );
+
+    // Stop timer immediately when game ends
+    timerService.stop();
+
     if (!gameOver) {
       endGame();
     }
