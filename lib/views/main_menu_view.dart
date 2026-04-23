@@ -1,4 +1,5 @@
 ﻿import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -204,7 +205,7 @@ class _MainMenuViewState extends State<MainMenuView> {
               Positioned.fill(
                 child: Image.asset(
                   'assets/images/home/background.png',
-                  fit: BoxFit.fitHeight,
+                  fit: BoxFit.cover,
                   alignment: Alignment.center,
                 ),
               ),
@@ -587,15 +588,21 @@ class _ImageHomeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final targetWidth = math.min(screenWidth * 0.7, 360.0);
+
     final button = Semantics(
       button: true,
       label: semanticLabel,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          Image.asset(
-            assetPath,
-            fit: BoxFit.contain,
+          SizedBox(
+            width: targetWidth,
+            child: Image.asset(
+              assetPath,
+              fit: BoxFit.contain,
+            ),
           ),
         ],
       ),

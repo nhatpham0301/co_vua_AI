@@ -39,6 +39,7 @@ class ChessGame extends FlameGame with TapCallbacks {
   Paint _selectedPiecePaint = Paint();
   String? _cachedThemeName;
   ui.Image? _boardTexture;
+  ui.Image? _boardFrameTexture;
 
   ChessGame(this.controller, this.appModel) {
     controller.onSnapSprites = () => snapSprites();
@@ -121,6 +122,11 @@ class ChessGame extends FlameGame with TapCallbacks {
       _boardTexture = Flame.images.fromCache('boards/wood_board.png');
     } catch (_) {
       _boardTexture = await Flame.images.load('boards/wood_board.png');
+    }
+    try {
+      _boardFrameTexture = Flame.images.fromCache('boards/frame_board.png');
+    } catch (_) {
+      _boardFrameTexture = await Flame.images.load('boards/frame_board.png');
     }
   }
 
@@ -222,6 +228,10 @@ class ChessGame extends FlameGame with TapCallbacks {
 
   void _drawBoard(Canvas canvas) {
     if (_boardTexture != null && width != null) {
+      final boardSize = width!;
+      // Slightly overdraw wood texture so the frame hugs the board tighter.
+      final boardBleed = boardSize * 0.012;
+
       canvas.drawImageRect(
         _boardTexture!,
         Rect.fromLTWH(
@@ -230,9 +240,28 @@ class ChessGame extends FlameGame with TapCallbacks {
           _boardTexture!.width.toDouble(),
           _boardTexture!.height.toDouble(),
         ),
-        Rect.fromLTWH(0, 0, width!, width!),
+        Rect.fromLTWH(
+          -boardBleed,
+          -boardBleed,
+          boardSize + (boardBleed * 2),
+          boardSize + (boardBleed * 2),
+        ),
         Paint(),
       );
+
+      if (_boardFrameTexture != null) {
+        canvas.drawImageRect(
+          _boardFrameTexture!,
+          Rect.fromLTWH(
+            0,
+            0,
+            _boardFrameTexture!.width.toDouble(),
+            _boardFrameTexture!.height.toDouble(),
+          ),
+          Rect.fromLTWH(0, 0, boardSize, boardSize),
+          Paint(),
+        );
+      }
       return;
     }
 

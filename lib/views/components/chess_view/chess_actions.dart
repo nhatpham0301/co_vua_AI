@@ -330,46 +330,56 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = enabled ? Colors.white : Colors.white30;
 
-    final content = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(28),
-        splashColor: Colors.white.withValues(alpha: 0.08),
-        highlightColor: Colors.white.withValues(alpha: 0.04),
-        child: Ink(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: enabled
-                ? const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF9A6330), Color(0xFF362113)],
-                  )
-                : null,
-            color: enabled ? null : Colors.white.withValues(alpha: 0.04),
-            border: Border.all(
-              color: enabled
-                  ? const Color(0xFFF0C06C).withValues(alpha: 0.72)
-                  : Colors.white.withValues(alpha: 0.05),
-              width: 1.4,
-            ),
-            boxShadow: enabled
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF1F130C).withValues(alpha: 0.55),
-                      blurRadius: 14,
-                      offset: const Offset(0, 5),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              AnimatedSwitcher(
+    final content = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: enabled
+            ? const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF8B5B2D), Color(0xFF3B2414)],
+              )
+            : null,
+        color: enabled
+            ? const Color(0xFF4A2E1B)
+            : Colors.white.withValues(alpha: 0.06),
+        border: Border.all(
+          color: enabled
+              ? const Color(0xFFF0C06C).withValues(alpha: 0.86)
+              : Colors.white.withValues(alpha: 0.05),
+          width: 1.8,
+        ),
+        boxShadow: enabled
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 2,
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: const Color(0xFF1F130C).withValues(alpha: 0.55),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkResponse(
+          onTap: enabled ? onTap : null,
+          containedInkWell: true,
+          customBorder: const CircleBorder(),
+          radius: 29,
+          splashColor: Colors.white.withValues(alpha: 0.08),
+          highlightColor: Colors.white.withValues(alpha: 0.04),
+          child: SizedBox(
+            width: 58,
+            height: 58,
+            child: Center(
+              child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
                 transitionBuilder: (child, animation) => ScaleTransition(
                   scale: animation,
@@ -382,7 +392,7 @@ class _ActionBtn extends StatelessWidget {
                   size: 22,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
