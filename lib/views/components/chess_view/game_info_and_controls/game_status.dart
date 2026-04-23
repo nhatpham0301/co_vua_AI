@@ -11,6 +11,7 @@ typedef _StatusState = ({
   bool gameOver,
   int playerCount,
   bool isAIsTurn,
+  bool userWon,
   Player turn,
   bool stalemate,
   int aiDifficulty,
@@ -24,6 +25,7 @@ class GameStatus extends StatelessWidget {
         gameOver: m.gameOver,
         playerCount: m.playerCount,
         isAIsTurn: m.isAIsTurn,
+        userWon: m.userWon,
         turn: m.turn,
         stalemate: m.stalemate,
         aiDifficulty: m.aiDifficulty,
@@ -69,10 +71,11 @@ class GameStatus extends StatelessWidget {
             return l.youLose;
           }
         } else {
-          if (s.turn == Player.player1) {
-            return l.blackWins;
+          // P2P (local or online): use userWon which is set correctly per player
+          if (s.userWon) {
+            return l.youWin;
           } else {
-            return l.whiteWins;
+            return l.youLose;
           }
         }
       }

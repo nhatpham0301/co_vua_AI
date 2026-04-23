@@ -34,6 +34,8 @@ class OnlineGameEventsService {
   void Function(Map<String, dynamic>)? onGameEnd;
   void Function(Map<String, dynamic>)? onMatchFound;
   void Function(Map<String, dynamic>)? onMatchTimeout;
+  void Function(Map<String, dynamic>)? onPlayerDisconnected;
+  void Function(Map<String, dynamic>)? onPlayerReconnected;
 
   Future<void> startTracking({
     required String socketBaseUrl,
@@ -162,6 +164,8 @@ class OnlineGameEventsService {
     onGameEnd = null;
     onMatchFound = null;
     onMatchTimeout = null;
+    onPlayerDisconnected = null;
+    onPlayerReconnected = null;
   }
 
   /// Emit a move via socket (realtime submission for online games)
@@ -227,6 +231,12 @@ class OnlineGameEventsService {
         break;
       case 'game:end':
         onGameEnd?.call(payload);
+        break;
+      case 'game:player:disconnected':
+        onPlayerDisconnected?.call(payload);
+        break;
+      case 'game:player:reconnected':
+        onPlayerReconnected?.call(payload);
         break;
       case 'match:found':
         onMatchFound?.call(payload);

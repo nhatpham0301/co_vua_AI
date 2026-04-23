@@ -172,6 +172,8 @@
   "stalemate": "Stalemate",
   "youWin": "You Win!",
   "youLose": "You Lose",
+  "opponentLeft": "Opponent left the game",
+  "opponentDisconnected": "Opponent disconnected...",
   "blackWins": "Black wins!",
   "whiteWins": "White wins!",
 

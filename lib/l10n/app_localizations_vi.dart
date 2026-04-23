@@ -387,6 +387,12 @@ class AppLocalizationsVi extends AppLocalizations {
   String get youLose => 'Bạn thua';
 
   @override
+  String get opponentLeft => 'Đối thủ đã rời ván';
+
+  @override
+  String get opponentDisconnected => 'Đối thủ mất kết nối...';
+
+  @override
   String get blackWins => 'Đen thắng!';
 
   @override

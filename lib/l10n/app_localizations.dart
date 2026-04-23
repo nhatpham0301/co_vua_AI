@@ -818,6 +818,18 @@ abstract class AppLocalizations {
   /// **'You Lose'**
   String get youLose;
 
+  /// No description provided for @opponentLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Opponent left the game'**
+  String get opponentLeft;
+
+  /// No description provided for @opponentDisconnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Opponent disconnected...'**
+  String get opponentDisconnected;
+
   /// No description provided for @blackWins.
   ///
   /// In en, this message translates to:

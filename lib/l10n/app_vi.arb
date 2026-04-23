@@ -135,6 +135,8 @@
   "stalemate": "Hòa cờ thế",
   "youWin": "Bạn thắng!",
   "youLose": "Bạn thua",
+  "opponentLeft": "Đối thủ đã rời ván",
+  "opponentDisconnected": "Đối thủ mất kết nối...",
   "blackWins": "Đen thắng!",
   "whiteWins": "Trắng thắng!",
 

@@ -119,6 +119,8 @@ class AppModel extends ChangeNotifier {
   bool checkAlert = false;
   bool moveListUpdated = false;
   bool userWon = false;
+  bool opponentDisconnected = false;
+  String? gameEndReason; // e.g. 'checkmate', 'timeout', 'abandoned', 'resigned'
   Player turn = Player.player1;
   List<MoveMeta> moveMetaList = [];
   List<ChessPieceType> capturedWhite = [];
@@ -278,6 +280,8 @@ class AppModel extends ChangeNotifier {
     gameOver = false;
     stalemate = false;
     userWon = false;
+    opponentDisconnected = false;
+    gameEndReason = null;
     _endGameAdDisplayed = false;
     _prevServerWhiteSec = null;
     _prevServerBlackSec = null;
@@ -352,6 +356,8 @@ class AppModel extends ChangeNotifier {
     _sessionStartedOnline = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
+    opponentDisconnected = false;
+    gameEndReason = null;
     _prevServerWhiteSec = null;
     _prevServerBlackSec = null;
     opponentProfile = null;
@@ -391,17 +397,21 @@ class AppModel extends ChangeNotifier {
     saveGameState();
   }
 
-  void endGame({bool silent = false}) {
+  void endGame({bool silent = false, bool? forceUserWon}) {
     if (gameOver) return;
     gameOver = true;
 
-    userWon = audio.didUserWin(
-      playingWithAI: playingWithAI,
-      playerSide: playerSide,
-      turn: turn,
-      player1TimeLeft: player1TimeLeft.value,
-      player2TimeLeft: player2TimeLeft.value,
-    );
+    if (forceUserWon != null) {
+      userWon = forceUserWon;
+    } else {
+      userWon = audio.didUserWin(
+        playingWithAI: playingWithAI,
+        playerSide: playerSide,
+        turn: turn,
+        player1TimeLeft: player1TimeLeft.value,
+        player2TimeLeft: player2TimeLeft.value,
+      );
+    }
 
     audio.playGameEndSound(
       stalemate: stalemate,
@@ -460,6 +470,8 @@ class AppModel extends ChangeNotifier {
     onlineEvents.onGameMoveOk = _handleSocketGameMoveOk;
     onlineEvents.onGameClock = _handleSocketGameClock;
     onlineEvents.onGameEnd = _handleSocketGameEnd;
+    onlineEvents.onPlayerDisconnected = _handleSocketPlayerDisconnected;
+    onlineEvents.onPlayerReconnected = _handleSocketPlayerReconnected;
   }
 
   Future<void> startMatchmakingEventTracking() async {
@@ -717,8 +729,54 @@ class AppModel extends ChangeNotifier {
     // Stop timer immediately when game ends
     timerService.stop();
 
+    // Store reason so UI can show contextual message (e.g. "Opponent left")
+    gameEndReason = status != 'unknown' ? status : reason;
+    // Clear disconnected flag — game is now officially over
+    opponentDisconnected = false;
+
     if (!gameOver) {
-      endGame();
+      // For online PvP, derive userWon from the server's authoritative winner.
+      bool? forceWon;
+      if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi && winner != null) {
+        final iAmWhite = playerSide == Player.player1;
+        forceWon = (winner == 'white') == iAmWhite;
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[SOCKET] game:end: winner=$winner iAmWhite=$iAmWhite → userWon=$forceWon',
+        );
+      }
+      endGame(forceUserWon: forceWon);
+    }
+  }
+
+  /// Handles `game:player:disconnected` — fires immediately when opponent's
+  /// socket drops. The game may still continue (grace period) before game:end.
+  void _handleSocketPlayerDisconnected(Map<String, dynamic> data) {
+    final userId = data['userId']?.toString();
+    final myId = authService.user?.id;
+    final isOpponent = (userId != null && myId != null && userId != myId);
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:player:disconnected | userId=$userId | isOpponent=$isOpponent',
+    );
+    if (isOpponent && !gameOver) {
+      opponentDisconnected = true;
+      notifyListeners();
+    }
+  }
+
+  /// Handles `game:player:reconnected` — opponent came back, clear disconnect flag.
+  void _handleSocketPlayerReconnected(Map<String, dynamic> data) {
+    final userId = data['userId']?.toString();
+    final myId = authService.user?.id;
+    final isOpponent = (userId != null && myId != null && userId != myId);
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:player:reconnected | userId=$userId | isOpponent=$isOpponent',
+    );
+    if (isOpponent && opponentDisconnected) {
+      opponentDisconnected = false;
+      notifyListeners();
     }
   }
 

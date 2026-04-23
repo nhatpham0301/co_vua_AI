@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../logic/chess_game.dart';
 import '../../../model/app_model.dart';
+import '../../../model/player.dart';
 import '../main_menu_view/mm_palette.dart';
 import 'chess_board_widget.dart';
 
@@ -102,31 +103,71 @@ class _TurnBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<AppModel, ({bool isAI, bool over, bool draw})>(
+    return Selector<
+        AppModel,
+        ({
+          bool isAI,
+          bool over,
+          bool draw,
+          bool userWon,
+          bool isOnlinePvP,
+          bool isMyTurn,
+          Player turn,
+          bool opponentDisconnected,
+          String? gameEndReason,
+        })>(
       selector: (_, model) => (
         isAI: model.isAIsTurn,
         over: model.gameOver,
         draw: model.stalemate,
+        userWon: model.userWon,
+        isOnlinePvP:
+            model.isOnlineGameMode && !model.shouldRunLocalAiInOnlineVsAi,
+        isMyTurn: model.turn == model.playerSide,
+        turn: model.turn,
+        opponentDisconnected: model.opponentDisconnected,
+        gameEndReason: model.gameEndReason,
       ),
       builder: (context, state, __) {
         final l = AppLocalizations.of(context)!;
         final String label;
         final Color dotColor;
 
+        final showAiState = state.isAI && !state.isOnlinePvP;
+
         if (state.over) {
           if (state.draw) {
             label = l.stalemate;
             dotColor = Colors.orangeAccent;
-          } else if (state.isAI) {
+          } else if (state.isOnlinePvP &&
+              (state.gameEndReason == 'abandoned' ||
+                  state.gameEndReason == 'resigned')) {
+            // Show reason-specific label (who left/resigned) and outcome colour
+            label = state.userWon ? l.opponentLeft : l.youLose;
+            dotColor = state.userWon ? Colors.greenAccent : Colors.redAccent;
+          } else if (state.userWon) {
             label = l.youWin;
             dotColor = Colors.greenAccent;
           } else {
             label = l.youLose;
             dotColor = Colors.redAccent;
           }
+        } else if (state.isOnlinePvP) {
+          // Opponent disconnected but game not yet ended (grace period)
+          if (state.opponentDisconnected) {
+            label = l.opponentDisconnected;
+            dotColor = Colors.orangeAccent;
+          } else if (state.isMyTurn) {
+            label = l.yourTurn;
+            dotColor = primary;
+          } else {
+            label = state.turn == Player.player1 ? l.whiteTurn : l.blackTurn;
+            dotColor = Colors.white38;
+          }
         } else {
-          label = state.isAI ? l.aiThinking(appModel.aiDifficulty) : l.yourTurn;
-          dotColor = state.isAI ? Colors.white38 : primary;
+          label =
+              showAiState ? l.aiThinking(appModel.aiDifficulty) : l.yourTurn;
+          dotColor = showAiState ? Colors.white38 : primary;
         }
 
         return Container(
@@ -139,7 +180,7 @@ class _TurnBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (!state.over && state.isAI)
+              if (!state.over && showAiState)
                 const CupertinoActivityIndicator(
                   radius: 6,
                   color: Colors.white54,
