@@ -568,8 +568,10 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Handles `game:move:ok` — broadcast to all players after a valid move.
-  /// Per BE_TIMER.md: clocks in this event are DECREMENTED after the move.
-  /// Applies the opponent's move to the local board if it was their turn.
+  /// NOTE: game:move:ok clock values are intentionally NOT applied here.
+  /// The server still sends incorrect values for the player who just moved
+  /// (clock is bumped UP instead of decremented — BE fix pending).
+  /// Timer accuracy is maintained by the local countdown + game:clock drift correction.
   void _handleSocketGameMoveOk(Map<String, dynamic> data) {
     final from = data['from']?.toString();
     final to = data['to']?.toString();
@@ -577,14 +579,10 @@ class AppModel extends ChangeNotifier {
 
     final promotion = data['promotion']?.toString();
 
-    // NOTE: game:move:ok clock values are intentionally NOT applied here.
-    // The server sends incorrect values for the player who just moved (clock is
-    // bumped UP instead of decremented — likely due to server-side increment logic).
-    // Timer accuracy is maintained by the local countdown + game:clock drift correction.
     final clocks = data['clocks'] as Map<String, dynamic>?;
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[TIMER][move:ok] SKIP sync | local white=${timerService.player1TimeLeft.value.inSeconds}s'
+      '[TIMER][move:ok] SKIP sync (server clock still buggy) | local white=${timerService.player1TimeLeft.value.inSeconds}s'
       ' black=${timerService.player2TimeLeft.value.inSeconds}s | raw clocks=$clocks',
     );
 
