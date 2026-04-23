@@ -307,14 +307,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
               children: [
                 Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [bgMid, bgDark],
+                    image: DecorationImage(
+                      image: AssetImage(
+                        'assets/images/boards/background_board.png',
+                      ),
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
-                const BoardBackground(),
                 const CornerKnots(),
                 Container(
                   decoration: BoxDecoration(
