@@ -62,8 +62,8 @@ class TimerService {
         } else {
           _decrementPlayer2();
         }
-        if (player1TimeLeft.value == Duration.zero ||
-            player2TimeLeft.value == Duration.zero) {
+        if (player1TimeLeft.value <= Duration.zero ||
+            player2TimeLeft.value <= Duration.zero) {
           onExpired?.call();
           return;
         }
@@ -72,7 +72,7 @@ class TimerService {
       // ── Move clock ─────────────────────────────────────────────────────────
       if (_moveTimeLimitSeconds > 0) {
         _decrementMove();
-        if (moveTimeLeft.value == Duration.zero) {
+        if (moveTimeLeft.value <= Duration.zero) {
           onExpired?.call();
         }
       }
@@ -134,24 +134,22 @@ class TimerService {
 
   void _decrementPlayer1() {
     if (player1TimeLeft.value.inMilliseconds > 0) {
-      player1TimeLeft.value = Duration(
-          milliseconds:
-              player1TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+      final nextMs = player1TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS;
+      player1TimeLeft.value = Duration(milliseconds: nextMs > 0 ? nextMs : 0);
     }
   }
 
   void _decrementPlayer2() {
     if (player2TimeLeft.value.inMilliseconds > 0) {
-      player2TimeLeft.value = Duration(
-          milliseconds:
-              player2TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+      final nextMs = player2TimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS;
+      player2TimeLeft.value = Duration(milliseconds: nextMs > 0 ? nextMs : 0);
     }
   }
 
   void _decrementMove() {
     if (moveTimeLeft.value.inMilliseconds > 0) {
-      moveTimeLeft.value = Duration(
-          milliseconds: moveTimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS);
+      final nextMs = moveTimeLeft.value.inMilliseconds - TIMER_ACCURACY_MS;
+      moveTimeLeft.value = Duration(milliseconds: nextMs > 0 ? nextMs : 0);
     }
   }
 }

@@ -24,6 +24,7 @@ class WaitingOpponentDialog extends StatefulWidget {
 class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   bool _codeCopied = false;
   bool _dialogClosed = false;
+  bool _isCreatingAiGame = false;
 
   Future<T> _withAuthRetry<T>({
     required AppModel appModel,
@@ -84,14 +85,19 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
     /// Thay đổi thời gian chờ
     Future.delayed(const Duration(seconds: 5), () async {
       if (!mounted) return;
+      if (widget.appModel.opponentJoined ||
+          !widget.appModel.isWaitingForOpponent ||
+          _dialogClosed ||
+          _isCreatingAiGame) {
+        return;
+      }
 
       DevLogger.instance.log(
         DevLogCategory.game,
         '[WAITING_OPPONENT] 5s timeout -> no opponent joined -> fallback to AI',
       );
 
-      _dialogClosed = true;
-      if (mounted) Navigator.of(context).pop();
+      setState(() => _isCreatingAiGame = true);
       await _createAIGameFallback();
     });
   }
@@ -134,12 +140,20 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
         appModel.opponentJoined = false;
         appModel.currentGameInviteCode = null;
         appModel.update();
+
+        if (mounted && !_dialogClosed) {
+          _dialogClosed = true;
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
       DevLogger.instance.log(
         DevLogCategory.http,
         '[WAITING_OPPONENT] POST /api/games/vs-ai (fallback) failed | $e',
       );
+      if (mounted) {
+        setState(() => _isCreatingAiGame = false);
+      }
     }
   }
 
@@ -157,6 +171,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   }
 
   void _onExitPressed() {
+    if (_isCreatingAiGame) return;
     _dialogClosed = true;
     final appModel = widget.appModel;
     appModel.isWaitingForOpponent = false;
@@ -301,14 +316,35 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              Text(
-                'Chờ người chơi khác...',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: const Color(0xFFFFFFFF).withValues(alpha: 0.7),
+              if (_isCreatingAiGame)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CupertinoActivityIndicator(radius: 8),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Đang tạo bàn AI...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color(0xFFFFFFFF).withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                )
+              else
+                Text(
+                  'Chờ người chơi khác...',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: const Color(0xFFFFFFFF).withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -316,7 +352,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
                   Expanded(
                     child: _buildButton(
                       label: 'Mã mời',
-                      onPressed: _onInvitePressed,
+                      onPressed: _isCreatingAiGame ? null : _onInvitePressed,
                       bgColor: primary,
                     ),
                   ),
@@ -324,7 +360,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
                   Expanded(
                     child: _buildButton(
                       label: 'Exit',
-                      onPressed: _onExitPressed,
+                      onPressed: _isCreatingAiGame ? null : _onExitPressed,
                       bgColor: const Color(0xFFD32F2F),
                     ),
                   ),
@@ -339,23 +375,28 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
 
   Widget _buildButton({
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required Color bgColor,
   }) {
+    final isEnabled = onPressed != null;
     return GestureDetector(
       onTap: onPressed,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 11),
         decoration: BoxDecoration(
-          color: bgColor,
+          color: isEnabled ? bgColor : bgColor.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: bgColor.withValues(alpha: 0.8),
+            color: isEnabled
+                ? bgColor.withValues(alpha: 0.8)
+                : bgColor.withValues(alpha: 0.45),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: bgColor.withValues(alpha: 0.4),
+              color: isEnabled
+                  ? bgColor.withValues(alpha: 0.4)
+                  : Colors.transparent,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

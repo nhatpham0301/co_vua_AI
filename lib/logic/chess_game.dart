@@ -232,8 +232,6 @@ class ChessGame extends FlameGame with TapCallbacks {
   void _drawBoard(Canvas canvas) {
     if (_boardTexture != null && width != null) {
       final boardSize = width!;
-      // Slightly overdraw wood texture so the frame hugs the board tighter.
-      final boardBleed = boardSize * 0.012;
 
       canvas.drawImageRect(
         _boardTexture!,
@@ -244,10 +242,10 @@ class ChessGame extends FlameGame with TapCallbacks {
           _boardTexture!.height.toDouble(),
         ),
         Rect.fromLTWH(
-          -boardBleed,
-          -boardBleed,
-          boardSize + (boardBleed * 2),
-          boardSize + (boardBleed * 2),
+          0,
+          0,
+          boardSize,
+          boardSize,
         ),
         Paint(),
       );

@@ -16,7 +16,7 @@ void showExitDialog(BuildContext context) {
   showAppDialog<void>(
     context: context,
     title: l.leaveGameTitle,
-    message: l.leaveGameSubtitle,
+    // message: l.leaveGameSubtitle,
     actions: [
       // AppDialogAction(
       //   label: l.saveAndExit,

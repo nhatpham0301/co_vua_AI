@@ -123,7 +123,6 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
     BuildContext context,
     AppModel appModel,
     int level,
-    String playerColor,
   ) async {
     if (_isLoading) return;
 
@@ -132,7 +131,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
     try {
       DevLogger.instance.log(
         DevLogCategory.game,
-        '[AI_TEST] Starting game with AI Level $level, player color: $playerColor',
+        '[AI_TEST] Starting game with AI Level $level, player color: white',
       );
 
       final gameData = await _withAuthRetry(
@@ -140,7 +139,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
         action: 'createAiGame',
         execute: () => appModel.apiClient.createAiGame(
           aiLevel: level,
-          color: playerColor,
+          color: 'white',
           timeControl: 'rapid_15',
           moveTimeLimit: 0,
         ),
@@ -188,44 +187,6 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  void _showPlayerColorDialog(
-      BuildContext context, AppModel appModel, int level) {
-    showCupertinoModalPopup<void>(
-      context: context,
-      builder: (modalContext) => CupertinoActionSheet(
-        title: const Text('Chọn màu quân'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(modalContext);
-              _startAiGame(context, appModel, level, 'white');
-            },
-            child: const Text('Quân trắng (đi trước)'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(modalContext);
-              _startAiGame(context, appModel, level, 'black');
-            },
-            child: const Text('Quân đen (AI đi trước)'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(modalContext);
-              _startAiGame(context, appModel, level, 'random');
-            },
-            child: const Text('Ngẫu nhiên'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () => Navigator.pop(modalContext),
-          child: const Text('Hủy'),
-        ),
-      ),
-    );
   }
 
   @override
@@ -284,7 +245,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
-                    'Chọn một level để bắt đầu trận đấu test với AI',
+                    'Chọn một level để bắt đầu test (bạn luôn chơi quân trắng)',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
@@ -306,7 +267,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
                           builder: (context, appModel, _) => _AiLevelCard(
                             levelData: levelData,
                             isLoading: _isLoading,
-                            onPressed: () => _showPlayerColorDialog(
+                            onPressed: () => _startAiGame(
                               context,
                               appModel,
                               levelData['level'] as int,

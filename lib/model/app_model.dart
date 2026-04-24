@@ -454,31 +454,27 @@ class AppModel extends ChangeNotifier {
   void _handleTimerExpired() {
     final timedOutPlayer = _resolveTimedOutPlayer();
     if (timedOutPlayer == null) {
+      gameEndReason = 'timeout';
       endGame();
       return;
     }
 
-    final isOnlinePvP = isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi;
-    if (isOnlinePvP) {
-      DevLogger.instance.log(
-        DevLogCategory.game,
-        '[TIMER] local timeout reached for ${timedOutPlayer.name}; waiting for authoritative game:end from server',
-      );
-      timerService.pause();
-      return;
-    }
-
+    gameEndReason = 'timeout';
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[TIMER] timeout reached for ${timedOutPlayer.name}; ending game immediately',
+    );
     endGame(forceUserWon: timedOutPlayer != playerSide);
   }
 
   Player? _resolveTimedOutPlayer() {
-    if (timerService.player1TimeLeft.value == Duration.zero) {
+    if (timerService.player1TimeLeft.value <= Duration.zero) {
       return Player.player1;
     }
-    if (timerService.player2TimeLeft.value == Duration.zero) {
+    if (timerService.player2TimeLeft.value <= Duration.zero) {
       return Player.player2;
     }
-    if (timerService.moveTimeLeft.value == Duration.zero) {
+    if (timerService.moveTimeLeft.value <= Duration.zero) {
       return turn;
     }
     return null;

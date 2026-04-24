@@ -169,6 +169,42 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     if (!mounted) return;
     setState(() => _isStarting = true);
     widget.onStartingChanged?.call(true);
+    bool transitionLoadingVisible = false;
+
+    Future<void> showTransitionLoading(String message) async {
+      if (!mounted) return;
+      if (transitionLoadingVisible) {
+        Navigator.of(context, rootNavigator: true).pop();
+        transitionLoadingVisible = false;
+      }
+      transitionLoadingVisible = true;
+      showCupertinoDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => CupertinoAlertDialog(
+          content: Row(
+            children: [
+              const CupertinoActivityIndicator(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    void hideTransitionLoading() {
+      if (!mounted || !transitionLoadingVisible) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      transitionLoadingVisible = false;
+    }
+
     try {
       final appModel = Provider.of<AppModel>(context, listen: false);
       final isLoggedIn = appModel.authService.isLoggedIn;
@@ -346,6 +382,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         );
         if (isLoggedIn) {
           try {
+            await showTransitionLoading('Đang tạo bàn đấu...');
             await _withAuthRetry(
               appModel: appModel,
               action: 'leaveMatchmaking(timeout)',
@@ -385,9 +422,11 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               DevLogCategory.http,
               '[HOME_PLAY] Timeout fallback failed | $e',
             );
+            hideTransitionLoading();
           }
         }
         if (matchedGameId == null || matchedGameId!.isEmpty) {
+          hideTransitionLoading();
           await appModel.onlineEvents.stopTracking();
           return;
         }
@@ -407,6 +446,10 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         }
 
         try {
+          if (createdWaitingRoom) {
+            await showTransitionLoading('Đang kết nối bàn đấu...');
+          }
+
           // Switch socket from matchmaking channel to game room tracking.
           await appModel.startOnlineEventTracking(gameId);
 
@@ -425,6 +468,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
           }
           onlineGameReady = true;
         } on ApiException catch (e) {
+          hideTransitionLoading();
           DevLogger.instance.log(
             DevLogCategory.http,
             '[HOME_PLAY] start matched game failed | $e',
@@ -434,6 +478,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             return;
           }
         } catch (e) {
+          hideTransitionLoading();
           DevLogger.instance.log(
             DevLogCategory.http,
             '[HOME_PLAY] start matched game failed | $e',
@@ -452,6 +497,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       appModel
           .setPlayerCount(2); // PvP mode (socket handles moves, no local AI)
       if (!mounted) return;
+      hideTransitionLoading();
       DevLogger.instance.log(
         DevLogCategory.game,
         '[HOME_PLAY] Open ChessView (online path)',
@@ -466,12 +512,14 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       );
       widget.onGameFinished();
     } catch (e) {
+      hideTransitionLoading();
       DevLogger.instance.log(
         DevLogCategory.system,
         '[HOME_PLAY] Start flow error: $e',
       );
       rethrow;
     } finally {
+      hideTransitionLoading();
       if (mounted) setState(() => _isStarting = false);
       widget.onStartingChanged?.call(false);
     }

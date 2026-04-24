@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
@@ -119,36 +120,176 @@ class SettingsView extends StatelessWidget {
 
   Future<void> _showJoinCodeDialog(BuildContext context, AppModel appModel) {
     final ctrl = TextEditingController();
-    return showCupertinoDialog<void>(
+    return showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Nhập mã vào bàn'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: CupertinoTextField(
-            controller: ctrl,
-            placeholder: 'Ví dụ: ABC123',
-            textCapitalization: TextCapitalization.characters,
-            autofocus: true,
+      barrierDismissible: true,
+      barrierLabel: 'join_game_by_code',
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (dialogContext, _, __) {
+        return StatefulBuilder(
+          builder: (ctx, setLocalState) {
+            final canSubmit = ctrl.text.trim().isNotEmpty;
+            return Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: 360,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                  decoration: BoxDecoration(
+                    color: bgCard,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: primary.withValues(alpha: 0.45),
+                      width: 1.4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Nhập mã vào bàn',
+                        style: TextStyle(
+                          color: primaryLight,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Dán hoặc nhập mã mời để vào trận online.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: bgDark.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: primary.withValues(alpha: 0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: CupertinoTextField(
+                          controller: ctrl,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          placeholder: 'Ví dụ: ABC123',
+                          placeholderStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.35),
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            letterSpacing: 1.1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textCapitalization: TextCapitalization.characters,
+                          textInputAction: TextInputAction.done,
+                          autofocus: true,
+                          decoration: null,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z0-9]'),
+                            ),
+                            LengthLimitingTextInputFormatter(12),
+                          ],
+                          onChanged: (_) => setLocalState(() {}),
+                          onSubmitted: (value) async {
+                            final code = value.trim();
+                            if (code.isEmpty) return;
+                            Navigator.pop(dialogContext);
+                            await _joinGameByCode(context, appModel, code);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor:
+                                    Colors.white.withValues(alpha: 0.9),
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.25),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('Hủy'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: canSubmit
+                                  ? () async {
+                                      final code = ctrl.text.trim();
+                                      Navigator.pop(dialogContext);
+                                      await _joinGameByCode(
+                                        context,
+                                        appModel,
+                                        code,
+                                      );
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primary,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    primary.withValues(alpha: 0.35),
+                                elevation: 0,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'Vào bàn',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+            child: child,
           ),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Hủy'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () async {
-              final code = ctrl.text.trim();
-              Navigator.pop(dialogContext);
-              await _joinGameByCode(context, appModel, code);
-            },
-            child: const Text('Vào bàn'),
-          ),
-        ],
-      ),
-    );
+        );
+      },
+    ).whenComplete(ctrl.dispose);
   }
 
   void _showResetConfirmation(BuildContext context, AppModel appModel) {
