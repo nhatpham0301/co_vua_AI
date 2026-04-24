@@ -11,6 +11,7 @@ class LiveMatchList extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final bool hasSavedGame;
   final double bottomPadding;
+  final ValueChanged<LiveMatch>? onWatchTap;
 
   const LiveMatchList({
     super.key,
@@ -18,6 +19,7 @@ class LiveMatchList extends StatelessWidget {
     required this.onRefresh,
     required this.hasSavedGame,
     required this.bottomPadding,
+    this.onWatchTap,
   });
 
   @override
@@ -50,6 +52,7 @@ class LiveMatchList extends StatelessWidget {
                     child: LiveMatchCard(
                       match: entry.value,
                       previewIndex: entry.key,
+                      onWatchTap: onWatchTap,
                     ),
                   )),
             ]),

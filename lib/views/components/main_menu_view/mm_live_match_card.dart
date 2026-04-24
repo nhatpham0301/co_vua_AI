@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../l10n/app_localizations.dart';
-import '../shared/app_dialog.dart';
 import '../shared/ranked_profile_avatar.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
@@ -18,11 +16,13 @@ const _kPreviewAssets = [
 class LiveMatchCard extends StatelessWidget {
   final LiveMatch match;
   final int previewIndex;
+  final ValueChanged<LiveMatch>? onWatchTap;
 
   const LiveMatchCard({
     super.key,
     required this.match,
     required this.previewIndex,
+    this.onWatchTap,
   });
 
   @override
@@ -54,7 +54,7 @@ class LiveMatchCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           splashColor: primary.withValues(alpha: 0.12),
-          onTap: () => _onTap(context),
+          onTap: () => _onTap(),
           child: Column(
             children: [
               SizedBox(
@@ -89,16 +89,8 @@ class LiveMatchCard extends StatelessWidget {
     );
   }
 
-  void _onTap(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    showAppDialog<void>(
-      context: context,
-      title: l.watchMatchTitle,
-      message: l.watchMatchComingSoon,
-      actions: [
-        AppDialogAction(label: l.ok, isPrimary: true),
-      ],
-    );
+  void _onTap() {
+    onWatchTap?.call(match);
   }
 }
 

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/chess_game.dart';
+import '../logic/dev_logger.dart';
 import '../model/app_model.dart';
 import '../model/player.dart';
 import 'components/chess_view/board_stage.dart';
@@ -58,16 +59,30 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.isResuming) {
+        if (appModel.isSpectatorMode) {
+          DevLogger.instance.log(
+            DevLogCategory.game,
+            '[SPECTATOR] ChessView init from resume path',
+          );
+        }
         appModel.restoreGameState().then((_) => _initFlameGame());
       } else {
         appModel.newGame(notify: false);
         _initFlameGame();
+        if (appModel.isSpectatorMode) {
+          _isReady = true;
+          appModel.timerService.resume();
+          DevLogger.instance.log(
+            DevLogCategory.game,
+            '[SPECTATOR] ChessView init ready immediately (skip countdown/waiting)',
+          );
+        }
         // When waiting for opponent, pause timers and show waiting dialog.
         // When not waiting, start the ready countdown immediately.
-        if (appModel.isWaitingForOpponent) {
+        if (appModel.isWaitingForOpponent && !appModel.isSpectatorMode) {
           appModel.timerService.pause();
           appModel.gameController?.cancelAIMove();
-        } else {
+        } else if (!appModel.isSpectatorMode) {
           _startReadyCountdown();
         }
       }
@@ -187,6 +202,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    if (appModel.isSpectatorMode) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SPECTATOR] ChessView dispose',
+      );
+    }
     _readyTimer?.cancel();
     // Reset waiting state
     appModel.isWaitingForOpponent = false;
@@ -244,6 +265,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         // 2. Switched to AI mode (fallback from PvP timeout)
         if ((appModel.opponentJoined ||
                 (appModel.playingWithAI && appModel.isOnlineGameMode)) &&
+            !appModel.isSpectatorMode &&
             !_opponentJoinDetected) {
           _opponentJoinDetected = true;
           _waitingDialogShown = false;

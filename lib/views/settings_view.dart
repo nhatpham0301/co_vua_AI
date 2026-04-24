@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
+import 'ai_levels_test_view.dart';
 import 'chess_view.dart';
 import 'components/main_menu_view/game_options/game_mode_picker.dart';
 import 'components/main_menu_view/mm_background.dart';
@@ -235,6 +236,16 @@ class SettingsView extends StatelessWidget {
                                   'Nhập mã vào bàn',
                                   onPressed: () =>
                                       _showJoinCodeDialog(context, appModel),
+                                ),
+                                const SizedBox(height: 10),
+                                RoundedButton(
+                                  'Test AI Levels 1-10',
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    CupertinoPageRoute(
+                                      builder: (_) => const AiLevelsTestView(),
+                                    ),
+                                  ),
                                 ),
                                 const SizedBox(height: 10),
                               ],

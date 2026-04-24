@@ -12,6 +12,7 @@ import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
 import '../logic/game_controller.dart';
 import '../logic/game_state_storage.dart';
+import '../logic/move_calculation/move_classes/move.dart';
 import '../logic/move_calculation/move_classes/move_meta.dart';
 import '../logic/move_calculation/move_classes/move_stack_object.dart';
 import '../logic/online_game_events_service.dart';
@@ -128,11 +129,14 @@ class AppModel extends ChangeNotifier {
   bool _sessionStartedOnline = false;
   bool _endGameAdDisplayed = false;
   bool _onlineVsAiLocalFallbackSession = false;
+  bool _spectatorMode = false;
 
   // Track previous server clock values to detect frozen (non-decrementing) server clocks.
   // Used in _syncClocksIfDrifted to avoid resetting local timer from stale server data.
   int? _prevServerWhiteSec;
   int? _prevServerBlackSec;
+  Timer? _spectatorAwaitClockTimer;
+  DateTime? _lastSocketClockAt;
 
   // ── Computed Properties ──
   Player get aiTurn => oppositePlayer(playerSide);
@@ -142,6 +146,7 @@ class AppModel extends ChangeNotifier {
   bool get usePairUndoRedo => playingWithAI && !isOnlineGameMode;
   bool get shouldLockReplayAfterEndAd =>
       isOnlineGameMode && gameOver && _endGameAdDisplayed;
+  bool get isSpectatorMode => _spectatorMode;
   bool get enableOnlineVsAiLocalFallback =>
       _envOnlineVsAiLocalFallbackEnabled();
   bool get isOnlineVsAiLocalFallbackSession => _onlineVsAiLocalFallbackSession;
@@ -149,6 +154,14 @@ class AppModel extends ChangeNotifier {
       isOnlineGameMode &&
       isOnlineVsAiLocalFallbackSession &&
       enableOnlineVsAiLocalFallback;
+
+  void _logSpectator(
+    String message, {
+    DevLogCategory category = DevLogCategory.game,
+  }) {
+    if (!_spectatorMode) return;
+    DevLogger.instance.log(category, '[SPECTATOR] $message');
+  }
 
   // ── Online PvP Waiting State ──
   String? currentGameInviteCode;
@@ -326,6 +339,10 @@ class AppModel extends ChangeNotifier {
       }
     }
     gameController = GameController(this);
+    if (isOnlineGameMode) {
+      _replayOnlineMoveHistoryToBoard();
+      _syncTurnFromFen(onlineGameSnapshot?.currentFen);
+    }
     timerService.start(() => turn, () => gameOver);
     // Online PvP: local timer runs for smooth display; server game:clock events
     // sync/correct values every second. Game end is driven by game:end socket event.
@@ -354,12 +371,16 @@ class AppModel extends ChangeNotifier {
     timerService.stop();
     GameStateStorage.clearGameState();
     _sessionStartedOnline = false;
+    _spectatorMode = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     opponentDisconnected = false;
     gameEndReason = null;
     _prevServerWhiteSec = null;
     _prevServerBlackSec = null;
+    _spectatorAwaitClockTimer?.cancel();
+    _spectatorAwaitClockTimer = null;
+    _lastSocketClockAt = null;
     opponentProfile = null;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
@@ -372,8 +393,12 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     _sessionStartedOnline = false;
+    _spectatorMode = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
+    _spectatorAwaitClockTimer?.cancel();
+    _spectatorAwaitClockTimer = null;
+    _lastSocketClockAt = null;
     opponentProfile = null;
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
@@ -474,7 +499,10 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startOnlineEventTracking(String gameId) async {
+  Future<void> startOnlineEventTracking(
+    String gameId, {
+    bool spectatorMode = false,
+  }) async {
     final token = await authService.ensureValidAccessToken();
     if (token == null || token.isEmpty) {
       DevLogger.instance.log(
@@ -484,6 +512,11 @@ class AppModel extends ChangeNotifier {
       return;
     }
     _sessionStartedOnline = true;
+    _spectatorMode = spectatorMode;
+    _logSpectator('start tracking | gameId=$gameId');
+    _spectatorAwaitClockTimer?.cancel();
+    _spectatorAwaitClockTimer = null;
+    _lastSocketClockAt = null;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     await onlineEvents.startTracking(
@@ -510,6 +543,7 @@ class AppModel extends ChangeNotifier {
       return;
     }
     _sessionStartedOnline = true;
+    _spectatorMode = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     await onlineEvents.startTracking(
@@ -533,6 +567,9 @@ class AppModel extends ChangeNotifier {
 
     // ── Determine which colour this user is playing ──────────────────────────
     final playersObj = data['players'] as Map<String, dynamic>?;
+    _logSpectator(
+      'game:state received | status=$status | hasPlayers=${playersObj != null} | hasFen=${(data['fen'] as String?)?.isNotEmpty == true} | hasClocks=${data['clocks'] is Map}',
+    );
     if (playersObj != null) {
       final myId = authService.user?.id.trim() ?? '';
       final whitePlayer = playersObj['white'] as Map<String, dynamic>?;
@@ -553,15 +590,7 @@ class AppModel extends ChangeNotifier {
     }
 
     // ── Sync current turn from FEN ───────────────────────────────────────────
-    final fen = data['fen'] as String?;
-    if (fen != null && fen.contains(' ')) {
-      final fenParts = fen.split(' ');
-      if (fenParts.length >= 2) {
-        turn = fenParts[1] == 'w' ? Player.player1 : Player.player2;
-        DevLogger.instance
-            .log(DevLogCategory.game, '[SOCKET] game:state: turn=${turn.name}');
-      }
-    }
+    _syncTurnFromFen(data['fen'] as String?);
 
     // ── Sync clocks (per BE_TIMER.md: initial or latest clocks from server) ──
     final clocks = data['clocks'] as Map<String, dynamic>?;
@@ -570,7 +599,25 @@ class AppModel extends ChangeNotifier {
       // Reset frozen-clock tracking after a hard sync from game:state.
       _prevServerWhiteSec = null;
       _prevServerBlackSec = null;
+      if (_spectatorMode) {
+        _spectatorAwaitClockTimer?.cancel();
+        _spectatorAwaitClockTimer = null;
+      }
     } else {
+      _logSpectator(
+        'game:state missing clocks -> likely BE payload contract issue',
+      );
+      if (_spectatorMode) {
+        _spectatorAwaitClockTimer?.cancel();
+        _spectatorAwaitClockTimer = Timer(const Duration(seconds: 4), () {
+          final sinceLastClock = _lastSocketClockAt == null
+              ? 'never'
+              : '${DateTime.now().difference(_lastSocketClockAt!).inSeconds}s ago';
+          _logSpectator(
+            '[BE?] no game:clock within 4s after game:state without clocks | lastClock=$sinceLastClock',
+          );
+        });
+      }
       DevLogger.instance.log(
         DevLogCategory.game,
         '[TIMER][game:state] WARNING: no clocks field in payload',
@@ -601,7 +648,12 @@ class AppModel extends ChangeNotifier {
   void _handleSocketGameMoveOk(Map<String, dynamic> data) {
     final from = data['from']?.toString();
     final to = data['to']?.toString();
-    if (from == null || to == null) return;
+    if (from == null || to == null) {
+      _logSpectator(
+        'game:move:ok invalid payload (missing from/to) -> likely BE event shape issue | payload=$data',
+      );
+      return;
+    }
 
     final promotion = data['promotion']?.toString();
 
@@ -630,6 +682,10 @@ class AppModel extends ChangeNotifier {
       '[SOCKET] game:move:ok | $from→$to | turn=$nextTurnRaw | myColor=$myColor | opponentMoved=$opponentJustMoved | clocks=$clocks',
     );
 
+    _logSpectator(
+      'game:move:ok | from=$from to=$to nextTurn=$nextTurnRaw applyRemote=${!gameOver} clocks=$clocks',
+    );
+
     if (opponentJustMoved && !gameOver) {
       gameController?.applyRemoteMove(from: from, to: to, promotion: promotion);
     }
@@ -640,8 +696,18 @@ class AppModel extends ChangeNotifier {
   /// Per BE_TIMER.md: sync clocks with drift threshold, update activeColor to keep turn in sync.
   /// Only correct local clock if drifted by more than 2 seconds (prevents oscillation).
   void _handleSocketGameClock(Map<String, dynamic> data) {
+    _lastSocketClockAt = DateTime.now();
+    if (_spectatorMode) {
+      _spectatorAwaitClockTimer?.cancel();
+      _spectatorAwaitClockTimer = null;
+    }
     final rawWhite = data['white'] as num?;
     final rawBlack = data['black'] as num?;
+    if (rawWhite == null || rawBlack == null) {
+      _logSpectator(
+        'game:clock missing white/black -> likely BE event payload issue | payload=$data',
+      );
+    }
     // Use truncate (floor) instead of round to avoid 909.996 → 910
     final whiteSec = rawWhite?.truncate();
     final blackSec = rawBlack?.truncate();
@@ -664,6 +730,10 @@ class AppModel extends ChangeNotifier {
       DevLogCategory.game,
       '[SOCKET] game:clock | raw white=$rawWhite→$whiteSec | raw black=$rawBlack→$blackSec'
       ' | activeColor=$activeColor | turnChanged=$turnChanged',
+    );
+
+    _logSpectator(
+      'game:clock | white=$whiteSec black=$blackSec activeColor=$activeColor turnChanged=$turnChanged',
     );
 
     if (turnChanged) notifyListeners();
@@ -750,6 +820,10 @@ class AppModel extends ChangeNotifier {
       '[SOCKET] game:end handler | status=$status | winner=$winner | reason=$reason',
     );
 
+    _logSpectator('game:end | status=$status winner=$winner reason=$reason');
+    _spectatorAwaitClockTimer?.cancel();
+    _spectatorAwaitClockTimer = null;
+
     // Stop timer immediately when game ends
     timerService.stop();
 
@@ -819,6 +893,104 @@ class AppModel extends ChangeNotifier {
     if (notify) notifyListeners();
   }
 
+  void setSpectatorMode(bool enabled, {bool notify = false}) {
+    _spectatorMode = enabled;
+    if (notify) notifyListeners();
+  }
+
+  void _syncTurnFromFen(String? fen) {
+    if (fen == null || !fen.contains(' ')) return;
+    final fenParts = fen.split(' ');
+    if (fenParts.length < 2) return;
+    turn = fenParts[1] == 'w' ? Player.player1 : Player.player2;
+    DevLogger.instance
+        .log(DevLogCategory.game, '[SOCKET] game:state: turn=${turn.name}');
+  }
+
+  void _replayOnlineMoveHistoryToBoard() {
+    final controller = gameController;
+    if (controller == null || onlineMoveHistory.isEmpty) {
+      _logSpectator(
+        'replay skipped | controllerReady=${controller != null} moveCount=${onlineMoveHistory.length}',
+      );
+      return;
+    }
+
+    final sorted = [...onlineMoveHistory]
+      ..sort((a, b) => a.moveNumber.compareTo(b.moveNumber));
+
+    turn = Player.player1;
+    moveMetaList = [];
+    var applied = 0;
+    var skipped = 0;
+
+    for (final record in sorted) {
+      final from = record.fromSquare.trim();
+      final to = record.toSquare.trim();
+      if (!_isAlgebraicSquare(from) || !_isAlgebraicSquare(to)) {
+        skipped++;
+        continue;
+      }
+
+      final move = Move(
+        _algebraicToTile(from),
+        _algebraicToTile(to),
+        promotionType: _promoStringToPieceType(record.promotion),
+      );
+      final meta = controller.board.push(
+        move,
+        getMeta: true,
+        promotionType: move.promotionType,
+      );
+
+      if (meta.promotion && record.promotion != null) {
+        final promoted = _promoStringToPieceType(record.promotion);
+        controller.board.moveStack.last.movedPiece?.type = promoted;
+        controller.board.moveStack.last.promotionType = promoted;
+        controller.board.addPromotedPiece(controller.board.moveStack.last);
+        meta.promotionType = promoted;
+      }
+
+      moveMetaList.add(meta);
+      controller.latestMove = meta.move;
+      turn = oppositePlayer(turn);
+      applied++;
+    }
+
+    refreshCapturedPieces();
+    controller.snapSprites();
+    _logSpectator(
+      'replay completed | history=${sorted.length} applied=$applied skipped=$skipped latestMove=${controller.latestMove?.from}->${controller.latestMove?.to}',
+    );
+  }
+
+  bool _isAlgebraicSquare(String value) {
+    if (value.length != 2) return false;
+    final file = value.codeUnitAt(0);
+    final rank = value.codeUnitAt(1);
+    return file >= 97 && file <= 104 && rank >= 49 && rank <= 56;
+  }
+
+  int _algebraicToTile(String algebraic) {
+    final file = algebraic.codeUnitAt(0) - 97;
+    final rank = 8 - int.parse(algebraic[1]);
+    return rank * 8 + file;
+  }
+
+  ChessPieceType _promoStringToPieceType(String? s) {
+    switch ((s ?? '').toLowerCase()) {
+      case 'r':
+        return ChessPieceType.rook;
+      case 'b':
+        return ChessPieceType.bishop;
+      case 'n':
+        return ChessPieceType.knight;
+      case 'q':
+      default:
+        return ChessPieceType.queen;
+    }
+  }
+
   // ── Game Options ──
 
   void setPlayerCount(int? count) {
@@ -826,6 +998,23 @@ class AppModel extends ChangeNotifier {
       playerCount = count;
       notifyListeners();
     }
+  }
+
+  /// Derive online AI level (1..10) from player's current ELO.
+  /// Used by Start Game timeout fallback to keep bot strength aligned with user skill.
+  int onlineAiLevelFromPlayerElo() {
+    final elo =
+        authService.user?.elo ?? homeOverviewSnapshot?.user?.elo ?? 1200;
+    if (elo < 800) return 1;
+    if (elo < 900) return 2;
+    if (elo < 1000) return 3;
+    if (elo < 1100) return 4;
+    if (elo < 1200) return 5;
+    if (elo < 1300) return 6;
+    if (elo < 1450) return 7;
+    if (elo < 1600) return 8;
+    if (elo < 1800) return 9;
+    return 10;
   }
 
   void setAIDifficulty(int? difficulty) {

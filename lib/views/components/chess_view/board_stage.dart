@@ -111,6 +111,7 @@ class _TurnBar extends StatelessWidget {
           bool draw,
           bool userWon,
           bool isOnlinePvP,
+          bool isSpectator,
           bool isMyTurn,
           Player turn,
           bool opponentDisconnected,
@@ -123,6 +124,7 @@ class _TurnBar extends StatelessWidget {
         userWon: model.userWon,
         isOnlinePvP:
             model.isOnlineGameMode && !model.shouldRunLocalAiInOnlineVsAi,
+        isSpectator: model.isSpectatorMode,
         isMyTurn: model.turn == model.playerSide,
         turn: model.turn,
         opponentDisconnected: model.opponentDisconnected,
@@ -152,6 +154,10 @@ class _TurnBar extends StatelessWidget {
             label = l.youLose;
             dotColor = Colors.redAccent;
           }
+        } else if (state.isSpectator) {
+          final langCode = Localizations.localeOf(context).languageCode;
+          label = langCode == 'vi' ? 'Đang xem trực tiếp' : 'Watching Live';
+          dotColor = const Color(0xFF6EC1FF);
         } else if (state.isOnlinePvP) {
           // Opponent disconnected but game not yet ended (grace period)
           if (state.opponentDisconnected) {

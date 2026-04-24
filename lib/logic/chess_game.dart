@@ -39,6 +39,7 @@ class ChessGame extends FlameGame with TapCallbacks {
   Paint _selectedPiecePaint = Paint();
   String? _cachedThemeName;
   ui.Image? _boardTexture;
+  // ignore: unused_field
   ui.Image? _boardFrameTexture;
 
   ChessGame(this.controller, this.appModel) {
@@ -88,7 +89,9 @@ class ChessGame extends FlameGame with TapCallbacks {
   // ── Input Handling ──
 
   void onTapDown(TapDownEvent event) {
-    if (!appModel.gameOver && !appModel.isAIsTurn) {
+    if (!appModel.gameOver &&
+        !appModel.isAIsTurn &&
+        !appModel.isSpectatorMode) {
       var tile = _vector2ToTile(event.localPosition);
       var touchedPiece = board.tiles[tile];
       if (touchedPiece == selectedPiece) {
@@ -249,19 +252,20 @@ class ChessGame extends FlameGame with TapCallbacks {
         Paint(),
       );
 
-      if (_boardFrameTexture != null) {
-        canvas.drawImageRect(
-          _boardFrameTexture!,
-          Rect.fromLTWH(
-            0,
-            0,
-            _boardFrameTexture!.width.toDouble(),
-            _boardFrameTexture!.height.toDouble(),
-          ),
-          Rect.fromLTWH(0, 0, boardSize, boardSize),
-          Paint(),
-        );
-      }
+      // Temporarily disabled: board frame overlay
+      // if (_boardFrameTexture != null) {
+      //   canvas.drawImageRect(
+      //     _boardFrameTexture!,
+      //     Rect.fromLTWH(
+      //       0,
+      //       0,
+      //       _boardFrameTexture!.width.toDouble(),
+      //       _boardFrameTexture!.height.toDouble(),
+      //     ),
+      //     Rect.fromLTWH(0, 0, boardSize, boardSize),
+      //     Paint(),
+      //   );
+      // }
       return;
     }
 

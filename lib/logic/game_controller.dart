@@ -35,6 +35,7 @@ class GameController {
   // ── Piece Selection ──
 
   void selectPiece(ChessPiece? piece) {
+    if (appModel.isSpectatorMode) return;
     if (piece != null) {
       // In online PvP, only allow selecting own pieces on own turn.
       final isOnlinePvP =
@@ -53,6 +54,7 @@ class GameController {
   }
 
   void movePiece(int tile) {
+    if (appModel.isSpectatorMode) return;
     // In online PvP, block moves when it is not the local player's turn.
     if (appModel.isOnlineGameMode && !appModel.shouldRunLocalAiInOnlineVsAi) {
       if (appModel.turn != appModel.playerSide) return;
@@ -317,6 +319,7 @@ class GameController {
   }
 
   void _emitMoveIfOnline(Move move, MoveMeta meta) {
+    if (appModel.isSpectatorMode) return;
     // Emit for any online session EXCEPT local AI-fallback mode
     // (in AI-fallback, moves are computed locally and don't go to the socket server).
     if (!appModel.isOnlineGameMode) return;

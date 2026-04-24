@@ -6,11 +6,13 @@ import 'mm_models.dart';
 class WatchMatchesDialogContent extends StatelessWidget {
   final List<LiveMatch> matches;
   final Future<void> Function() onRefresh;
+  final ValueChanged<LiveMatch>? onSelectMatch;
 
   const WatchMatchesDialogContent({
     super.key,
     required this.matches,
     required this.onRefresh,
+    this.onSelectMatch,
   });
 
   @override
@@ -51,6 +53,7 @@ class WatchMatchesDialogContent extends StatelessWidget {
                     onRefresh: onRefresh,
                     hasSavedGame: false,
                     bottomPadding: 10,
+                    onWatchTap: onSelectMatch,
                   ),
                 ),
                 const SizedBox(height: 8),

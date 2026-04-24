@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../logic/dev_logger.dart';
+import '../../../logic/experimental_api_client.dart';
 import '../../../model/app_model.dart';
 import '../main_menu_view/mm_palette.dart';
 
@@ -23,6 +24,35 @@ class WaitingOpponentDialog extends StatefulWidget {
 class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   bool _codeCopied = false;
   bool _dialogClosed = false;
+
+  Future<T> _withAuthRetry<T>({
+    required AppModel appModel,
+    required String action,
+    required Future<T> Function() execute,
+  }) async {
+    try {
+      return await execute();
+    } on ApiException catch (e) {
+      if (e.statusCode != 401) rethrow;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[WAITING_OPPONENT] $action unauthorized (401) -> refreshing token',
+      );
+      final refreshed = await appModel.authService.refreshTokens();
+      if (!refreshed) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[WAITING_OPPONENT] $action refresh failed -> need re-login',
+        );
+        rethrow;
+      }
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[WAITING_OPPONENT] $action retry after refresh',
+      );
+      return execute();
+    }
+  }
 
   @override
   void initState() {
@@ -52,7 +82,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
 
   void _startCountdown() {
     /// Thay đổi thời gian chờ
-    Future.delayed(const Duration(seconds: 10), () async {
+    Future.delayed(const Duration(seconds: 5), () async {
       if (!mounted) return;
 
       DevLogger.instance.log(
@@ -69,11 +99,21 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
   Future<void> _createAIGameFallback() async {
     try {
       final appModel = widget.appModel;
-      final aiJson = await appModel.apiClient.createAiGame(
-        aiLevel: appModel.aiDifficulty,
-        color: appModel.selectedSide.index == 1 ? 'black' : 'white',
-        timeControl: appModel.onlineTimeControl,
-        moveTimeLimit: appModel.moveTimeLimit,
+      final aiLevel = appModel.onlineAiLevelFromPlayerElo();
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[WAITING_OPPONENT] fallback AI level from ELO -> aiLevel=$aiLevel | elo=${appModel.authService.user?.elo ?? '-'}',
+      );
+
+      final aiJson = await _withAuthRetry(
+        appModel: appModel,
+        action: 'createAiGame(timeoutFallback)',
+        execute: () => appModel.apiClient.createAiGame(
+          aiLevel: aiLevel,
+          color: appModel.selectedSide.index == 1 ? 'black' : 'white',
+          timeControl: 'rapid_15',
+          moveTimeLimit: 0,
+        ),
       );
 
       final aiGameId = aiJson['id'];
@@ -83,9 +123,11 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
       );
 
       if (aiGameId is String && aiGameId.isNotEmpty && mounted) {
+        // Match AI Test flow: apply snapshot first, then start socket tracking.
+        appModel.applyJoinGameResponse(aiJson);
         await appModel.onlineEvents.stopTracking();
         await appModel.startOnlineEventTracking(aiGameId);
-        appModel.markOnlineVsAiLocalFallbackSession(true);
+        appModel.markOnlineVsAiLocalFallbackSession(false);
         appModel.setPlayerCount(1);
         appModel.isWaitingForOpponent = false;
         // Reset opponent joined flag so countdown can trigger in ChessView

@@ -298,13 +298,28 @@ class OnlineMoveRecord {
   });
 
   factory OnlineMoveRecord.fromJson(Map<String, dynamic> json) {
+    final rawMove = (json['move'] as String?)?.trim() ?? '';
+    String? from = (json['fromSquare'] as String?)?.trim();
+    String? to = (json['toSquare'] as String?)?.trim();
+
+    from ??= (json['from'] as String?)?.trim();
+    to ??= (json['to'] as String?)?.trim();
+
+    if ((from == null || from.isEmpty) && rawMove.length >= 4) {
+      from = rawMove.substring(0, 2);
+    }
+    if ((to == null || to.isEmpty) && rawMove.length >= 4) {
+      to = rawMove.substring(2, 4);
+    }
+
+    final promotion = (json['promotion'] as String?)?.trim();
     return OnlineMoveRecord(
       id: json['id'] as String? ?? '',
       moveNumber: (json['moveNumber'] as num?)?.toInt() ?? 0,
       playedBy: json['playedBy'] as String?,
-      fromSquare: json['fromSquare'] as String? ?? '',
-      toSquare: json['toSquare'] as String? ?? '',
-      promotion: json['promotion'] as String?,
+      fromSquare: from ?? '',
+      toSquare: to ?? '',
+      promotion: promotion,
       sanNotation: json['sanNotation'] as String? ?? '',
       fenAfter: json['fenAfter'] as String? ?? '',
     );

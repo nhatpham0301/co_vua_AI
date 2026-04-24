@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../logic/game_state_storage.dart';
 import '../model/app_model.dart';
+import 'chess_view.dart';
 import 'components/main_menu_view/mm_models.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
 import 'components/main_menu_view/user_profile_dialog.dart';
@@ -25,23 +26,18 @@ class MainMenuView extends StatefulWidget {
 class _MainMenuViewState extends State<MainMenuView> {
   bool _hasSavedGame = false;
   List<LiveMatch> _matches = [];
-  Timer? _ticker;
   bool _guestModeInitialized = false;
+  bool _isLoadingLiveMatches = false;
+  bool _isOpeningSpectator = false;
 
   @override
   void initState() {
     super.initState();
-    _matches = MatchGen.generateTen(); // fallback data
     _checkSavedGame();
-    _fetchRecentGames();
-    _ticker = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (mounted) setState(() => MatchGen.tick(_matches));
-    });
   }
 
   @override
   void dispose() {
-    _ticker?.cancel();
     super.dispose();
   }
 
@@ -50,28 +46,50 @@ class _MainMenuViewState extends State<MainMenuView> {
     if (mounted) setState(() => _hasSavedGame = has);
   }
 
-  Future<void> _fetchRecentGames() async {
+  Future<void> _fetchRecentGames({bool showLoading = false}) async {
+    if (showLoading && mounted) {
+      setState(() => _isLoadingLiveMatches = true);
+    }
     try {
       final model = Provider.of<AppModel>(context, listen: false);
       final jsonList = await model.apiClient.fetchRecentGames(limit: 10);
       if (!mounted) return;
-      final apiMatches = jsonList.map(_jsonToLiveMatch).toList();
+      final apiMatches =
+          jsonList.map(_jsonToLiveMatch).where((m) => m.id.isNotEmpty).toList();
       setState(() {
-        _matches = apiMatches.isNotEmpty ? apiMatches : _matches;
+        _matches = apiMatches;
       });
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] live list loaded via GET /api/games | count=${apiMatches.length}',
+      );
     } catch (e) {
       DevLogger.instance.log(
         DevLogCategory.http,
-        'fetchRecentGames fallback to fake data: $e',
+        '[SPECTATOR] live list load failed | error=$e',
       );
+      if (mounted) {
+        setState(() => _matches = []);
+      }
+    } finally {
+      if (showLoading && mounted) {
+        setState(() => _isLoadingLiveMatches = false);
+      }
     }
   }
 
   static LiveMatch _jsonToLiveMatch(Map<String, dynamic> json) {
-    final whiteId = json['whiteId'] as String?;
-    final blackId = json['blackId'] as String?;
-    final whiteUser = json['white'];
-    final blackUser = json['black'];
+    final status = (json['status']?.toString() ?? '').toLowerCase();
+    if (status == 'ended' || status == 'draw' || status == 'checkmate') {
+      return LiveMatch(
+        id: '',
+        white: const MatchPlayer('White', 0),
+        black: const MatchPlayer('Black', 0),
+        moveCount: 0,
+        elapsedSec: 0,
+        board: MatchGen.generateRandomBoard(),
+      );
+    }
 
     String resolveName(dynamic user, String? fallbackId, String sideLabel) {
       if (user is Map<String, dynamic>) {
@@ -95,27 +113,29 @@ class _MainMenuViewState extends State<MainMenuView> {
       return (json[key] as num?)?.toInt() ?? 0;
     }
 
+    final gameId = (json['id'] ?? json['gameId'] ?? '').toString().trim();
+    final startedAt = (json['startedAt'] as String?)?.trim();
+    final elapsed = startedAt == null || startedAt.isEmpty
+        ? 0
+        : DateTime.now()
+            .difference(DateTime.tryParse(startedAt) ?? DateTime.now())
+            .inSeconds
+            .clamp(0, 99999);
+
     return LiveMatch(
-      id: json['id'] as String? ?? '',
+      id: gameId,
       white: MatchPlayer(
-        resolveName(whiteUser, whiteId, 'White'),
-        resolveElo(whiteUser, 'whiteEloSnapshot'),
+        resolveName(json['white'], json['whiteId'] as String?, 'White'),
+        resolveElo(json['white'], 'whiteEloSnapshot'),
       ),
       black: MatchPlayer(
-        resolveName(blackUser, blackId, 'Black'),
-        resolveElo(blackUser, 'blackEloSnapshot'),
+        resolveName(json['black'], json['blackId'] as String?, 'Black'),
+        resolveElo(json['black'], 'blackEloSnapshot'),
       ),
-      moveCount: 0,
-      elapsedSec: _calcElapsed(json['startedAt'] as String?),
+      moveCount: (json['spectatorCount'] as num?)?.toInt() ?? 0,
+      elapsedSec: elapsed,
       board: MatchGen.generateRandomBoard(),
     );
-  }
-
-  static int _calcElapsed(String? startedAt) {
-    if (startedAt == null) return 0;
-    final dt = DateTime.tryParse(startedAt);
-    if (dt == null) return 0;
-    return DateTime.now().difference(dt).inSeconds.clamp(0, 99999);
   }
 
   Future<void> _refreshMatches() async {
@@ -123,11 +143,12 @@ class _MainMenuViewState extends State<MainMenuView> {
   }
 
   Future<void> _showWatchDialog() async {
+    if (_isLoadingLiveMatches || _isOpeningSpectator) return;
     // Always refresh from GET /api/games right before opening watch dialog.
-    await _fetchRecentGames();
+    await _fetchRecentGames(showLoading: true);
     if (!mounted) return;
 
-    await showGeneralDialog<void>(
+    final selected = await showGeneralDialog<LiveMatch>(
       context: context,
       barrierDismissible: true,
       barrierLabel: 'watch_matches',
@@ -136,6 +157,7 @@ class _MainMenuViewState extends State<MainMenuView> {
       pageBuilder: (ctx, _, __) => WatchMatchesDialogContent(
         matches: _matches,
         onRefresh: _refreshMatches,
+        onSelectMatch: (match) => Navigator.of(ctx).pop(match),
       ),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
@@ -147,6 +169,153 @@ class _MainMenuViewState extends State<MainMenuView> {
         );
       },
     );
+
+    if (!mounted || selected == null) return;
+    await _openSpectatorMatch(selected);
+  }
+
+  Future<void> _openSpectatorMatch(LiveMatch match) async {
+    final appModel = Provider.of<AppModel>(context, listen: false);
+    final l = AppLocalizations.of(context)!;
+    final watch = Stopwatch()..start();
+
+    if (mounted) {
+      setState(() => _isOpeningSpectator = true);
+    }
+
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SPECTATOR] open requested | gameId=${match.id} | white=${match.white.name} | black=${match.black.name}',
+    );
+
+    final looksLikeLocalFakeId = match.id.startsWith('match_');
+    if (looksLikeLocalFakeId) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR][CLIENT] blocked local placeholder match id=${match.id} (not BE gameId)',
+      );
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (_) => CupertinoAlertDialog(
+          title: const Text('Không thể xem trận này'),
+          content: const Text(
+            'Danh sách này là dữ liệu tạm ở client, không có gameId thật từ server.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l.ok),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (!appModel.authService.isLoggedIn) {
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (_) => CupertinoAlertDialog(
+          title: Text(l.watchMatchTitle),
+          content: const Text('Vui lòng đăng nhập để xem trực tiếp trận đấu.'),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l.ok),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    try {
+      final s1 = Stopwatch()..start();
+      await appModel.fetchOnlineGameSnapshotPreview(match.id);
+      if (appModel.apiLastError != null ||
+          appModel.onlineGameSnapshot == null) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[SPECTATOR][BE?] snapshot fetch failed | gameId=${match.id} | apiLastError=${appModel.apiLastError}',
+        );
+        throw Exception('Không tải được snapshot trận đấu từ server.');
+      }
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] snapshot loaded | gameId=${match.id} | ms=${s1.elapsedMilliseconds} | status=${appModel.onlineGameSnapshot?.status}',
+      );
+
+      final s2 = Stopwatch()..start();
+      await appModel.fetchOnlineGameMovesPreview(match.id);
+      if (appModel.apiLastError != null) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[SPECTATOR][BE?] moves fetch failed | gameId=${match.id} | apiLastError=${appModel.apiLastError}',
+        );
+        throw Exception('Không tải được lịch sử nước đi từ server.');
+      }
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] moves loaded | gameId=${match.id} | ms=${s2.elapsedMilliseconds} | moves=${appModel.onlineMoveHistory.length}',
+      );
+
+      final s3 = Stopwatch()..start();
+      await appModel.startOnlineEventTracking(match.id, spectatorMode: true);
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] socket tracking started | gameId=${match.id} | ms=${s3.elapsedMilliseconds} | connected=${appModel.onlineEvents.isConnected} (false right away is expected before onConnect)',
+      );
+
+      final s4 = Stopwatch()..start();
+      await appModel.hydrateOpponentProfileFromSnapshot();
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] opponent profile hydrated | gameId=${match.id} | ms=${s4.elapsedMilliseconds} | hasProfile=${appModel.opponentProfile != null}',
+      );
+
+      appModel.setPlayerCount(2);
+      appModel.isWaitingForOpponent = false;
+      appModel.opponentJoined = true;
+      appModel.currentGameInviteCode = null;
+      appModel.update();
+
+      if (!mounted) return;
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SPECTATOR] pushing ChessView | gameId=${match.id} | totalMs=${watch.elapsedMilliseconds}',
+      );
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+      );
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SPECTATOR] returned from ChessView | gameId=${match.id} | totalMs=${watch.elapsedMilliseconds}',
+      );
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SPECTATOR] open failed | gameId=${match.id} | totalMs=${watch.elapsedMilliseconds} | error=$e',
+      );
+      if (!mounted) return;
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (_) => CupertinoAlertDialog(
+          title: const Text('Không thể xem trận đấu'),
+          content: Text(e.toString()),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l.ok),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningSpectator = false);
+      }
+    }
   }
 
   void _handleLogin() async {
@@ -280,9 +449,11 @@ class _MainMenuViewState extends State<MainMenuView> {
                       children: [
                         _ImageHomeButton(
                           assetPath: 'assets/images/home/watch_match.png',
-                          loading: false,
+                          loading: _isLoadingLiveMatches,
                           semanticLabel: l.watch,
-                          onTap: _showWatchDialog,
+                          onTap: (_isLoadingLiveMatches || _isOpeningSpectator)
+                              ? null
+                              : _showWatchDialog,
                         ),
                         const SizedBox(height: 18),
                         QuickPlayBtn(
@@ -300,6 +471,48 @@ class _MainMenuViewState extends State<MainMenuView> {
                   SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
                 ],
               ),
+              if (_isLoadingLiveMatches || _isOpeningSpectator)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.48),
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 14),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF1A140E).withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFE8BE75)
+                                  .withValues(alpha: 0.65),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CupertinoActivityIndicator(radius: 14),
+                              const SizedBox(height: 10),
+                              Text(
+                                _isOpeningSpectator
+                                    ? 'Đang vào xem trận...'
+                                    : 'Đang tải danh sách trận...',
+                                style: const TextStyle(
+                                  color: Color(0xFFF4D293),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
