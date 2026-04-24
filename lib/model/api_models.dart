@@ -229,6 +229,7 @@ class OnlineGameSnapshot {
   final String result;
   final String? whiteId;
   final String? blackId;
+  final int? aiLevel;
   final String currentFen;
   final bool isAiGame;
   final String? startedAt;
@@ -243,6 +244,7 @@ class OnlineGameSnapshot {
     required this.result,
     required this.whiteId,
     required this.blackId,
+    this.aiLevel,
     required this.currentFen,
     required this.isAiGame,
     required this.startedAt,
@@ -267,6 +269,7 @@ class OnlineGameSnapshot {
       result: json['result'] as String? ?? 'unknown',
       whiteId: json['whiteId'] as String?,
       blackId: json['blackId'] as String?,
+      aiLevel: (json['aiLevel'] as num?)?.toInt(),
       currentFen: json['currentFen'] as String? ?? '',
       isAiGame: json['isAiGame'] as bool? ?? false,
       startedAt: json['startedAt'] as String?,

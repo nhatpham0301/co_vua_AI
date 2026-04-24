@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../logic/chess_game.dart';
 import '../logic/dev_logger.dart';
+import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
 import '../model/player.dart';
 import 'components/chess_view/board_stage.dart';
@@ -47,6 +48,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   Timer? _readyTimer;
   bool _opponentJoinDetected = false;
   bool _waitingDialogShown = false;
+  bool _postGameFlowHandled = false;
+  bool _isRecreatingMatch = false;
 
   _ChessViewState(this.appModel);
 
@@ -119,8 +122,173 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     setState(() {});
   }
 
+  Future<T> _withAuthRetry<T>({
+    required AppModel appModel,
+    required String action,
+    required Future<T> Function() execute,
+  }) async {
+    try {
+      return await execute();
+    } on ApiException catch (e) {
+      if (e.statusCode != 401) rethrow;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[CHESS_VIEW] $action unauthorized (401) -> refreshing token',
+      );
+      final refreshed = await appModel.authService.refreshTokens();
+      if (!refreshed) rethrow;
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[CHESS_VIEW] $action retry after refresh',
+      );
+      return execute();
+    }
+  }
+
+  Future<void> _startMatchFromCurrentMode({bool showError = true}) async {
+    if (_isRecreatingMatch || !mounted) return;
+    setState(() => _isRecreatingMatch = true);
+
+    try {
+      final isOnline = appModel.isOnlineGameMode && !appModel.isSpectatorMode;
+
+      if (!isOnline) {
+        appModel.newGame(notify: false);
+        _initFlameGame();
+        _opponentJoinDetected = false;
+        _waitingDialogShown = false;
+        _postGameFlowHandled = false;
+        _isReady = true;
+        appModel.timerService.resume();
+        if (appModel.isAIsTurn && !appModel.gameOver) {
+          appModel.gameController?.triggerAIMove();
+        }
+        if (mounted) setState(() {});
+        return;
+      }
+
+      final isServerAi = appModel.onlineGameSnapshot?.isAiGame == true ||
+          appModel.playingWithAI;
+
+      if (isServerAi) {
+        final aiLevel = appModel.onlineGameSnapshot?.aiLevel ??
+            appModel.onlineAiLevelFromPlayerElo();
+        final color = appModel.playerSide == Player.player2 ? 'black' : 'white';
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[CHESS_VIEW] recreate AI match | aiLevel=$aiLevel | source=${appModel.onlineGameSnapshot?.aiLevel != null ? 'snapshot' : 'elo-fallback'}',
+        );
+        final created = await _withAuthRetry(
+          appModel: appModel,
+          action: 'createAiGame(rematch)',
+          execute: () => appModel.apiClient.createAiGame(
+            aiLevel: aiLevel,
+            color: color,
+            timeControl: 'rapid_15',
+            moveTimeLimit: 0,
+          ),
+        );
+        final gameId = (created['id']?.toString() ?? '').trim();
+        if (gameId.isEmpty) {
+          throw Exception('createAiGame rematch missing game id');
+        }
+
+        appModel.applyJoinGameResponse(created);
+        await appModel.onlineEvents.stopTracking();
+        await appModel.startOnlineEventTracking(gameId);
+        appModel.markOnlineVsAiLocalFallbackSession(false);
+        appModel.setPlayerCount(1);
+        appModel.isWaitingForOpponent = false;
+        appModel.opponentJoined = true;
+        appModel.currentGameInviteCode = null;
+      } else {
+        final created = await _withAuthRetry(
+          appModel: appModel,
+          action: 'createPvPGame(rematch)',
+          execute: () => appModel.apiClient.createPvPGame(
+            timeControl: appModel.onlineTimeControl,
+            moveTimeLimit: appModel.moveTimeLimit,
+          ),
+        );
+        final gameId = (created['id']?.toString() ?? '').trim();
+        if (gameId.isEmpty) {
+          throw Exception('createPvPGame rematch missing game id');
+        }
+
+        appModel.applyJoinGameResponse(created);
+        await appModel.onlineEvents.stopTracking();
+        await appModel.startOnlineEventTracking(gameId);
+        appModel.setPlayerCount(2);
+        appModel.isWaitingForOpponent = true;
+        appModel.opponentJoined = false;
+        final inviteCode = (created['inviteCode']?.toString() ?? '').trim();
+        appModel.currentGameInviteCode =
+            inviteCode.isNotEmpty ? inviteCode : null;
+      }
+
+      appModel.newGame(notify: false);
+      _initFlameGame();
+
+      _opponentJoinDetected = false;
+      _waitingDialogShown = false;
+      _postGameFlowHandled = false;
+
+      if (appModel.isWaitingForOpponent && !appModel.isSpectatorMode) {
+        appModel.timerService.pause();
+        appModel.gameController?.cancelAIMove();
+        _isReady = true;
+        _checkAndShowWaitingDialog();
+      } else {
+        _isReady = true;
+        appModel.timerService.resume();
+        if (appModel.isAIsTurn && !appModel.gameOver) {
+          appModel.gameController?.triggerAIMove();
+        }
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[CHESS_VIEW] recreate match failed | $e',
+      );
+      if (showError && mounted) {
+        final langCode = Localizations.localeOf(context).languageCode;
+        final title = langCode == 'vi'
+            ? 'Không thể tạo ván mới'
+            : 'Cannot create new game';
+        final msg = langCode == 'vi'
+            ? 'Vui lòng thử lại sau ít giây.'
+            : 'Please try again in a few seconds.';
+        showCupertinoDialog<void>(
+          context: context,
+          builder: (dialogContext) => CupertinoAlertDialog(
+            title: Text(title),
+            content: Text(msg),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRecreatingMatch = false);
+      }
+    }
+  }
+
   void _onReadyPressed() {
-    if (_isReady) return;
+    if (_isReady || _isRecreatingMatch) return;
+
+    if (appModel.gameOver) {
+      unawaited(_startMatchFromCurrentMode());
+      return;
+    }
+
     _readyTimer?.cancel();
     _readyTimer = null;
     setState(() => _isReady = true);
@@ -246,6 +414,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     );
   }
 
+  bool _canWarmupNextGameDuringAd(AppModel appModel) {
+    if (appModel.isSpectatorMode) return false;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(
@@ -288,6 +461,15 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Future.delayed(const Duration(seconds: 1), () async {
               if (!mounted) return;
+
+              if (_canWarmupNextGameDuringAd(appModel)) {
+                DevLogger.instance.log(
+                  DevLogCategory.game,
+                  '[POST_GAME] warmup next game during end-game ad',
+                );
+                await _startMatchFromCurrentMode(showError: false);
+              }
+
               _gameEndAdScheduled = false;
               final shown = await appModel.adService.showGameEndAd(context);
               if (!mounted) return;
@@ -298,6 +480,42 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           });
         } else if (!appModel.gameOver) {
           _wasGameOver = false;
+          _postGameFlowHandled = false;
+        }
+
+        if (appModel.gameOver && !_postGameFlowHandled) {
+          _postGameFlowHandled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+
+            final isOnlinePvP = appModel.isOnlineGameMode &&
+                !appModel.shouldRunLocalAiInOnlineVsAi;
+            final opponentLeft = isOnlinePvP &&
+                appModel.gameEndReason == 'abandoned' &&
+                !appModel.isSpectatorMode;
+
+            if (opponentLeft) {
+              // Auto-prepare next round: reset board and continue waiting flow.
+              appModel.newGame(notify: false);
+              _initFlameGame();
+              appModel.isWaitingForOpponent = true;
+              appModel.opponentJoined = false;
+              appModel.timerService.pause();
+              appModel.gameController?.cancelAIMove();
+
+              _opponentJoinDetected = false;
+              _waitingDialogShown = false;
+              _isReady = true;
+              _checkAndShowWaitingDialog();
+              setState(() {});
+              return;
+            }
+
+            // Default behavior after game ends: show ready button for quick restart.
+            _opponentJoinDetected = false;
+            _waitingDialogShown = false;
+            _startReadyCountdown();
+          });
         }
 
         if (appModel.gameOver && appModel.userWon) {
@@ -374,7 +592,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                           // Action buttons panel
                           ActionButtonsPanel(
                             appModel,
-                            onNewGame: _initFlameGame,
+                            onNewGame: () {
+                              unawaited(_startMatchFromCurrentMode());
+                            },
                           ),
                           // SizedBox(height: bottomPad + 6),
                         ],
@@ -448,6 +668,15 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                  ),
+                if (_isRecreatingMatch)
+                  const Positioned.fill(
+                    child: ColoredBox(
+                      color: Color(0x55000000),
+                      child: Center(
+                        child: CupertinoActivityIndicator(radius: 14),
                       ),
                     ),
                   ),

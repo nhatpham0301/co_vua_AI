@@ -108,6 +108,7 @@ class _TurnBar extends StatelessWidget {
         ({
           bool isAI,
           bool over,
+          bool inCheck,
           bool draw,
           bool userWon,
           bool isOnlinePvP,
@@ -120,6 +121,9 @@ class _TurnBar extends StatelessWidget {
       selector: (_, model) => (
         isAI: model.isAIsTurn,
         over: model.gameOver,
+        inCheck: model.gameController != null
+            ? model.gameController!.board.kingInCheck(model.turn)
+            : false,
         draw: model.stalemate,
         userWon: model.userWon,
         isOnlinePvP:
@@ -154,6 +158,9 @@ class _TurnBar extends StatelessWidget {
             label = l.youLose;
             dotColor = Colors.redAccent;
           }
+        } else if (state.inCheck) {
+          label = state.isMyTurn ? l.checkAlertYou : l.checkAlertOpponent;
+          dotColor = const Color(0xFFFF6B6B);
         } else if (state.isSpectator) {
           final langCode = Localizations.localeOf(context).languageCode;
           label = langCode == 'vi' ? 'Đang xem trực tiếp' : 'Watching Live';

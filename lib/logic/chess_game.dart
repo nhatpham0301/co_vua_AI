@@ -7,6 +7,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
 
 import '../model/app_model.dart';
+import '../model/player.dart';
 import 'chess_board.dart';
 import 'chess_piece.dart';
 import 'chess_piece_sprite.dart';
@@ -35,7 +36,9 @@ class ChessGame extends FlameGame with TapCallbacks {
   Paint _darkTilePaint = Paint();
   Paint _moveHintPaint = Paint();
   Paint _checkHintPaint = Paint();
-  Paint _latestMovePaint = Paint();
+  Paint _latestMoveFromPaint = Paint();
+  Paint _latestMoveToPaint = Paint();
+  Paint _latestMoveToRingPaint = Paint();
   Paint _selectedPiecePaint = Paint();
   String? _cachedThemeName;
   ui.Image? _boardTexture;
@@ -206,9 +209,13 @@ class ChessGame extends FlameGame with TapCallbacks {
     _moveHintPaint = Paint()
       ..color = const Color(0xFF39D353).withValues(alpha: 0.95);
     _checkHintPaint = Paint()..color = theme.checkHint;
-    _latestMovePaint = Paint()..color = theme.latestMove;
-    _selectedPiecePaint = Paint()
-      ..color = const Color(0xFF39D353).withValues(alpha: 0.95);
+    _latestMoveFromPaint = Paint()..color = const Color(0xFF121212);
+    _latestMoveToPaint = Paint()..color = const Color(0xFFF2F2F2);
+    _latestMoveToRingPaint = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.52)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    _selectedPiecePaint = Paint()..color = const Color(0xFFF2F2F2);
     _cachedThemeName = theme.name;
   }
 
@@ -317,52 +324,76 @@ class ChessGame extends FlameGame with TapCallbacks {
 
   void _drawLatestMove(Canvas canvas) {
     if (latestMove != null) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          getXFromTile(latestMove!.from, tileSize ?? 0),
-          getYFromTile(latestMove!.from, tileSize ?? 0),
-          tileSize ?? 0,
-          tileSize ?? 0,
-        ),
-        _latestMovePaint,
+      final fromCenter = Offset(
+        getXFromTile(latestMove!.from, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+        getYFromTile(latestMove!.from, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
       );
-      canvas.drawRect(
-        Rect.fromLTWH(
-          getXFromTile(latestMove!.to, tileSize ?? 0),
-          getYFromTile(latestMove!.to, tileSize ?? 0),
-          tileSize ?? 0,
-          tileSize ?? 0,
-        ),
-        _latestMovePaint,
+      final toCenter = Offset(
+        getXFromTile(latestMove!.to, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+        getYFromTile(latestMove!.to, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
       );
+      final movedBy = appModel.moveMetaList.isNotEmpty
+          ? appModel.moveMetaList.last.player
+          : board.tiles[latestMove!.to]?.player;
+      final fromDotPaint =
+          movedBy == Player.player2 ? _latestMoveFromPaint : _latestMoveToPaint;
+      _latestMoveToRingPaint.color = movedBy == Player.player2
+          ? const Color(0xFF121212).withValues(alpha: 0.52)
+          : const Color(0xFFFFFFFF).withValues(alpha: 0.52);
+      final fromDotR = (tileSize ?? 0) / 5;
+      final toRingR = (tileSize ?? 0) * 0.43;
+      _latestMoveToRingPaint.strokeWidth =
+          ((tileSize ?? 0) * 0.042).clamp(1.4, 2.8).toDouble();
+
+      // From-square: solid dot by moved piece color (black piece -> black dot).
+      canvas.drawCircle(
+        fromCenter,
+        fromDotR,
+        fromDotPaint,
+      );
+
+      // To-square: ring around the moved piece so highlight is never hidden.
+      canvas.drawCircle(toCenter, toRingR, _latestMoveToRingPaint);
     }
   }
 
   void _drawCheckHint(Canvas canvas) {
-    if (checkHintTile != null) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          getXFromTile(checkHintTile!, tileSize ?? 0),
-          getYFromTile(checkHintTile!, tileSize ?? 0),
-          tileSize ?? 0,
-          tileSize ?? 0,
-        ),
-        _checkHintPaint,
+    int? highlightTile = checkHintTile;
+
+    // Fallback: derive check target directly from board state in case the
+    // session entered an already-in-check position (reconnect/resume/socket sync).
+    if (highlightTile == null && board.kingInCheck(appModel.turn)) {
+      highlightTile = board.kingForPlayer(appModel.turn)?.tile;
+    }
+
+    if (highlightTile != null) {
+      final center = Offset(
+        getXFromTile(highlightTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+        getYFromTile(highlightTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
       );
+      final ringPaint = Paint()
+        ..color = _checkHintPaint.color.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = ((tileSize ?? 0) * 0.06).clamp(2.0, 4.5).toDouble();
+      final glowPaint = Paint()
+        ..color = _checkHintPaint.color.withValues(alpha: 0.28)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = ((tileSize ?? 0) * 0.14).clamp(5.0, 10.0).toDouble();
+
+      canvas.drawCircle(center, (tileSize ?? 0) * 0.34, glowPaint);
+      canvas.drawCircle(center, (tileSize ?? 0) * 0.37, ringPaint);
     }
   }
 
   void _drawSelectedPieceHint(Canvas canvas) {
     if (selectedPiece != null) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          getXFromTile(selectedPiece!.tile, tileSize ?? 0),
-          getYFromTile(selectedPiece!.tile, tileSize ?? 0),
-          tileSize ?? 0,
-          tileSize ?? 0,
-        ),
-        _selectedPiecePaint,
+      final center = Offset(
+        getXFromTile(selectedPiece!.tile, (tileSize ?? 0)) +
+            ((tileSize ?? 0) / 2),
+        getYFromTile(selectedPiece!.tile, (tileSize ?? 0)) +
+            ((tileSize ?? 0) / 2),
       );
+      canvas.drawCircle(center, (tileSize ?? 0) * 0.12, _selectedPiecePaint);
     }
   }
 }
