@@ -111,6 +111,17 @@ class ExperimentalApiClient {
     return OnlineMoveSubmitResult.fromJson(json);
   }
 
+  Future<Map<String, dynamic>> fetchGameLegalMoves({
+    required String gameId,
+    required String from,
+  }) {
+    return _getJson(
+      '/api/games/$gameId/legal-moves',
+      requiresAuth: true,
+      queryParams: {'from': from},
+    );
+  }
+
   Future<OnlineGameSnapshot> resignGame(String gameId) async {
     final json = await _postJson(
       '/api/games/$gameId/resign',

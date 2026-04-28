@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -57,40 +59,51 @@ class _DeveloperViewState extends State<DeveloperView> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F1E),
       body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(
-              onBack: () => Navigator.pop(context),
-              menuCollapsed: _menuCollapsed,
-              onToggleMenu: () {
-                setState(() => _menuCollapsed = !_menuCollapsed);
-              },
-            ),
-            if (!_menuCollapsed) ...[
-              _SimulationPanel(),
-              _AdPanel(),
-              _ApiPanel(),
-            ],
-            _TabBar(
-              selectedIndex: _tabIndex,
-              onChanged: (i) => setState(() => _tabIndex = i),
-            ),
-            Expanded(
-              child: _LogPanel(
-                filterTab: _kTabs[_tabIndex],
-                scrollController: _scrollCtrl,
-                onNewEntry: _scrollToBottom,
-              ),
-            ),
-            SizedBox(height: bottomPad),
-          ],
+        bottom: true,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxPanelHeight = constraints.maxHeight * 0.48;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Header(
+                  onBack: () => Navigator.pop(context),
+                  menuCollapsed: _menuCollapsed,
+                  onToggleMenu: () {
+                    setState(() => _menuCollapsed = !_menuCollapsed);
+                  },
+                ),
+                if (!_menuCollapsed)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: maxPanelHeight),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          _SimulationPanel(),
+                          _AdPanel(),
+                          _ApiPanel(),
+                        ],
+                      ),
+                    ),
+                  ),
+                _TabBar(
+                  selectedIndex: _tabIndex,
+                  onChanged: (i) => setState(() => _tabIndex = i),
+                ),
+                Expanded(
+                  child: _LogPanel(
+                    filterTab: _kTabs[_tabIndex],
+                    scrollController: _scrollCtrl,
+                    onNewEntry: _scrollToBottom,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -295,6 +308,7 @@ class _ApiPanelState extends State<_ApiPanel> {
   final TextEditingController _userIdCtrl = TextEditingController();
   final TextEditingController _fromCtrl = TextEditingController(text: 'e2');
   final TextEditingController _toCtrl = TextEditingController(text: 'e4');
+  bool _isRunningAiCastleTest = false;
 
   @override
   void initState() {
@@ -487,6 +501,15 @@ class _ApiPanelState extends State<_ApiPanel> {
             runSpacing: 8,
             children: [
               _DevChip(
+                label: _isRunningAiCastleTest
+                    ? '⏳ Running AI Castle Test'
+                    : '🤖 AI Castle Test (Server)',
+                color: const Color(0xFF26A69A),
+                onTap: _isRunningAiCastleTest
+                    ? () {}
+                    : () => _runAiCastleServerTest(appModel),
+              ),
+              _DevChip(
                 label: '🎯 Test Game Snapshot',
                 color: const Color(0xFF29B6F6),
                 onTap: () async {
@@ -574,6 +597,174 @@ class _ApiPanelState extends State<_ApiPanel> {
         ],
       ),
     );
+  }
+
+  Future<void> _runAiCastleServerTest(AppModel appModel) async {
+    if (_isRunningAiCastleTest) return;
+    final auth = appModel.authService;
+    if (!auth.isLoggedIn || auth.user == null) {
+      _toast(context, 'Can dang nhap de chay AI Castle Test');
+      return;
+    }
+
+    setState(() => _isRunningAiCastleTest = true);
+    try {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[AI_CASTLE_TEST] start | mode=server | user=${auth.user?.id}',
+      );
+
+      final created = await appModel.apiClient.createAiGame(
+        aiLevel: 1,
+        color: 'white',
+        timeControl: 'unlimited',
+        moveTimeLimit: 0,
+      );
+      final gameId = (created['id'] ?? created['gameId'] ?? '').toString();
+      if (gameId.isEmpty) {
+        throw Exception('createAiGame khong tra ve gameId');
+      }
+
+      _gameIdCtrl.text = gameId;
+      _fromCtrl.text = 'e1';
+      _toCtrl.text = 'g1';
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[AI_CASTLE_TEST] created AI game | gameId=$gameId',
+      );
+
+      final openingSteps = <({String from, String to})>[
+        (from: 'e2', to: 'e3'),
+        (from: 'g1', to: 'f3'),
+        (from: 'f1', to: 'e2'),
+      ];
+
+      for (final s in openingSteps) {
+        final legal = await _waitUntilLegalMoveAvailable(
+          appModel,
+          gameId: gameId,
+          from: s.from,
+          expectedTo: s.to,
+        );
+        if (legal == null) {
+          throw Exception('Khong tim thay legal move ${s.from}->${s.to}');
+        }
+
+        await appModel.apiClient.submitGameMove(
+          gameId: gameId,
+          from: s.from,
+          to: s.to,
+        );
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AI_CASTLE_TEST] submitted ${s.from}->${s.to}',
+        );
+      }
+
+      final castleLegal = await _waitUntilLegalMoveAvailable(
+        appModel,
+        gameId: gameId,
+        from: 'e1',
+        expectedTo: 'g1',
+        requireCastle: true,
+      );
+      if (castleLegal == null) {
+        throw Exception('BE chua cho phep castle e1->g1 trong legal-moves');
+      }
+
+      final selectedPiece = castleLegal['selectedPiece'];
+      final castlingEnabled = castleLegal['castlingSelectionEnabled'] == true;
+      final selectedType = selectedPiece is Map
+          ? (selectedPiece['type']?.toString().toLowerCase() ?? '')
+          : '';
+
+      if (!castlingEnabled || selectedType != 'k') {
+        throw Exception(
+          'Legal response sai: selectedPiece.type=$selectedType castlingSelectionEnabled=$castlingEnabled',
+        );
+      }
+
+      await appModel.apiClient.submitGameMove(
+        gameId: gameId,
+        from: 'e1',
+        to: 'g1',
+      );
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[AI_CASTLE_TEST] submitted e1->g1',
+      );
+
+      final snapshot = await appModel.apiClient.fetchGameSnapshot(gameId);
+      final fen = snapshot.currentFen;
+      final fenBoard = fen.split(' ').isNotEmpty ? fen.split(' ').first : fen;
+      final looksCastled = fenBoard.contains('R4RK1');
+
+      if (!looksCastled) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[AI_CASTLE_TEST] warning | fen does not include expected castled signature | fen=$fen',
+        );
+      }
+
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[AI_CASTLE_TEST] PASS | gameId=$gameId | legal-moves + submit castle OK',
+      );
+      if (mounted) {
+        _toast(context, 'AI Castle Test PASS | gameId=$gameId');
+      }
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[AI_CASTLE_TEST] FAIL | error=$e',
+      );
+      if (mounted) {
+        _toast(context, 'AI Castle Test FAIL: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningAiCastleTest = false);
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>?> _waitUntilLegalMoveAvailable(
+    AppModel appModel, {
+    required String gameId,
+    required String from,
+    required String expectedTo,
+    bool requireCastle = false,
+  }) async {
+    const attempts = 12;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        final payload = await appModel.apiClient.fetchGameLegalMoves(
+          gameId: gameId,
+          from: from,
+        );
+        final moves = payload['moves'];
+        if (moves is List) {
+          final hasMove = moves.any((m) {
+            if (m is! Map) return false;
+            final to = (m['to']?.toString() ?? '').toLowerCase();
+            if (to != expectedTo.toLowerCase()) return false;
+            if (!requireCastle) return true;
+            return m['isCastle'] == true;
+          });
+          if (hasMove) {
+            DevLogger.instance.log(
+              DevLogCategory.game,
+              '[AI_CASTLE_TEST] legal ok | from=$from -> to=$expectedTo | attempt=${i + 1}',
+            );
+            return payload;
+          }
+        }
+      } catch (_) {
+        // Ignore transient errors while waiting AI to move.
+      }
+      await Future.delayed(const Duration(milliseconds: 700));
+    }
+    return null;
   }
 }
 

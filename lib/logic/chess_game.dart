@@ -39,6 +39,8 @@ class ChessGame extends FlameGame with TapCallbacks {
   Paint _latestMoveFromPaint = Paint();
   Paint _latestMoveToPaint = Paint();
   Paint _latestMoveToRingPaint = Paint();
+  Paint _serverCastleTrailPaint = Paint();
+  Paint _serverCastleToRingPaint = Paint();
   Paint _selectedPiecePaint = Paint();
   String? _cachedThemeName;
   ui.Image? _boardTexture;
@@ -153,6 +155,7 @@ class ChessGame extends FlameGame with TapCallbacks {
     if (appModel.showHints) {
       _drawCheckHint(canvas);
       _drawLatestMove(canvas);
+      _drawServerCastlingVisual(canvas);
     }
     _drawSelectedPieceHint(canvas);
     _drawPieces(canvas);
@@ -215,6 +218,15 @@ class ChessGame extends FlameGame with TapCallbacks {
       ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.52)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
+    _serverCastleTrailPaint = Paint()
+      ..color = const Color(0xFFFFE082).withValues(alpha: 0.88)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 2.0;
+    _serverCastleToRingPaint = Paint()
+      ..color = const Color(0xFFFFF3C4).withValues(alpha: 0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
     _selectedPiecePaint = Paint()..color = const Color(0xFFF2F2F2);
     _cachedThemeName = theme.name;
   }
@@ -226,7 +238,19 @@ class ChessGame extends FlameGame with TapCallbacks {
   }
 
   void snapSprites() {
-    for (var piece in board.player1Pieces.followedBy(board.player2Pieces)) {
+    final livePieces =
+        board.player1Pieces.followedBy(board.player2Pieces).toSet();
+
+    // Remove stale sprites from pieces that no longer exist on the board.
+    spriteMap.removeWhere((piece, _) => !livePieces.contains(piece));
+
+    // Recreate sprites for pieces loaded from FEN (new object identity),
+    // then snap all sprites to their current board positions.
+    for (var piece in livePieces) {
+      spriteMap.putIfAbsent(
+        piece,
+        () => ChessPieceSprite(piece, appModel.pieceTheme),
+      );
       spriteMap[piece]?.snapToPiece(piece, tileSize ?? 0, appModel);
     }
   }
@@ -332,9 +356,12 @@ class ChessGame extends FlameGame with TapCallbacks {
         getXFromTile(latestMove!.to, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
         getYFromTile(latestMove!.to, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
       );
-      final movedBy = appModel.moveMetaList.isNotEmpty
-          ? appModel.moveMetaList.last.player
-          : board.tiles[latestMove!.to]?.player;
+      // Prefer live board piece color at destination tile.
+      // moveMetaList can be stale after authoritative FEN sync.
+      final movedBy = board.tiles[latestMove!.to]?.player ??
+          (appModel.moveMetaList.isNotEmpty
+              ? appModel.moveMetaList.last.player
+              : null);
       final fromDotPaint =
           movedBy == Player.player2 ? _latestMoveFromPaint : _latestMoveToPaint;
       _latestMoveToRingPaint.color = movedBy == Player.player2
@@ -355,6 +382,40 @@ class ChessGame extends FlameGame with TapCallbacks {
       // To-square: ring around the moved piece so highlight is never hidden.
       canvas.drawCircle(toCenter, toRingR, _latestMoveToRingPaint);
     }
+  }
+
+  void _drawServerCastlingVisual(Canvas canvas) {
+    if (!appModel.hasActiveServerCastlingVisual) return;
+    final fromTile = appModel.serverCastlingRookFromTile;
+    final toTile = appModel.serverCastlingRookToTile;
+    if (fromTile == null || toTile == null) return;
+
+    final progress = appModel.serverCastlingVisualProgress;
+    if (progress <= 0) return;
+
+    final fromCenter = Offset(
+      getXFromTile(fromTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+      getYFromTile(fromTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+    );
+    final toCenter = Offset(
+      getXFromTile(toTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+      getYFromTile(toTile, (tileSize ?? 0)) + ((tileSize ?? 0) / 2),
+    );
+    final animatedCenter = Offset(
+      fromCenter.dx + (toCenter.dx - fromCenter.dx) * progress,
+      fromCenter.dy + (toCenter.dy - fromCenter.dy) * progress,
+    );
+
+    final base = (tileSize ?? 0);
+    _serverCastleTrailPaint.strokeWidth = (base * 0.065).clamp(2.0, 4.0);
+    _serverCastleToRingPaint.strokeWidth = (base * 0.05).clamp(1.8, 3.5);
+
+    canvas.drawLine(fromCenter, animatedCenter, _serverCastleTrailPaint);
+    canvas.drawCircle(
+      toCenter,
+      base * (0.15 + (0.28 * progress)),
+      _serverCastleToRingPaint,
+    );
   }
 
   void _drawCheckHint(Canvas canvas) {
@@ -387,13 +448,16 @@ class ChessGame extends FlameGame with TapCallbacks {
 
   void _drawSelectedPieceHint(Canvas canvas) {
     if (selectedPiece != null) {
+      final selectedPaint = selectedPiece!.player == Player.player2
+          ? (_selectedPiecePaint..color = const Color(0xFF121212))
+          : (_selectedPiecePaint..color = const Color(0xFFF2F2F2));
       final center = Offset(
         getXFromTile(selectedPiece!.tile, (tileSize ?? 0)) +
             ((tileSize ?? 0) / 2),
         getYFromTile(selectedPiece!.tile, (tileSize ?? 0)) +
             ((tileSize ?? 0) / 2),
       );
-      canvas.drawCircle(center, (tileSize ?? 0) * 0.12, _selectedPiecePaint);
+      canvas.drawCircle(center, (tileSize ?? 0) * 0.12, selectedPaint);
     }
   }
 }

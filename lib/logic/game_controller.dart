@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:async/async.dart';
 import 'package:flutter/foundation.dart';
 
 import '../model/app_model.dart';
+import '../model/player.dart';
 import 'chess_board.dart';
 import 'chess_piece.dart';
 import 'dev_logger.dart';
@@ -43,14 +45,75 @@ class GameController {
       if (piece.player == appModel.turn &&
           (!isOnlinePvP || piece.player == appModel.playerSide)) {
         selectedPiece = piece;
-        if (selectedPiece != null) {
-          validMoves = board.movesForPiece(piece);
-        }
-        if (validMoves.isEmpty) {
-          selectedPiece = null;
+        if (isOnlinePvP) {
+          // In online PvP, legal moves come from server (authoritative),
+          // including castling availability only when king is selected.
+          unawaited(_selectPieceUsingServerLegalMoves(piece));
+        } else {
+          if (selectedPiece != null) {
+            validMoves = board.movesForPiece(piece);
+          }
+          if (validMoves.isEmpty) {
+            selectedPiece = null;
+          }
         }
       }
     }
+  }
+
+  Future<void> _selectPieceUsingServerLegalMoves(ChessPiece piece) async {
+    final gameId = appModel.onlineEvents.activeGameId;
+    if (gameId == null || gameId.isEmpty) {
+      validMoves = board.movesForPiece(piece);
+      if (validMoves.isEmpty) selectedPiece = null;
+      appModel.update();
+      return;
+    }
+
+    final from = _tileToAlgebraic(piece.tile);
+    try {
+      final payload = await appModel.apiClient.fetchGameLegalMoves(
+        gameId: gameId,
+        from: from,
+      );
+      // Selection may have changed while waiting for the network response.
+      if (selectedPiece?.tile != piece.tile) return;
+      validMoves = _extractServerLegalMoveTiles(payload);
+      if (validMoves.isEmpty) {
+        selectedPiece = null;
+      }
+      appModel.update();
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[ONLINE] legal-moves fetch failed for $from | error=$e',
+      );
+      // Fallback to local moves to avoid blocking input when endpoint fails.
+      validMoves = board.movesForPiece(piece);
+      if (validMoves.isEmpty) selectedPiece = null;
+      appModel.update();
+    }
+  }
+
+  List<int> _extractServerLegalMoveTiles(Map<String, dynamic> payload) {
+    final rawMoves = payload['moves'];
+    if (rawMoves is! List) return [];
+    final result = <int>[];
+    for (final item in rawMoves) {
+      if (item is! Map) continue;
+      final map = item.cast<Object?, Object?>();
+      final to = map['to']?.toString().trim().toLowerCase() ?? '';
+      if (!_isAlgebraicSquare(to)) continue;
+      result.add(_algebraicToTile(to));
+    }
+    return result;
+  }
+
+  bool _isAlgebraicSquare(String value) {
+    if (value.length != 2) return false;
+    final file = value.codeUnitAt(0);
+    final rank = value.codeUnitAt(1);
+    return file >= 97 && file <= 104 && rank >= 49 && rank <= 56;
   }
 
   void movePiece(int tile) {
@@ -61,7 +124,30 @@ class GameController {
     }
     if (validMoves.contains(tile)) {
       validMoves = [];
-      var move = Move(selectedPiece?.tile ?? 0, tile);
+      final fromTile = selectedPiece?.tile ?? 0;
+      int internalToTile = tile;
+      // Online server legal-moves uses UCI castling squares (e1->g1/c1).
+      // Convert to internal Chess960-style king->rook tile so local board
+      // updates king+rook atomically in the same move.
+      if (appModel.isOnlineGameMode &&
+          !appModel.shouldRunLocalAiInOnlineVsAi &&
+          selectedPiece?.type == ChessPieceType.king) {
+        final fromRow = tileToRow(fromTile);
+        final toRow = tileToRow(tile);
+        final fromCol = tileToCol(fromTile);
+        final toCol = tileToCol(tile);
+        if (fromRow == toRow &&
+            (toCol - fromCol).abs() == 2 &&
+            board.tiles[tile] == null) {
+          final rookTile = _findCastlingRookTile(
+              fromRow, toCol > fromCol, selectedPiece!.player);
+          if (rookTile != null) {
+            internalToTile = rookTile;
+          }
+        }
+      }
+
+      var move = Move(fromTile, internalToTile);
       var meta = board.push(move, getMeta: true);
       DevLogger.instance.log(
         DevLogCategory.game,
@@ -196,7 +282,7 @@ class GameController {
     String? promotion,
   }) {
     final fromTile = _algebraicToTile(from);
-    final toTile = _algebraicToTile(to);
+    int toTile = _algebraicToTile(to);
     final piece = board.tiles[fromTile];
     if (piece == null) {
       DevLogger.instance.log(
@@ -204,6 +290,29 @@ class GameController {
         '[ONLINE] applyRemoteMove: no piece at $from (tile=$fromTile)',
       );
       return;
+    }
+    // Detect standard UCI castling: king moves 2+ columns on the same row to
+    // an empty square. Convert to Chess960 king-to-rook format so board.push()
+    // detects it correctly via _castled() (which checks for friendly piece at to).
+    if (piece.type == ChessPieceType.king) {
+      final fromRow = tileToRow(fromTile);
+      final toRow = tileToRow(toTile);
+      final fromCol = tileToCol(fromTile);
+      final toCol = tileToCol(toTile);
+      if (fromRow == toRow &&
+          (toCol - fromCol).abs() >= 2 &&
+          board.tiles[toTile] == null) {
+        final isKingside = toCol > fromCol;
+        final rookTile =
+            _findCastlingRookTile(fromRow, isKingside, piece.player);
+        if (rookTile != null) {
+          DevLogger.instance.log(
+            DevLogCategory.game,
+            '[ONLINE] applyRemoteMove: detected UCI castling $from→$to | isKingside=$isKingside | rookTile=$rookTile',
+          );
+          toTile = rookTile;
+        }
+      }
     }
     final promoType = promotion != null
         ? _promoStringToPieceType(promotion)
@@ -229,6 +338,27 @@ class GameController {
     final file = algebraic.codeUnitAt(0) - 97; // 'a'=0
     final rank = 8 - int.parse(algebraic[1]); // '8'=row0
     return rank * 8 + file;
+  }
+
+  /// Find the rook tile used for castling on the given row/side.
+  /// Searches from the board edge inward toward the king (col 4).
+  int? _findCastlingRookTile(int row, bool kingside, Player player) {
+    if (kingside) {
+      for (int col = 7; col > 4; col--) {
+        final p = board.tiles[row * 8 + col];
+        if (p?.type == ChessPieceType.rook && p?.player == player) {
+          return row * 8 + col;
+        }
+      }
+    } else {
+      for (int col = 0; col < 4; col++) {
+        final p = board.tiles[row * 8 + col];
+        if (p?.type == ChessPieceType.rook && p?.player == player) {
+          return row * 8 + col;
+        }
+      }
+    }
+    return null;
   }
 
   ChessPieceType _promoStringToPieceType(String s) {
@@ -329,7 +459,18 @@ class GameController {
     if (gameId == null || gameId.isEmpty) return;
 
     final from = _tileToAlgebraic(move.from);
-    final to = _tileToAlgebraic(move.to);
+    // For castling, the local board uses Chess960 king-to-rook notation
+    // (move.to = rook's tile). Convert to standard UCI (king's destination
+    // square) so the backend understands it: kingside → g-file (col 6),
+    // queenside → c-file (col 2).
+    String to;
+    if (meta.kingCastle || meta.queenCastle) {
+      final kingRow = tileToRow(move.from);
+      final destCol = meta.kingCastle ? 6 : 2;
+      to = _tileToAlgebraic(kingRow * 8 + destCol);
+    } else {
+      to = _tileToAlgebraic(move.to);
+    }
     final promotion =
         meta.promotion ? pieceTypeToString(move.promotionType) : null;
 
@@ -342,7 +483,7 @@ class GameController {
 
     DevLogger.instance.log(
       DevLogCategory.game,
-      '[ONLINE] emit move via socket | gameId=$gameId | $from -> $to${promotion != null ? ' | promotion=$promotion' : ''}',
+      '[ONLINE] emit move via socket | gameId=$gameId | $from -> $to${meta.kingCastle ? ' (kingCastle→UCI)' : meta.queenCastle ? ' (queenCastle→UCI)' : ''}${promotion != null ? ' | promotion=$promotion' : ''}',
     );
   }
 

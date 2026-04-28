@@ -118,6 +118,11 @@ class AppModel extends ChangeNotifier {
   bool stalemate = false;
   bool promotionRequested = false;
   bool checkAlert = false;
+  bool serverCheck = false;
+  String? serverCheckMessage;
+  int? serverCastlingRookFromTile;
+  int? serverCastlingRookToTile;
+  DateTime? _serverCastlingVisualUntil;
   bool moveListUpdated = false;
   bool userWon = false;
   bool opponentDisconnected = false;
@@ -293,6 +298,10 @@ class AppModel extends ChangeNotifier {
     gameOver = false;
     stalemate = false;
     userWon = false;
+    promotionRequested = false;
+    serverCheck = false;
+    serverCheckMessage = null;
+    clearServerCastlingVisual(notify: false);
     opponentDisconnected = false;
     gameEndReason = null;
     _endGameAdDisplayed = false;
@@ -340,8 +349,12 @@ class AppModel extends ChangeNotifier {
     }
     gameController = GameController(this);
     if (isOnlineGameMode) {
-      _replayOnlineMoveHistoryToBoard();
-      _syncTurnFromFen(onlineGameSnapshot?.currentFen);
+      final fen = onlineGameSnapshot?.currentFen;
+      final applied = _applyServerFenToBoard(fen, source: 'snapshot');
+      if (!applied) {
+        _replayOnlineMoveHistoryToBoard();
+      }
+      _syncTurnFromFen(fen);
     }
     timerService.start(() => turn, () => gameOver);
     // Online PvP: local timer runs for smooth display; server game:clock events
@@ -382,6 +395,9 @@ class AppModel extends ChangeNotifier {
     _spectatorAwaitClockTimer = null;
     _lastSocketClockAt = null;
     opponentProfile = null;
+    serverCheck = false;
+    serverCheckMessage = null;
+    clearServerCastlingVisual(notify: false);
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -400,6 +416,9 @@ class AppModel extends ChangeNotifier {
     _spectatorAwaitClockTimer = null;
     _lastSocketClockAt = null;
     opponentProfile = null;
+    serverCheck = false;
+    serverCheckMessage = null;
+    clearServerCastlingVisual(notify: false);
     unawaited(onlineEvents.stopTracking());
     notifyListeners();
   }
@@ -585,8 +604,14 @@ class AppModel extends ChangeNotifier {
       }
     }
 
-    // ── Sync current turn from FEN ───────────────────────────────────────────
-    _syncTurnFromFen(data['fen'] as String?);
+    // ── Sync board + turn from authoritative server state ───────────────────
+    final fen = data['fen'] as String?;
+    _applyServerFenToBoard(fen, source: 'game:state');
+    _syncTurnFromFen(fen);
+
+    // ── Sync check state/message from server ────────────────────────────────
+    serverCheck = data['check'] == true;
+    serverCheckMessage = data['checkMessage']?.toString();
 
     // ── Sync clocks (per BE_TIMER.md: initial or latest clocks from server) ──
     final clocks = data['clocks'] as Map<String, dynamic>?;
@@ -652,19 +677,19 @@ class AppModel extends ChangeNotifier {
     }
 
     final promotion = data['promotion']?.toString();
+    final fen = data['fen']?.toString();
+    final castling = data['castling'] as Map<String, dynamic>?;
 
     final clocks = data['clocks'] as Map<String, dynamic>?;
-    DevLogger.instance.log(
-      DevLogCategory.game,
-      '[TIMER][move:ok] SKIP sync (server clock still buggy) | local white=${timerService.player1TimeLeft.value.inSeconds}s'
-      ' black=${timerService.player2TimeLeft.value.inSeconds}s | raw clocks=$clocks',
-    );
+    if (clocks != null) {
+      _syncClocksFromPayload(clocks, source: 'game:move:ok');
+    }
 
     // Determine whose move this was.
     // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.
     final nextTurnRaw = data['turn']?.toString().toLowerCase() ?? '';
     final myColor = playerSide == Player.player1 ? 'white' : 'black';
-    final opponentJustMoved = (nextTurnRaw == myColor);
+    final opponentJustMoved = nextTurnRaw == myColor;
 
     // Update turn from move event (authoritative)
     if (nextTurnRaw == 'white' && turn != Player.player1) {
@@ -678,14 +703,84 @@ class AppModel extends ChangeNotifier {
       '[SOCKET] game:move:ok | $from→$to | turn=$nextTurnRaw | myColor=$myColor | opponentMoved=$opponentJustMoved | clocks=$clocks',
     );
 
+    serverCheck = data['check'] == true;
+    serverCheckMessage = data['checkMessage']?.toString();
+
+    // Server is authoritative for board state after each move.
+    _applyServerFenToBoard(fen, source: 'game:move:ok');
+
+    // Keep latest-move highlight aligned with server payload.
+    final controller = gameController;
+    if (controller != null &&
+        _isAlgebraicSquare(from) &&
+        _isAlgebraicSquare(to)) {
+      controller.latestMove = Move(
+        _algebraicToTile(from),
+        _algebraicToTile(to),
+        promotionType: _promoStringToPieceType(promotion),
+      );
+      // Clear selection/move hints since server state has been reapplied.
+      controller.selectedPiece = null;
+      controller.validMoves = [];
+    }
+
     _logSpectator(
-      'game:move:ok | from=$from to=$to nextTurn=$nextTurnRaw applyRemote=${!gameOver} clocks=$clocks',
+      'game:move:ok | from=$from to=$to nextTurn=$nextTurnRaw hasFen=${fen != null && fen.isNotEmpty} opponentMoved=$opponentJustMoved castling=$castling check=$serverCheck',
     );
 
-    if (opponentJustMoved && !gameOver) {
-      gameController?.applyRemoteMove(from: from, to: to, promotion: promotion);
+    if (castling != null) {
+      markServerCastlingVisual(
+        rookFrom: castling['rookFrom']?.toString(),
+        rookTo: castling['rookTo']?.toString(),
+      );
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SOCKET] castling meta | rookFrom=${castling['rookFrom']} rookTo=${castling['rookTo']}',
+      );
+    } else {
+      clearServerCastlingVisual(notify: false);
     }
     notifyListeners();
+  }
+
+  bool get hasActiveServerCastlingVisual {
+    final until = _serverCastlingVisualUntil;
+    if (serverCastlingRookFromTile == null ||
+        serverCastlingRookToTile == null) {
+      return false;
+    }
+    if (until == null) return false;
+    return DateTime.now().isBefore(until);
+  }
+
+  double get serverCastlingVisualProgress {
+    final until = _serverCastlingVisualUntil;
+    if (until == null) return 0;
+    final totalMs = 650;
+    final remaining = until.difference(DateTime.now()).inMilliseconds;
+    if (remaining <= 0) return 0;
+    final elapsed = totalMs - remaining;
+    return (elapsed / totalMs).clamp(0.0, 1.0);
+  }
+
+  void markServerCastlingVisual({String? rookFrom, String? rookTo}) {
+    if (!_isAlgebraicSquare(rookFrom ?? '') ||
+        !_isAlgebraicSquare(rookTo ?? '')) {
+      return;
+    }
+    serverCastlingRookFromTile = _algebraicToTile(rookFrom!);
+    serverCastlingRookToTile = _algebraicToTile(rookTo!);
+    _serverCastlingVisualUntil =
+        DateTime.now().add(const Duration(milliseconds: 650));
+  }
+
+  void clearServerCastlingVisual({bool notify = true}) {
+    serverCastlingRookFromTile = null;
+    serverCastlingRookToTile = null;
+    _serverCastlingVisualUntil = null;
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   /// Handles `game:clock` — server clock tick broadcast every second.
@@ -892,6 +987,23 @@ class AppModel extends ChangeNotifier {
   void setSpectatorMode(bool enabled, {bool notify = false}) {
     _spectatorMode = enabled;
     if (notify) notifyListeners();
+  }
+
+  bool _applyServerFenToBoard(String? fen, {String source = 'socket'}) {
+    final controller = gameController;
+    if (controller == null || fen == null || fen.trim().isEmpty) {
+      return false;
+    }
+    final applied = controller.board.loadFromFen(fen);
+    if (!applied) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[SOCKET] failed to apply FEN from $source | fen=$fen',
+      );
+      return false;
+    }
+    controller.snapSprites();
+    return true;
   }
 
   void _syncTurnFromFen(String? fen) {

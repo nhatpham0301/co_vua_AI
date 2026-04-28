@@ -109,6 +109,7 @@ class _TurnBar extends StatelessWidget {
           bool isAI,
           bool over,
           bool inCheck,
+          String? checkMessage,
           bool draw,
           bool userWon,
           bool isOnlinePvP,
@@ -121,9 +122,12 @@ class _TurnBar extends StatelessWidget {
       selector: (_, model) => (
         isAI: model.isAIsTurn,
         over: model.gameOver,
-        inCheck: model.gameController != null
-            ? model.gameController!.board.kingInCheck(model.turn)
-            : false,
+        inCheck: model.isOnlineGameMode && !model.shouldRunLocalAiInOnlineVsAi
+            ? model.serverCheck
+            : model.gameController != null
+                ? model.gameController!.board.kingInCheck(model.turn)
+                : false,
+        checkMessage: model.serverCheckMessage,
         draw: model.stalemate,
         userWon: model.userWon,
         isOnlinePvP:
@@ -159,7 +163,18 @@ class _TurnBar extends StatelessWidget {
             dotColor = Colors.redAccent;
           }
         } else if (state.inCheck) {
-          label = state.isMyTurn ? l.checkAlertYou : l.checkAlertOpponent;
+          if (state.isOnlinePvP &&
+              state.checkMessage != null &&
+              state.checkMessage!.isNotEmpty) {
+            final raw = state.checkMessage!.trim().toLowerCase();
+            if (raw == 'dang_bi_chieu' || raw == 'check') {
+              label = state.isMyTurn ? l.checkAlertYou : l.checkAlertOpponent;
+            } else {
+              label = state.checkMessage!;
+            }
+          } else {
+            label = state.isMyTurn ? l.checkAlertYou : l.checkAlertOpponent;
+          }
           dotColor = const Color(0xFFFF6B6B);
         } else if (state.isSpectator) {
           final langCode = Localizations.localeOf(context).languageCode;

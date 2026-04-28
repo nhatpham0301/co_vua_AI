@@ -29,21 +29,213 @@ class _MainMenuViewState extends State<MainMenuView> {
   bool _guestModeInitialized = false;
   bool _isLoadingLiveMatches = false;
   bool _isOpeningSpectator = false;
+  bool _autoRecoverChecked = false;
+  bool _isAutoRecovering = false;
+  AppModel? _boundModel;
+  VoidCallback? _authListener;
 
   @override
   void initState() {
     super.initState();
     _checkSavedGame();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bindAuthAndTryRecover();
+    });
   }
 
   @override
   void dispose() {
+    final model = _boundModel;
+    final listener = _authListener;
+    if (model != null && listener != null) {
+      model.authService.removeListener(listener);
+    }
     super.dispose();
+  }
+
+  void _bindAuthAndTryRecover() {
+    if (!mounted) return;
+    final model = Provider.of<AppModel>(context, listen: false);
+
+    if (_boundModel == null) {
+      _boundModel = model;
+      _authListener = () {
+        if (!mounted) return;
+        final auth = model.authService;
+        // Retry recovery when auth becomes ready/logged in.
+        if (auth.isLoggedIn) {
+          _tryAutoRecoverOnlineGame(force: true);
+        } else {
+          // Allow a fresh auto-recover check on next successful login.
+          _autoRecoverChecked = false;
+        }
+      };
+      model.authService.addListener(_authListener!);
+    }
+
+    _tryAutoRecoverOnlineGame();
   }
 
   Future<void> _checkSavedGame() async {
     final has = await GameStateStorage.hasSavedGame();
     if (mounted) setState(() => _hasSavedGame = has);
+  }
+
+  Future<void> _tryAutoRecoverOnlineGame({bool force = false}) async {
+    if (!mounted) return;
+    if (_isAutoRecovering) return;
+    if (_autoRecoverChecked && !force) return;
+    _autoRecoverChecked = true;
+
+    final model = Provider.of<AppModel>(context, listen: false);
+    final auth = model.authService;
+    final user = auth.user;
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[AUTO_RECOVER] check start | force=$force | isLoggedIn=${auth.isLoggedIn} | hasUser=${user != null} | checked=$_autoRecoverChecked',
+    );
+    if (!auth.isLoggedIn || user == null || user.id.trim().isEmpty) {
+      return;
+    }
+
+    // If user explicitly has a local saved game, don't auto-jump to online
+    // recovery to avoid overriding the manual Resume flow.
+    if (_hasSavedGame && !force) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[AUTO_RECOVER] skipped because local saved game exists',
+      );
+      return;
+    }
+
+    setState(() => _isAutoRecovering = true);
+    try {
+      const pageSize = 50;
+      const maxPages = 5;
+      const unfinishedStatuses = {'in_progress', 'waiting'};
+
+      Map<String, dynamic>? latestRecoverable;
+      DateTime latestTs = DateTime.fromMillisecondsSinceEpoch(0);
+      int offset = 0;
+      int page = 0;
+      int? total;
+
+      while (page < maxPages) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AUTO_RECOVER] calling GET /api/users/${user.id}/games | limit=$pageSize | offset=$offset',
+        );
+
+        final json = await model.apiClient.fetchUserGames(
+          userId: user.id,
+          limit: pageSize,
+          offset: offset,
+        );
+
+        final rawGames = json['games'];
+        if (rawGames is! List) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[AUTO_RECOVER] /users/:id/games has no games list | payload=$json',
+          );
+          return;
+        }
+
+        total ??= (json['total'] as num?)?.toInt();
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[AUTO_RECOVER] page=${page + 1} | got=${rawGames.length} | total=${total ?? '-'}',
+        );
+
+        for (final g in rawGames) {
+          if (g is! Map) continue;
+          final game = g.cast<String, dynamic>();
+          final status =
+              (game['status']?.toString() ?? '').trim().toLowerCase();
+          if (!unfinishedStatuses.contains(status)) continue;
+
+          final endedAt = game['endedAt']?.toString();
+          if (endedAt != null && endedAt.isNotEmpty) continue;
+
+          final tsStr = game['updatedAt']?.toString() ??
+              game['startedAt']?.toString() ??
+              game['createdAt']?.toString() ??
+              '';
+          final ts = DateTime.tryParse(tsStr) ?? DateTime.now();
+          if (latestRecoverable == null || ts.isAfter(latestTs)) {
+            latestRecoverable = game;
+            latestTs = ts;
+          }
+        }
+
+        if (latestRecoverable != null) {
+          break;
+        }
+
+        if (rawGames.isEmpty) {
+          break;
+        }
+
+        offset += rawGames.length;
+        page += 1;
+        if (total != null && offset >= total) {
+          break;
+        }
+      }
+
+      if (latestRecoverable == null) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[AUTO_RECOVER] no unfinished game found for user=${user.id}',
+        );
+        return;
+      }
+
+      final gameId = latestRecoverable['id']?.toString() ?? '';
+      if (gameId.isEmpty) return;
+
+      final recoveredStatus =
+          (latestRecoverable['status']?.toString() ?? '').trim().toLowerCase();
+
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[AUTO_RECOVER] found unfinished gameId=$gameId | status=$recoveredStatus -> restoring',
+      );
+
+      await model.fetchOnlineGameSnapshotPreview(gameId);
+      if (model.apiLastError != null || model.onlineGameSnapshot == null) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AUTO_RECOVER] snapshot load failed | gameId=$gameId | err=${model.apiLastError}',
+        );
+        return;
+      }
+
+      await model.fetchOnlineGameMovesPreview(gameId);
+      await model.startOnlineEventTracking(gameId);
+      await model.hydrateOpponentProfileFromSnapshot();
+
+      model.setPlayerCount(model.onlineGameSnapshot!.isAiGame ? 1 : 2);
+      model.isWaitingForOpponent = false;
+      model.opponentJoined = true;
+      model.currentGameInviteCode = null;
+      model.update();
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => ChessView(model)),
+      );
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[AUTO_RECOVER] failed | error=$e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAutoRecovering = false);
+      }
+    }
   }
 
   Future<void> _fetchRecentGames({bool showLoading = false}) async {
@@ -326,6 +518,8 @@ class _MainMenuViewState extends State<MainMenuView> {
     if (result == true && mounted) {
       // Auth successful — refresh data
       _fetchRecentGames();
+      await _checkSavedGame();
+      await _tryAutoRecoverOnlineGame(force: true);
     }
   }
 
@@ -501,6 +695,46 @@ class _MainMenuViewState extends State<MainMenuView> {
                                     ? 'Đang vào xem trận...'
                                     : 'Đang tải danh sách trận...',
                                 style: const TextStyle(
+                                  color: Color(0xFFF4D293),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_isAutoRecovering)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.48),
+                      ),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 14),
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF1A140E).withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFFE8BE75)
+                                  .withValues(alpha: 0.65),
+                            ),
+                          ),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CupertinoActivityIndicator(radius: 14),
+                              SizedBox(height: 10),
+                              Text(
+                                'Đang khôi phục ván đang chơi...',
+                                style: TextStyle(
                                   color: Color(0xFFF4D293),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,

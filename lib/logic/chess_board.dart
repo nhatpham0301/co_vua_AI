@@ -124,6 +124,189 @@ class ChessBoard {
         player2Pieces.length <= 3;
   }
 
+  // ──────────────────────────────────────────────
+  // Custom Position Setup (for test/debug screens)
+  // ──────────────────────────────────────────────
+
+  /// Wipes all pieces and resets evaluation/hash state for custom setup.
+  void clearForCustomSetup() {
+    tiles.fillRange(0, 64, null);
+    player1Pieces.clear();
+    player2Pieces.clear();
+    player1Rooks.clear();
+    player2Rooks.clear();
+    player1Queens.clear();
+    player2Queens.clear();
+    player1King = null;
+    player2King = null;
+    enPassantPiece = null;
+    moveStack.clear();
+    redoStack.clear();
+    possibleOpenings.clear();
+    moveCount = 0;
+    zobristHash = 0;
+    incrementalValue = 0;
+    inEndGameCached = true;
+  }
+
+  /// Places a single piece on the board. Call [clearForCustomSetup] first.
+  void addPieceAt(int id, ChessPieceType type, Player player, int tile,
+      {int moveCountVal = 0}) {
+    final piece = ChessPiece(id, type, player, tile);
+    piece.moveCount = moveCountVal;
+    tiles[tile] = piece;
+    piecesForPlayer(player).add(piece);
+    if (type == ChessPieceType.king) {
+      if (player == Player.player1) {
+        player1King = piece;
+      } else {
+        player2King = piece;
+      }
+    } else if (type == ChessPieceType.rook) {
+      rooksForPlayer(player).add(piece);
+    } else if (type == ChessPieceType.queen) {
+      queensForPlayer(player).add(piece);
+    }
+  }
+
+  /// Recalculates Zobrist hash and incremental eval after piece placement.
+  void finalizeCustomPosition() {
+    _initZobristHash();
+    _initIncrementalValue();
+  }
+
+  /// Loads board position from a FEN string.
+  /// Returns false when FEN is malformed; true when applied successfully.
+  bool loadFromFen(String fen) {
+    final parts = fen.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return false;
+
+    final boardPart = parts[0];
+    final turnPart = parts.length > 1 ? parts[1] : 'w';
+    final castlingPart = parts.length > 2 ? parts[2] : '-';
+    final enPassantPart = parts.length > 3 ? parts[3] : '-';
+
+    final rows = boardPart.split('/');
+    if (rows.length != 8) return false;
+
+    clearForCustomSetup();
+
+    int pieceId = 1000;
+    for (int row = 0; row < 8; row++) {
+      int col = 0;
+      final rowFen = rows[row];
+      for (int i = 0; i < rowFen.length; i++) {
+        final ch = rowFen[i];
+        final empty = int.tryParse(ch);
+        if (empty != null) {
+          col += empty;
+          continue;
+        }
+        final type = _pieceTypeFromFenChar(ch);
+        if (type == null || col >= 8) return false;
+        final player = _isFenWhitePiece(ch) ? Player.player1 : Player.player2;
+        addPieceAt(pieceId++, type, player, row * 8 + col);
+        col++;
+      }
+      if (col != 8) return false;
+    }
+
+    _applyCastlingRightsFromFen(castlingPart);
+    _applyEnPassantFromFen(enPassantPart, turnPart);
+    finalizeCustomPosition();
+    return true;
+  }
+
+  ChessPieceType? _pieceTypeFromFenChar(String ch) {
+    switch (ch.toLowerCase()) {
+      case 'p':
+        return ChessPieceType.pawn;
+      case 'r':
+        return ChessPieceType.rook;
+      case 'n':
+        return ChessPieceType.knight;
+      case 'b':
+        return ChessPieceType.bishop;
+      case 'q':
+        return ChessPieceType.queen;
+      case 'k':
+        return ChessPieceType.king;
+      default:
+        return null;
+    }
+  }
+
+  bool _isFenWhitePiece(String ch) {
+    return ch.toUpperCase() == ch;
+  }
+
+  void _applyCastlingRightsFromFen(String castling) {
+    final whiteKing = kingForPlayer(Player.player1);
+    final blackKing = kingForPlayer(Player.player2);
+    if (whiteKing != null) {
+      whiteKing.moveCount =
+          (castling.contains('K') || castling.contains('Q')) ? 0 : 1;
+    }
+    if (blackKing != null) {
+      blackKing.moveCount =
+          (castling.contains('k') || castling.contains('q')) ? 0 : 1;
+    }
+
+    for (final rook in rooksForPlayer(Player.player1)) {
+      rook.moveCount = 1;
+    }
+    for (final rook in rooksForPlayer(Player.player2)) {
+      rook.moveCount = 1;
+    }
+
+    final whiteA1 = tiles[56];
+    final whiteH1 = tiles[63];
+    final blackA8 = tiles[0];
+    final blackH8 = tiles[7];
+
+    if (whiteA1 != null &&
+        whiteA1.type == ChessPieceType.rook &&
+        whiteA1.player == Player.player1) {
+      whiteA1.moveCount = castling.contains('Q') ? 0 : 1;
+    }
+    if (whiteH1 != null &&
+        whiteH1.type == ChessPieceType.rook &&
+        whiteH1.player == Player.player1) {
+      whiteH1.moveCount = castling.contains('K') ? 0 : 1;
+    }
+    if (blackA8 != null &&
+        blackA8.type == ChessPieceType.rook &&
+        blackA8.player == Player.player2) {
+      blackA8.moveCount = castling.contains('q') ? 0 : 1;
+    }
+    if (blackH8 != null &&
+        blackH8.type == ChessPieceType.rook &&
+        blackH8.player == Player.player2) {
+      blackH8.moveCount = castling.contains('k') ? 0 : 1;
+    }
+  }
+
+  void _applyEnPassantFromFen(String enPassant, String turnPart) {
+    enPassantPiece = null;
+    if (enPassant == '-' || enPassant.length != 2) return;
+
+    final file = enPassant.codeUnitAt(0) - 97;
+    final rank = int.tryParse(enPassant[1]);
+    if (file < 0 || file > 7 || rank == null || rank < 1 || rank > 8) return;
+
+    final epRow = 8 - rank;
+    final epTile = epRow * 8 + file;
+    // FEN en-passant square is the target square behind the pawn that moved 2.
+    // If side to move is black, white just moved -> pawn sits one row above ep square.
+    // If side to move is white, black just moved -> pawn sits one row below ep square.
+    final pawnTile = turnPart == 'b' ? epTile - 8 : epTile + 8;
+    if (pawnTile < 0 || pawnTile >= 64) return;
+    final pawn = tiles[pawnTile];
+    if (pawn != null && pawn.type == ChessPieceType.pawn) {
+      enPassantPiece = pawn;
+    }
+  }
+
   void _addPiecesForPlayer(Player player) {
     var kingRowOffset = player == Player.player1 ? 56 : 0;
     var pawnRowOffset = player == Player.player1 ? -8 : 8;
@@ -356,8 +539,8 @@ class ChessBoard {
     }
     mso.movedPiece?.moveCount++;
     if (mso.takenPiece != null) {
-      incrementalValue -= mso.takenPiece!.value +
-          squareValue(mso.takenPiece!, inEndGameCached);
+      incrementalValue -=
+          mso.takenPiece!.value + squareValue(mso.takenPiece!, inEndGameCached);
       _removePiece(mso.takenPiece);
       meta.took = true;
     }
@@ -425,16 +608,14 @@ class ChessBoard {
   void _promote(MoveStackObject mso, MoveMeta meta) {
     var piece = mso.movedPiece;
     if (piece != null) {
-      incrementalValue -=
-          piece.value + squareValue(piece, inEndGameCached);
+      incrementalValue -= piece.value + squareValue(piece, inEndGameCached);
     }
     mso.movedPiece?.type = mso.promotionType ?? ChessPieceType.promotion;
     if (mso.promotionType != ChessPieceType.promotion) {
       addPromotedPiece(mso);
     }
     if (piece != null) {
-      incrementalValue +=
-          piece.value + squareValue(piece, inEndGameCached);
+      incrementalValue += piece.value + squareValue(piece, inEndGameCached);
     }
     meta.promotion = true;
     mso.promotion = true;
@@ -480,8 +661,8 @@ class ChessBoard {
     var tile = (mso.movedPiece?.tile ?? 0) + offset;
     var takenPiece = tiles[tile];
     if (takenPiece != null && takenPiece == enPassantPiece) {
-      incrementalValue -= takenPiece.value +
-          squareValue(takenPiece, inEndGameCached);
+      incrementalValue -=
+          takenPiece.value + squareValue(takenPiece, inEndGameCached);
       _removePiece(takenPiece);
       _setTile(takenPiece.tile, null);
       mso.enPassant = true;
@@ -590,8 +771,7 @@ class ChessBoard {
         tile += offset;
         if ((tiles[tile] != null && tile != king?.tile) ||
             (legal &&
-                _kingInCheckAtTile(
-                    tile, king?.player ?? Player.player1))) {
+                _kingInCheckAtTile(tile, king?.player ?? Player.player1))) {
           return false;
         }
       }
@@ -650,8 +830,7 @@ class ChessBoard {
 
   void _checkMoveAmbiguity(Move move, MoveMeta moveMeta) {
     var piece = tiles[move.from];
-    for (var otherPiece
-        in _piecesOfTypeForPlayer(piece?.type, piece?.player)) {
+    for (var otherPiece in _piecesOfTypeForPlayer(piece?.type, piece?.player)) {
       if (piece != otherPiece) {
         if (movesForPiece(otherPiece).contains(move.to)) {
           if (tileToCol(otherPiece.tile) == tileToCol(piece?.tile ?? 0)) {
@@ -667,8 +846,7 @@ class ChessBoard {
   void _filterPossibleOpenings(Move move) {
     possibleOpenings = possibleOpenings
         .where((opening) =>
-            opening[moveCount] == move &&
-            opening.length > moveCount + 1)
+            opening[moveCount] == move && opening.length > moveCount + 1)
         .toList();
   }
 
