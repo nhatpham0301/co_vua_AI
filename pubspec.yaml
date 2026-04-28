@@ -106,6 +106,7 @@ flutter:
     - .env
     - assets/images/
     - assets/images/home/
+    - assets/images/home/background_home/
     - assets/images/rank/
     - assets/images/boards/
     - assets/images/pieces/classic/

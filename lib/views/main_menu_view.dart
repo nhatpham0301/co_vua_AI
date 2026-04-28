@@ -34,6 +34,34 @@ class _MainMenuViewState extends State<MainMenuView> {
   AppModel? _boundModel;
   VoidCallback? _authListener;
 
+  static const List<_HomeBackgroundVariant> _homeBackgroundVariants = [
+    _HomeBackgroundVariant(
+      assetPath: 'assets/images/home/background_home/1080x1920.png',
+      width: 1080,
+      height: 1920,
+    ),
+    _HomeBackgroundVariant(
+      assetPath: 'assets/images/home/background_home/1080x2400.png',
+      width: 1080,
+      height: 2400,
+    ),
+    _HomeBackgroundVariant(
+      assetPath: 'assets/images/home/background_home/1170x2532.png',
+      width: 1170,
+      height: 2532,
+    ),
+    _HomeBackgroundVariant(
+      assetPath: 'assets/images/home/background_home/1290x2796.png',
+      width: 1290,
+      height: 2796,
+    ),
+    _HomeBackgroundVariant(
+      assetPath: 'assets/images/home/background_home/1440x2560.png',
+      width: 1440,
+      height: 2560,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -538,6 +566,33 @@ class _MainMenuViewState extends State<MainMenuView> {
     );
   }
 
+  String _pickBackgroundAssetForViewport(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final widthPx = media.size.width * media.devicePixelRatio;
+    final heightPx = media.size.height * media.devicePixelRatio;
+
+    _HomeBackgroundVariant best = _homeBackgroundVariants.first;
+    var bestScore = double.infinity;
+
+    for (final variant in _homeBackgroundVariants) {
+      final scale =
+          math.max(widthPx / variant.width, heightPx / variant.height);
+      final aspectDiff =
+          ((widthPx / heightPx) - (variant.width / variant.height)).abs();
+      final upscalePenalty = scale > 1.0 ? (scale - 1.0) * 2.0 : 0.0;
+      final score = aspectDiff * 4.0 + upscalePenalty;
+
+      if (score < bestScore ||
+          (score == bestScore &&
+              (variant.width * variant.height) > (best.width * best.height))) {
+        best = variant;
+        bestScore = score;
+      }
+    }
+
+    return best.assetPath;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(
@@ -548,6 +603,7 @@ class _MainMenuViewState extends State<MainMenuView> {
         final userElo =
             auth.user?.elo ?? model.homeOverviewSnapshot?.user?.elo ?? 0;
         final l = AppLocalizations.of(context)!;
+        final backgroundAsset = _pickBackgroundAssetForViewport(context);
 
         if (!isLoggedIn && !_guestModeInitialized) {
           _guestModeInitialized = true;
@@ -567,7 +623,7 @@ class _MainMenuViewState extends State<MainMenuView> {
             children: [
               Positioned.fill(
                 child: Image.asset(
-                  'assets/images/home/background.png',
+                  backgroundAsset,
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                 ),
@@ -1058,4 +1114,16 @@ class _ImageHomeButton extends StatelessWidget {
     if (onTap == null) return button;
     return GestureDetector(onTap: onTap, child: button);
   }
+}
+
+class _HomeBackgroundVariant {
+  final String assetPath;
+  final double width;
+  final double height;
+
+  const _HomeBackgroundVariant({
+    required this.assetPath,
+    required this.width,
+    required this.height,
+  });
 }
