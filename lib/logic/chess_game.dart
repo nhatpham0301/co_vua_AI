@@ -281,20 +281,6 @@ class ChessGame extends FlameGame with TapCallbacks {
         Paint(),
       );
 
-      // Temporarily disabled: board frame overlay
-      // if (_boardFrameTexture != null) {
-      //   canvas.drawImageRect(
-      //     _boardFrameTexture!,
-      //     Rect.fromLTWH(
-      //       0,
-      //       0,
-      //       _boardFrameTexture!.width.toDouble(),
-      //       _boardFrameTexture!.height.toDouble(),
-      //     ),
-      //     Rect.fromLTWH(0, 0, boardSize, boardSize),
-      //     Paint(),
-      //   );
-      // }
       return;
     }
 

@@ -1,5 +1,6 @@
 import 'package:flame/game.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 
 import '../../../logic/chess_game.dart';
 import '../../../model/app_model.dart';
@@ -26,7 +27,28 @@ class ChessBoardWidget extends StatelessWidget {
         ? 0.0
         : (resolvedBoardSize * 0.024).clamp(6.0, 10.0).toDouble();
 
+    // frame_board.png is 1004×1004 with an asymmetric transparent window:
+    //   top ≈ 5px, left ≈ 7px, right ≈ 6px, bottom decoration ≈ 27px
+    // Transparent content area: 991×972px (not square).
+    // Use separate X/Y scales so all 4 borders are visible and flush with the board.
+    const double frameImgSize = 1004;
+    const double frameBorderTop = 5;
+    const double frameBorderLeft = 7;
+    const double frameBorderRight = 6;
+    const double frameBorderBottom = 27;
+    const double frameContentW =
+        frameImgSize - frameBorderLeft - frameBorderRight; // 991
+    const double frameContentH =
+        frameImgSize - frameBorderTop - frameBorderBottom; // 972
+    final double scaleX = resolvedBoardSize / frameContentW;
+    final double scaleY = resolvedBoardSize / frameContentH;
+    final double frameDrawW = frameImgSize * scaleX;
+    final double frameDrawH = frameImgSize * scaleY;
+    final double frameLeft = -(frameBorderLeft * scaleX);
+    final double frameTop = -(frameBorderTop * scaleY);
+
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         SizedBox(
           width: resolvedBoardSize,
@@ -66,6 +88,19 @@ class ChessBoardWidget extends StatelessWidget {
             ),
           ),
         ),
+        if (!isVideoTheme)
+          Positioned(
+            left: frameLeft,
+            top: frameTop,
+            width: frameDrawW,
+            height: frameDrawH,
+            child: IgnorePointer(
+              child: Image.asset(
+                'assets/images/boards/frame_board.png',
+                fit: BoxFit.fill,
+              ),
+            ),
+          ),
         if (appModel.showNotation)
           SizedBox(
             width: resolvedBoardSize,
