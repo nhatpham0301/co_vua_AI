@@ -9,9 +9,12 @@ import '../../../l10n/app_localizations.dart';
 import '../../../logic/dev_logger.dart';
 import '../../../logic/experimental_api_client.dart';
 import '../../../model/app_model.dart';
+import '../../ai_levels_test_view.dart';
 import '../../chess_view.dart';
 import 'mm_models.dart';
 import 'mm_palette.dart';
+
+enum _StartMode { human, ai }
 
 // ─── Connectivity helper ──────────────────────────────────────────────────────
 Future<bool> _checkOnline() async {
@@ -167,6 +170,26 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
   Future<void> _start(BuildContext context) async {
     if (!mounted) return;
+
+    final startMode = await _showStartModePicker(context);
+    if (startMode == null || !mounted) return;
+
+    final appModel = Provider.of<AppModel>(context, listen: false);
+    final isLoggedIn = appModel.authService.isLoggedIn;
+
+    if (startMode == _StartMode.ai) {
+      if (!isLoggedIn) {
+        await _showLoginRequiredDialog(context);
+        return;
+      }
+      await Navigator.push(
+        context,
+        CupertinoPageRoute(builder: (_) => const AiLevelsTestView()),
+      );
+      widget.onGameFinished();
+      return;
+    }
+
     setState(() => _isStarting = true);
     widget.onStartingChanged?.call(true);
     bool transitionLoadingVisible = false;
@@ -206,26 +229,13 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
     }
 
     try {
-      final appModel = Provider.of<AppModel>(context, listen: false);
-      final isLoggedIn = appModel.authService.isLoggedIn;
       DevLogger.instance.log(
         DevLogCategory.game,
         '[HOME_PLAY] Tap PLAY | login=$isLoggedIn | savedGame=${widget.hasSavedGame}',
       );
 
       if (!isLoggedIn) {
-        final localMode = appModel.playerCount == 2 ? 2 : 1;
-        appModel.setPlayerCount(localMode);
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[HOME_PLAY] Guest mode -> start local game | playerCount=$localMode',
-        );
-        if (!mounted) return;
-        await Navigator.push(
-          context,
-          CupertinoPageRoute(builder: (_) => ChessView(appModel)),
-        );
-        widget.onGameFinished();
+        await _showLoginRequiredDialog(context);
         return;
       }
 
@@ -266,8 +276,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
       bool onlineGameReady = false;
       String? matchedGameId;
-      String createdInviteCode = '';
-      bool createdWaitingRoom = false;
+      bool createdAiFallback = false;
       bool matchmakingDialogVisible = false;
 
       // Connect socket first so client can receive match events immediately.
@@ -378,11 +387,11 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       if (result == MatchResult.timeout) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[HOME_PLAY] Matchmaking timeout -> leave queue and auto-create room',
+          '[HOME_PLAY] Matchmaking timeout -> leave queue and auto-create AI game',
         );
         if (isLoggedIn) {
           try {
-            await showTransitionLoading('Đang tạo bàn đấu...');
+            await showTransitionLoading('Không có đối thủ, đang ghép AI...');
             await _withAuthRetry(
               appModel: appModel,
               action: 'leaveMatchmaking(timeout)',
@@ -393,28 +402,29 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               '[HOME_PLAY] DELETE /api/matchmaking/leave success (timeout)',
             );
 
+            final aiLevel = appModel.onlineAiLevelFromPlayerElo();
             final created = await _withAuthRetry(
               appModel: appModel,
-              action: 'createPvPGame(timeoutFallback)',
-              execute: () => appModel.apiClient.createPvPGame(
+              action: 'createAiGame(timeoutFallback)',
+              execute: () => appModel.apiClient.createAiGame(
+                aiLevel: aiLevel,
+                color: 'white',
                 timeControl: appModel.onlineTimeControl,
-                moveTimeLimit: appModel.moveTimeLimit,
+                moveTimeLimit: 0,
               ),
             );
             final createdGameId = (created['id']?.toString() ?? '').trim();
             if (createdGameId.isNotEmpty) {
               matchedGameId = createdGameId;
-              createdInviteCode =
-                  (created['inviteCode']?.toString() ?? '').trim();
-              createdWaitingRoom = true;
+              createdAiFallback = true;
               DevLogger.instance.log(
                 DevLogCategory.http,
-                '[HOME_PLAY] POST /api/games fallback success | gameId=$createdGameId | inviteCode=$createdInviteCode',
+                '[HOME_PLAY] POST /api/games/ai fallback success | gameId=$createdGameId | aiLevel=$aiLevel',
               );
             } else {
               DevLogger.instance.log(
                 DevLogCategory.http,
-                '[HOME_PLAY] POST /api/games fallback failed: missing game id',
+                '[HOME_PLAY] POST /api/games/ai fallback failed: missing game id',
               );
             }
           } catch (e) {
@@ -446,7 +456,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         }
 
         try {
-          if (createdWaitingRoom) {
+          if (createdAiFallback) {
             await showTransitionLoading('Đang kết nối bàn đấu...');
           }
 
@@ -455,11 +465,10 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
 
           // Hydrate snapshot/profile for board orientation and header info.
           await appModel.fetchOnlineGameSnapshotPreview(gameId);
-          if (createdWaitingRoom) {
-            appModel.currentGameInviteCode =
-                createdInviteCode.isNotEmpty ? createdInviteCode : null;
-            appModel.isWaitingForOpponent = true;
-            appModel.opponentJoined = false;
+          if (createdAiFallback) {
+            appModel.currentGameInviteCode = null;
+            appModel.isWaitingForOpponent = false;
+            appModel.opponentJoined = true;
           } else {
             await appModel.hydrateOpponentProfileFromSnapshot();
             appModel.currentGameInviteCode = null;
@@ -494,8 +503,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         return;
       }
 
-      appModel
-          .setPlayerCount(2); // PvP mode (socket handles moves, no local AI)
+      appModel.setPlayerCount(createdAiFallback ? 1 : 2);
+      appModel.markOnlineVsAiLocalFallbackSession(createdAiFallback);
       if (!mounted) return;
       hideTransitionLoading();
       DevLogger.instance.log(
@@ -523,6 +532,179 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       if (mounted) setState(() => _isStarting = false);
       widget.onStartingChanged?.call(false);
     }
+  }
+
+  Future<void> _showLoginRequiredDialog(BuildContext context) {
+    return showCupertinoDialog<void>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Yêu cầu đăng nhập'),
+        content: const Text('Vui lòng đăng nhập để bắt đầu chế độ online.'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<_StartMode?> _showStartModePicker(BuildContext context) {
+    return showGeneralDialog<_StartMode>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'start_mode_picker',
+      barrierColor: Colors.black.withValues(alpha: 0.72),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, _, __) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 360,
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+              decoration: BoxDecoration(
+                color: bgCard,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: primary.withValues(alpha: 0.45),
+                  width: 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Chọn chế độ bắt đầu',
+                          style: TextStyle(
+                            color: primaryLight,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.black.withValues(alpha: 0.2),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.xmark,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _StartModeActionButton(
+                    label: 'Đánh với người',
+                    onPressed: () => Navigator.of(ctx).pop(_StartMode.human),
+                  ),
+                  const SizedBox(height: 10),
+                  _StartModeActionButton(
+                    label: 'Đánh với máy',
+                    onPressed: () => Navigator.of(ctx).pop(_StartMode.ai),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StartModeActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _StartModeActionButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFD9A14A), Color(0xFF8F5A23)],
+          ),
+          border: Border.all(
+            color: const Color(0xFFF0CA89).withValues(alpha: 0.55),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

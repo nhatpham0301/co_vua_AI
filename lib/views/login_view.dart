@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../model/app_model.dart';
@@ -22,10 +23,50 @@ class _LoginViewState extends State<LoginView> {
 
   bool _isRegister = false;
   bool _obscurePassword = true;
+  bool _rememberLogin = true;
 
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
+
+  static const _kRememberLogin = 'login_remember_me';
+  static const _kSavedEmail = 'login_saved_email';
+  static const _kSavedPassword = 'login_saved_password';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool(_kRememberLogin) ?? true;
+    final savedEmail = prefs.getString(_kSavedEmail) ?? '';
+    final savedPassword = prefs.getString(_kSavedPassword) ?? '';
+
+    if (!mounted) return;
+    setState(() {
+      _rememberLogin = remember;
+      if (remember) {
+        _emailCtrl.text = savedEmail;
+        _passwordCtrl.text = savedPassword;
+      }
+    });
+  }
+
+  Future<void> _persistRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kRememberLogin, _rememberLogin);
+
+    if (_rememberLogin) {
+      await prefs.setString(_kSavedEmail, _emailCtrl.text.trim());
+      await prefs.setString(_kSavedPassword, _passwordCtrl.text);
+    } else {
+      await prefs.remove(_kSavedEmail);
+      await prefs.remove(_kSavedPassword);
+    }
+  }
 
   @override
   void dispose() {
@@ -80,6 +121,7 @@ class _LoginViewState extends State<LoginView> {
       );
       if (!mounted) return;
       if (ok) {
+        await _persistRememberedCredentials();
         Navigator.of(context).pop(true);
       } else {
         _showError(_mapError(model.authService.lastError, l));
@@ -265,6 +307,68 @@ class _LoginViewState extends State<LoginView> {
                           },
                         ),
                         const SizedBox(height: 10),
+                        if (!_isRegister)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 4,
+                              right: 12,
+                              bottom: 6,
+                            ),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () {
+                                setState(() {
+                                  _rememberLogin = !_rememberLogin;
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: Checkbox(
+                                      value: _rememberLogin,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _rememberLogin = value ?? false;
+                                        });
+                                      },
+                                      side: BorderSide(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.7),
+                                      ),
+                                      checkColor: const Color(0xFF4B2B15),
+                                      fillColor:
+                                          WidgetStateProperty.resolveWith(
+                                        (states) {
+                                          if (states.contains(
+                                            WidgetState.selected,
+                                          )) {
+                                            return const Color(0xFFD79D49);
+                                          }
+                                          return Colors.transparent;
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    Localizations.localeOf(context)
+                                                .languageCode ==
+                                            'vi'
+                                        ? 'Ghi nhớ đăng nhập'
+                                        : 'Remember login',
+                                    style: TextStyle(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.82),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         if (!_isRegister)
                           Align(
                             alignment: Alignment.centerRight,

@@ -50,6 +50,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   bool _waitingDialogShown = false;
   bool _postGameFlowHandled = false;
   bool _isRecreatingMatch = false;
+  bool _showPostGameOptions = false;
 
   _ChessViewState(this.appModel);
 
@@ -147,7 +148,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
   Future<void> _startMatchFromCurrentMode({bool showError = true}) async {
     if (_isRecreatingMatch || !mounted) return;
-    setState(() => _isRecreatingMatch = true);
+    setState(() {
+      _isRecreatingMatch = true;
+      _showPostGameOptions = false;
+    });
 
     try {
       final isOnline = appModel.isOnlineGameMode && !appModel.isSpectatorMode;
@@ -158,6 +162,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         _opponentJoinDetected = false;
         _waitingDialogShown = false;
         _postGameFlowHandled = false;
+        _showPostGameOptions = false;
         _isReady = true;
         appModel.timerService.resume();
         if (appModel.isAIsTurn && !appModel.gameOver) {
@@ -232,6 +237,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       _opponentJoinDetected = false;
       _waitingDialogShown = false;
       _postGameFlowHandled = false;
+      _showPostGameOptions = false;
 
       if (appModel.isWaitingForOpponent && !appModel.isSpectatorMode) {
         appModel.timerService.pause();
@@ -300,6 +306,13 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
     // Show waiting dialog if in PvP waiting state
     _checkAndShowWaitingDialog();
+  }
+
+  void _onExitAfterGame() {
+    appModel.exitChessView();
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    }
   }
 
   void _checkAndShowWaitingDialog() {
@@ -414,11 +427,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     );
   }
 
-  bool _canWarmupNextGameDuringAd(AppModel appModel) {
-    if (appModel.isSpectatorMode) return false;
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AppModel>(
@@ -462,14 +470,6 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
             Future.delayed(const Duration(seconds: 1), () async {
               if (!mounted) return;
 
-              if (_canWarmupNextGameDuringAd(appModel)) {
-                DevLogger.instance.log(
-                  DevLogCategory.game,
-                  '[POST_GAME] warmup next game during end-game ad',
-                );
-                await _startMatchFromCurrentMode(showError: false);
-              }
-
               _gameEndAdScheduled = false;
               final shown = await appModel.adService.showGameEndAd(context);
               if (!mounted) return;
@@ -481,40 +481,23 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         } else if (!appModel.gameOver) {
           _wasGameOver = false;
           _postGameFlowHandled = false;
+          _showPostGameOptions = false;
         }
 
         if (appModel.gameOver && !_postGameFlowHandled) {
           _postGameFlowHandled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-
-            final isOnlinePvP = appModel.isOnlineGameMode &&
-                !appModel.shouldRunLocalAiInOnlineVsAi;
-            final opponentLeft = isOnlinePvP &&
-                appModel.gameEndReason == 'abandoned' &&
-                !appModel.isSpectatorMode;
-
-            if (opponentLeft) {
-              // Auto-prepare next round: reset board and continue waiting flow.
-              appModel.newGame(notify: false);
-              _initFlameGame();
-              appModel.isWaitingForOpponent = true;
-              appModel.opponentJoined = false;
-              appModel.timerService.pause();
-              appModel.gameController?.cancelAIMove();
-
-              _opponentJoinDetected = false;
-              _waitingDialogShown = false;
-              _isReady = true;
-              _checkAndShowWaitingDialog();
-              setState(() {});
-              return;
-            }
-
-            // Default behavior after game ends: show ready button for quick restart.
+            // After game ends, always let user choose replay or exit.
             _opponentJoinDetected = false;
             _waitingDialogShown = false;
-            _startReadyCountdown();
+            _readyTimer?.cancel();
+            appModel.timerService.pause();
+            appModel.gameController?.cancelAIMove();
+            setState(() {
+              _isReady = false;
+              _showPostGameOptions = true;
+            });
           });
         }
 
@@ -610,62 +593,131 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              '$_readySeconds',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 50,
-                                fontWeight: FontWeight.w900,
-                                fontFamily: 'Jura',
-                                shadows: [
-                                  Shadow(
-                                    color: Color(0xFFF5E0BC),
-                                    blurRadius: 16,
+                            if (_showPostGameOptions) ...[
+                              GestureDetector(
+                                onTap: _onReadyPressed,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 9,
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 0),
-                            GestureDetector(
-                              onTap: _onReadyPressed,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 28,
-                                  vertical: 9,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(26),
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Color(0xFFD79D49),
-                                      Color(0xFF9A6330),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(26),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFFD79D49),
+                                        Color(0xFF9A6330),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: const Color(0xFFF3CE82)
+                                          .withValues(alpha: 0.55),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.28),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 8),
+                                      ),
                                     ],
                                   ),
-                                  border: Border.all(
-                                    color: const Color(0xFFF3CE82)
-                                        .withValues(alpha: 0.55),
+                                  child: Text(
+                                    l.restartConfirm,
+                                    style: const TextStyle(
+                                      color: Color(0xFF4B2B15),
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.28),
-                                      blurRadius: 14,
-                                      offset: const Offset(0, 8),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              GestureDetector(
+                                onTap: _onExitAfterGame,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(26),
+                                    color: const Color(0xFF3A291F),
+                                    border: Border.all(
+                                      color: const Color(0xFFF3CE82)
+                                          .withValues(alpha: 0.35),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    l.exitBtn,
+                                    style: const TextStyle(
+                                      color: Color(0xFFF2D3A2),
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              Text(
+                                '$_readySeconds',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.w900,
+                                  fontFamily: 'Jura',
+                                  shadows: [
+                                    Shadow(
+                                      color: Color(0xFFF5E0BC),
+                                      blurRadius: 16,
                                     ),
                                   ],
                                 ),
-                                child: const Text(
-                                  'Sẵn sàng',
-                                  style: TextStyle(
-                                    color: Color(0xFF4B2B15),
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
+                              ),
+                              const SizedBox(height: 0),
+                              GestureDetector(
+                                onTap: _onReadyPressed,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(26),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFFD79D49),
+                                        Color(0xFF9A6330),
+                                      ],
+                                    ),
+                                    border: Border.all(
+                                      color: const Color(0xFFF3CE82)
+                                          .withValues(alpha: 0.55),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.28),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Text(
+                                    'Sẵn sàng',
+                                    style: TextStyle(
+                                      color: Color(0xFF4B2B15),
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),

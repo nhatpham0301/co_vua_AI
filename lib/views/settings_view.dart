@@ -2,12 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
-import 'ai_levels_test_view.dart';
 import 'test_game_view.dart';
 import 'chess_view.dart';
 import 'components/main_menu_view/game_options/game_mode_picker.dart';
@@ -381,16 +381,6 @@ class SettingsView extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 10),
                                 RoundedButton(
-                                  'Test AI Levels 1-10',
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (_) => const AiLevelsTestView(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                RoundedButton(
                                   'Xem Test Game',
                                   onPressed: () => Navigator.push(
                                     context,
@@ -514,7 +504,27 @@ class _DevTapTarget extends StatefulWidget {
 
 class _DevTapTargetState extends State<_DevTapTarget> {
   int _taps = 0;
+  String _version = '';
   static const _kRequired = 5;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      setState(() {
+        _version = 'v${info.version}+${info.buildNumber}';
+      });
+    } catch (e) {
+      setState(() {
+        _version = 'v1.0.0+1';
+      });
+    }
+  }
 
   void _onTap() {
     if (DevLogger.instance.devModeEnabled) return;
@@ -536,7 +546,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
       listenable: DevLogger.instance,
       builder: (context, _) {
         if (DevLogger.instance.devModeEnabled) {
-          return _DevModeActiveSection(l: l);
+          return _DevModeActiveSection(l: l, version: _version);
         }
         return _buildVersionTap(l);
       },
@@ -545,6 +555,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
 
   Widget _buildVersionTap(AppLocalizations l) {
     final remaining = _kRequired - _taps;
+    final displayVersion = _version.isNotEmpty ? _version : 'v1.0.0+1';
     return GestureDetector(
       onTap: _onTap,
       behavior: HitTestBehavior.opaque,
@@ -553,7 +564,7 @@ class _DevTapTargetState extends State<_DevTapTarget> {
         child: Column(
           children: [
             Text(
-              'v1.0.2+3',
+              displayVersion,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.15),
                 fontSize: 14,
@@ -580,7 +591,8 @@ class _DevTapTargetState extends State<_DevTapTarget> {
 
 class _DevModeActiveSection extends StatelessWidget {
   final AppLocalizations l;
-  const _DevModeActiveSection({required this.l});
+  final String version;
+  const _DevModeActiveSection({required this.l, required this.version});
 
   @override
   Widget build(BuildContext context) {
@@ -652,7 +664,7 @@ class _DevModeActiveSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'v1.0.2+3',
+          version.isNotEmpty ? version : 'v1.0.0+1',
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.15),
             fontSize: 14,

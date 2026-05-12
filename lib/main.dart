@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
 
 import 'logic/ad_service.dart';
+import 'logic/app_navigator.dart';
 import 'logic/shared_functions.dart';
 import 'model/app_model.dart';
 import 'model/user_preferences.dart';
@@ -84,6 +85,7 @@ class Chess extends StatelessWidget {
         return CupertinoApp(
           debugShowCheckedModeBanner: false,
           title: 'Infinite Chess AI',
+          navigatorKey: appNavigatorKey,
           locale: appModel.locale,
           localizationsDelegates: const [
             AppLocalizations.delegate,

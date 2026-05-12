@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../logic/ad_service.dart';
+import '../logic/app_navigator.dart';
 import '../logic/audio_service.dart';
 import '../logic/auth_service.dart';
 import '../logic/chess_piece.dart';
@@ -135,6 +136,7 @@ class AppModel extends ChangeNotifier {
   bool _endGameAdDisplayed = false;
   bool _onlineVsAiLocalFallbackSession = false;
   bool _spectatorMode = false;
+  bool _handlingGlobalUnauthorized = false;
 
   // Track previous server clock values to detect frozen (non-decrementing) server clocks.
   // Used in _syncClocksIfDrifted to avoid resetting local timer from stale server data.
@@ -270,6 +272,8 @@ class AppModel extends ChangeNotifier {
   }
 
   AppModel() {
+    apiClient.onUnauthorized = _handleGlobalUnauthorized;
+
     // Wire up service callbacks
     prefs.onChanged = () {
       // Re-apply fixed defaults when settings change (only outside game).
@@ -287,6 +291,29 @@ class AppModel extends ChangeNotifier {
 
     prefs.load();
     authService.init();
+  }
+
+  Future<void> _handleGlobalUnauthorized(ApiException error) async {
+    if (_handlingGlobalUnauthorized) return;
+    _handlingGlobalUnauthorized = true;
+
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[AUTH] Global 401 detected -> logout + navigate home',
+    );
+
+    try {
+      await authService.logout();
+    } catch (_) {
+      // Best effort: even if logout API fails, still force local reset + navigation.
+    }
+
+    exitChessView();
+    redirectToHomeOnUnauthorizedOnce();
+
+    Future<void>.delayed(const Duration(milliseconds: 800), () {
+      _handlingGlobalUnauthorized = false;
+    });
   }
 
   // ── Game Lifecycle ──

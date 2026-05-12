@@ -229,7 +229,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
                     ),
                     const Spacer(),
                     const Text(
-                      'AI Level Test',
+                      'Chọn chế độ',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -239,19 +239,6 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
                     const Spacer(),
                     SizedBox(width: 48), // Spacer for alignment
                   ],
-                ),
-                const SizedBox(height: 16),
-                // Description
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    'Chọn một level để bắt đầu test (bạn luôn chơi quân trắng)',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
                 ),
                 const SizedBox(height: 12),
                 // AI Level buttons grid
@@ -377,16 +364,16 @@ class _AiLevelCard extends StatelessWidget {
                         color: Color(0xFFF4D293),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    // const SizedBox(height: 4),
+                    // Text(
+                    //   description,
+                    //   style: TextStyle(
+                    //     fontSize: 12,
+                    //     color: Colors.white.withValues(alpha: 0.5),
+                    //   ),
+                    //   maxLines: 2,
+                    //   overflow: TextOverflow.ellipsis,
+                    // ),
                   ],
                 ),
               ),

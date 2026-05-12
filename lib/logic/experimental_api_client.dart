@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -19,11 +20,16 @@ class ApiException implements Exception {
 }
 
 class ExperimentalApiClient {
-  ExperimentalApiClient({required String baseUrl, this.accessToken})
-      : _baseUrl = _normalizeBaseUrl(baseUrl);
+  ExperimentalApiClient({
+    required String baseUrl,
+    this.accessToken,
+    this.onUnauthorized,
+  }) : _baseUrl = _normalizeBaseUrl(baseUrl);
 
   String _baseUrl;
   String? accessToken;
+  Future<void> Function(ApiException exception)? onUnauthorized;
+  bool _isHandlingUnauthorized = false;
 
   String get baseUrl => _baseUrl;
 
@@ -517,9 +523,11 @@ class ExperimentalApiClient {
     final error = decoded['error'];
     if (error is Map<String, dynamic>) {
       final message = error['message'] as String? ?? 'Request failed';
+      _notifyUnauthorizedIfNeeded(statusCode, message);
       throw ApiException(message, statusCode: statusCode);
     }
 
+    _notifyUnauthorizedIfNeeded(statusCode, 'Request failed');
     throw ApiException('Request failed', statusCode: statusCode);
   }
 
@@ -528,6 +536,7 @@ class ExperimentalApiClient {
     String responseBody,
   ) {
     if (statusCode < 200 || statusCode >= 300) {
+      _notifyUnauthorizedIfNeeded(statusCode, 'Request failed');
       throw ApiException('Request failed', statusCode: statusCode);
     }
 
@@ -543,5 +552,25 @@ class ExperimentalApiClient {
     return trimmed.endsWith('/')
         ? trimmed.substring(0, trimmed.length - 1)
         : trimmed;
+  }
+
+  void _notifyUnauthorizedIfNeeded(int statusCode, String message) {
+    if (statusCode != 401) return;
+    if (_isHandlingUnauthorized) return;
+    final handler = onUnauthorized;
+    if (handler == null) return;
+
+    _isHandlingUnauthorized = true;
+    unawaited(
+      Future<void>(() async {
+        try {
+          await handler(ApiException(message, statusCode: 401));
+        } finally {
+          Future<void>.delayed(const Duration(milliseconds: 800), () {
+            _isHandlingUnauthorized = false;
+          });
+        }
+      }),
+    );
   }
 }
