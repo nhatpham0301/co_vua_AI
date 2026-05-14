@@ -171,17 +171,36 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
   Future<void> _start(BuildContext context) async {
     if (!mounted) return;
 
-    final startMode = await _showStartModePicker(context);
-    if (startMode == null || !mounted) return;
-
     final appModel = Provider.of<AppModel>(context, listen: false);
     final isLoggedIn = appModel.authService.isLoggedIn;
 
-    if (startMode == _StartMode.ai) {
-      if (!isLoggedIn) {
-        await _showLoginRequiredDialog(context);
-        return;
+    // Not logged in → skip mode picker and start a local game immediately.
+    if (!isLoggedIn) {
+      setState(() => _isStarting = true);
+      widget.onStartingChanged?.call(true);
+      try {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[HOME_PLAY] Guest user -> start local game directly',
+        );
+        appModel.setPlayerCount(1);
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+        );
+        widget.onGameFinished();
+      } finally {
+        if (mounted) setState(() => _isStarting = false);
+        widget.onStartingChanged?.call(false);
       }
+      return;
+    }
+
+    final startMode = await _showStartModePicker(context);
+    if (startMode == null || !mounted) return;
+
+    if (startMode == _StartMode.ai) {
       await Navigator.push(
         context,
         CupertinoPageRoute(builder: (_) => const AiLevelsTestView()),
@@ -233,11 +252,6 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
         DevLogCategory.game,
         '[HOME_PLAY] Tap PLAY | login=$isLoggedIn | savedGame=${widget.hasSavedGame}',
       );
-
-      if (!isLoggedIn) {
-        await _showLoginRequiredDialog(context);
-        return;
-      }
 
       final online = await _checkOnline();
       DevLogger.instance.log(
@@ -532,23 +546,6 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       if (mounted) setState(() => _isStarting = false);
       widget.onStartingChanged?.call(false);
     }
-  }
-
-  Future<void> _showLoginRequiredDialog(BuildContext context) {
-    return showCupertinoDialog<void>(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Yêu cầu đăng nhập'),
-        content: const Text('Vui lòng đăng nhập để bắt đầu chế độ online.'),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Đã hiểu'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<_StartMode?> _showStartModePicker(BuildContext context) {
