@@ -137,6 +137,7 @@ class AppModel extends ChangeNotifier {
   bool _onlineVsAiLocalFallbackSession = false;
   bool _spectatorMode = false;
   bool _handlingGlobalUnauthorized = false;
+  bool _clockSyncPaused = false;
 
   // Track previous server clock values to detect frozen (non-decrementing) server clocks.
   // Used in _syncClocksIfDrifted to avoid resetting local timer from stale server data.
@@ -161,6 +162,13 @@ class AppModel extends ChangeNotifier {
       isOnlineGameMode &&
       isOnlineVsAiLocalFallbackSession &&
       enableOnlineVsAiLocalFallback;
+
+  /// Tạm dừng đồng bộ đồng hồ từ server (dùng trong thời gian đếm ngược "Sẵn sàng").
+  /// Ngăn socket game:clock events cập nhật UI khi user chưa nhấn Sẵn sàng.
+  void pauseGameClock() => _clockSyncPaused = true;
+
+  /// Tiếp tục đồng bộ đồng hồ từ server (gọi khi user nhấn Sẵn sàng).
+  void resumeGameClock() => _clockSyncPaused = false;
 
   void _logSpectator(
     String message, {
@@ -412,6 +420,7 @@ class AppModel extends ChangeNotifier {
     GameStateStorage.clearGameState();
     _sessionStartedOnline = false;
     _spectatorMode = false;
+    _clockSyncPaused = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     opponentDisconnected = false;
@@ -437,6 +446,7 @@ class AppModel extends ChangeNotifier {
     timerService.stop();
     _sessionStartedOnline = false;
     _spectatorMode = false;
+    _clockSyncPaused = false;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     _spectatorAwaitClockTimer?.cancel();
@@ -815,6 +825,9 @@ class AppModel extends ChangeNotifier {
   /// Only correct local clock if drifted by more than 2 seconds (prevents oscillation).
   void _handleSocketGameClock(Map<String, dynamic> data) {
     _lastSocketClockAt = DateTime.now();
+    // Trong thời gian đếm ngược "Sẵn sàng", bỏ qua cập nhật đồng hồ từ server.
+    // Tránh hiển thị thời gian đang chạy trong khi user chưa nhấn Sẵn sàng.
+    if (_clockSyncPaused) return;
     if (_spectatorMode) {
       _spectatorAwaitClockTimer?.cancel();
       _spectatorAwaitClockTimer = null;

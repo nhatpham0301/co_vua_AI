@@ -101,6 +101,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     _isReady = false;
 
     appModel.timerService.pause();
+    appModel
+        .pauseGameClock(); // ngăn socket clock events cập nhật UI trong thời gian đợi
     appModel.gameController?.cancelAIMove();
 
     _readyTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -299,6 +301,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     _readyTimer = null;
     setState(() => _isReady = true);
 
+    appModel.resumeGameClock(); // tiếp tục nhận clock events từ server
     appModel.timerService.resume();
     if (appModel.isAIsTurn && !appModel.gameOver) {
       appModel.gameController?.triggerAIMove();
