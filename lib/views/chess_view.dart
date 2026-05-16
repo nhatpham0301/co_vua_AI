@@ -81,12 +81,23 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
             '[SPECTATOR] ChessView init ready immediately (skip countdown/waiting)',
           );
         }
+        // Online AI game: skip countdown — server already started the game.
+        // User should see the board immediately and start playing.
+        final isOnlineAi = appModel.isOnlineGameMode && appModel.playingWithAI;
+        if (isOnlineAi && !appModel.isSpectatorMode) {
+          _isReady = true;
+          appModel.timerService.resume();
+          DevLogger.instance.log(
+            DevLogCategory.game,
+            '[CHESS_VIEW] Online AI game — skip countdown, ready immediately',
+          );
+        }
         // When waiting for opponent, pause timers and show waiting dialog.
         // When not waiting, start the ready countdown immediately.
         if (appModel.isWaitingForOpponent && !appModel.isSpectatorMode) {
           appModel.timerService.pause();
           appModel.gameController?.cancelAIMove();
-        } else if (!appModel.isSpectatorMode) {
+        } else if (!appModel.isSpectatorMode && !isOnlineAi) {
           _startReadyCountdown();
         }
       }
@@ -180,7 +191,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       if (isServerAi) {
         final aiLevel = appModel.onlineGameSnapshot?.aiLevel ??
             appModel.onlineAiLevelFromPlayerElo();
-        final color = appModel.playerSide == Player.player2 ? 'black' : 'white';
+        final color = appModel.nextOnlineAiColor();
         DevLogger.instance.log(
           DevLogCategory.game,
           '[CHESS_VIEW] recreate AI match | aiLevel=$aiLevel | source=${appModel.onlineGameSnapshot?.aiLevel != null ? 'snapshot' : 'elo-fallback'}',
@@ -407,7 +418,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       if (!appModel.gameOver) {
-        appModel.saveGameState();
+        if (!appModel.isSpectatorMode) appModel.saveGameState();
         appModel.timerService.pause();
       }
     } else if (state == AppLifecycleState.resumed) {
@@ -466,7 +477,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
               .addPostFrameCallback((_) => _showPromotionDialog(appModel));
         }
 
-        if (appModel.gameOver && !_wasGameOver && !_gameEndAdScheduled) {
+        if (appModel.gameOver &&
+            !_wasGameOver &&
+            !_gameEndAdScheduled &&
+            !appModel.isSpectatorMode) {
           _wasGameOver = true;
           _gameEndAdScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -487,7 +501,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           _showPostGameOptions = false;
         }
 
-        if (appModel.gameOver && !_postGameFlowHandled) {
+        if (appModel.gameOver &&
+            !_postGameFlowHandled &&
+            !appModel.isSpectatorMode) {
           _postGameFlowHandled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
@@ -504,7 +520,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
           });
         }
 
-        if (appModel.gameOver && appModel.userWon) {
+        if (appModel.gameOver &&
+            appModel.userWon &&
+            !appModel.isSpectatorMode) {
           _confettiController.play();
         } else {
           _confettiController.stop();
@@ -588,141 +606,152 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                     },
                   ),
                 ),
-                if (!_isReady && !widget.isResuming)
+                if (!_isReady &&
+                    !widget.isResuming &&
+                    !appModel.isSpectatorMode)
                   Positioned.fill(
                     child: ColoredBox(
                       color: Colors.black.withValues(alpha: 0.20),
-                      child: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (_showPostGameOptions) ...[
-                              GestureDetector(
-                                onTap: _onReadyPressed,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 9,
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_showPostGameOptions) ...[
+                                  GestureDetector(
+                                    onTap: _onReadyPressed,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 9,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(26),
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFD79D49),
+                                            Color(0xFF9A6330),
+                                          ],
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0xFFF3CE82)
+                                              .withValues(alpha: 0.55),
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.28),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        l.restartConfirm,
+                                        style: const TextStyle(
+                                          color: Color(0xFF4B2B15),
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFFD79D49),
-                                        Color(0xFF9A6330),
+                                ] else ...[
+                                  Text(
+                                    '$_readySeconds',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 50,
+                                      fontWeight: FontWeight.w900,
+                                      fontFamily: 'Jura',
+                                      shadows: [
+                                        Shadow(
+                                          color: Color(0xFFF5E0BC),
+                                          blurRadius: 16,
+                                        ),
                                       ],
                                     ),
-                                    border: Border.all(
-                                      color: const Color(0xFFF3CE82)
-                                          .withValues(alpha: 0.55),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.28),
-                                        blurRadius: 14,
-                                        offset: const Offset(0, 8),
+                                  ),
+                                  const SizedBox(height: 0),
+                                  GestureDetector(
+                                    onTap: _onReadyPressed,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 9,
                                       ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    l.restartConfirm,
-                                    style: const TextStyle(
-                                      color: Color(0xFF4B2B15),
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(26),
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFD79D49),
+                                            Color(0xFF9A6330),
+                                          ],
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0xFFF3CE82)
+                                              .withValues(alpha: 0.55),
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black
+                                                .withValues(alpha: 0.28),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Text(
+                                        'Sẵn sàng',
+                                        style: TextStyle(
+                                          color: Color(0xFF4B2B15),
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              GestureDetector(
-                                onTap: _onExitAfterGame,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    color: const Color(0xFF3A291F),
-                                    border: Border.all(
-                                      color: const Color(0xFFF3CE82)
-                                          .withValues(alpha: 0.35),
+                                ],
+                              ],
+                            ),
+                          ),
+                          // Nút rời bàn — góc trái trên cùng
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            child: SafeArea(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.only(top: 8, left: 12),
+                                child: GestureDetector(
+                                  onTap: _onExitAfterGame,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF3A291F)
+                                          .withValues(alpha: 0.85),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFF3CE82)
+                                            .withValues(alpha: 0.35),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    l.exitBtn,
-                                    style: const TextStyle(
+                                    child: const Icon(
+                                      CupertinoIcons.arrow_left,
                                       color: Color(0xFFF2D3A2),
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
+                                      size: 22,
                                     ),
                                   ),
                                 ),
                               ),
-                            ] else ...[
-                              Text(
-                                '$_readySeconds',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 50,
-                                  fontWeight: FontWeight.w900,
-                                  fontFamily: 'Jura',
-                                  shadows: [
-                                    Shadow(
-                                      color: Color(0xFFF5E0BC),
-                                      blurRadius: 16,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 0),
-                              GestureDetector(
-                                onTap: _onReadyPressed,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 9,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(26),
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFFD79D49),
-                                        Color(0xFF9A6330),
-                                      ],
-                                    ),
-                                    border: Border.all(
-                                      color: const Color(0xFFF3CE82)
-                                          .withValues(alpha: 0.55),
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.28),
-                                        blurRadius: 14,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Text(
-                                    'Sẵn sàng',
-                                    style: TextStyle(
-                                      color: Color(0xFF4B2B15),
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -742,7 +771,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                         top: _kTopBannerSlotHeight + 16,
                         left: 10,
                         child: Builder(builder: (_) {
-                          final profile = appModel.opponentProfile;
+                          final isSpectator = appModel.isSpectatorMode;
+                          final profile = isSpectator
+                              ? appModel.spectatorWhiteProfile
+                              : appModel.opponentProfile;
                           final opponentName = isAI
                               ? l.botLevel(diff)
                               : (profile?['username'] as String?)?.isNotEmpty ==
@@ -750,7 +782,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                   ? profile!['username'] as String
                                   : (!appModel.authService.isLoggedIn
                                       ? l.twoPlayer
-                                      : l.opponent);
+                                      : (isSpectator ? 'White' : l.opponent));
                           final opponentElo = isAI
                               ? botElo
                               : (profile?['elo'] as num?)?.toInt() ?? botElo;
@@ -760,26 +792,33 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                               !appModel.shouldRunLocalAiInOnlineVsAi;
                           final iAmBlack =
                               appModel.playerSide == Player.player2;
-                          // Top widget = opponent.
-                          // In online PvP: if I'm black, opponent is white → player1TimeLeft.
-                          final opponentClock = (isOnlinePvP && iAmBlack)
+                          // Spectator: top = white player = player1TimeLeft
+                          // Normal: top = opponent clock
+                          final opponentClock = isSpectator
                               ? appModel.player1TimeLeft
-                              : appModel.player2TimeLeft;
-                          final opponentActive = isOnlinePvP
-                              ? (appModel.turn != appModel.playerSide &&
+                              : (isOnlinePvP && iAmBlack)
+                                  ? appModel.player1TimeLeft
+                                  : appModel.player2TimeLeft;
+                          final opponentActive = isSpectator
+                              ? (appModel.turn == Player.player1 &&
                                   !appModel.gameOver)
-                              : (appModel.isAIsTurn && !appModel.gameOver);
+                              : isOnlinePvP
+                                  ? (appModel.turn != appModel.playerSide &&
+                                      !appModel.gameOver)
+                                  : (appModel.isAIsTurn && !appModel.gameOver);
                           return MatchCornerProfile(
                             name: opponentName,
                             elo: opponentElo,
                             eloLabel: l.eloLabel(opponentElo),
                             totalTimeLeft: opponentClock,
-                            showTotalTime:
-                                isOnlinePvP || appModel.timeLimit > 0,
+                            showTotalTime: isOnlinePvP ||
+                                appModel.timeLimit > 0 ||
+                                isSpectator,
                             avatarUrl: opponentAvatar,
                             isActive: opponentActive,
                             mirror: false,
-                            moveTimeLimitSeconds: appModel.moveTimeLimit,
+                            moveTimeLimitSeconds:
+                                isSpectator ? 0 : appModel.moveTimeLimit,
                             moveTimeLeft: appModel.moveTimeLeft,
                             onTap: () => _showOpponentProfile(
                                 context, appModel, l, opponentElo),
@@ -789,44 +828,69 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       Positioned(
                         right: 10,
                         bottom: 0,
-                        child: MatchCornerProfile(
-                          name: !appModel.authService.isLoggedIn
-                              ? l.onePlayer
-                              : (appModel.authService.user?.username
-                                          .isNotEmpty ==
+                        child: Builder(builder: (_) {
+                          final isSpectator = appModel.isSpectatorMode;
+                          final isOnlinePvP = appModel.isOnlineGameMode &&
+                              !appModel.shouldRunLocalAiInOnlineVsAi;
+                          // Spectator: bottom = black player
+                          final blackProfile = appModel.spectatorBlackProfile;
+                          final bottomName = isSpectator
+                              ? ((blackProfile?['username'] as String?)
+                                          ?.isNotEmpty ==
                                       true
-                                  ? appModel.authService.user!.username
-                                  : l.youPlayer),
-                          elo: appModel.authService.user?.elo ?? 1200,
-                          eloLabel: l
-                              .eloLabel(appModel.authService.user?.elo ?? 1200),
-                          // Bottom widget = local player.
-                          // In online PvP: if I'm black, my clock is player2TimeLeft.
-                          totalTimeLeft: (appModel.isOnlineGameMode &&
-                                  !appModel.shouldRunLocalAiInOnlineVsAi &&
+                                  ? blackProfile!['username'] as String
+                                  : 'Black')
+                              : (!appModel.authService.isLoggedIn
+                                  ? l.onePlayer
+                                  : (appModel.authService.user?.username
+                                              .isNotEmpty ==
+                                          true
+                                      ? appModel.authService.user!.username
+                                      : l.youPlayer));
+                          final bottomElo = isSpectator
+                              ? ((blackProfile?['elo'] as num?)?.toInt() ??
+                                  1200)
+                              : (appModel.authService.user?.elo ?? 1200);
+                          final bottomAvatar = isSpectator
+                              ? (blackProfile?['avatarUrl'] as String?)
+                              : appModel.authService.user?.avatarUrl;
+                          // Spectator: bottom = black = player2TimeLeft
+                          final bottomClock = (isOnlinePvP &&
                                   appModel.playerSide == Player.player2)
                               ? appModel.player2TimeLeft
-                              : appModel.player1TimeLeft,
-                          showTotalTime: (appModel.isOnlineGameMode &&
-                                  !appModel.shouldRunLocalAiInOnlineVsAi) ||
-                              appModel.timeLimit > 0,
-                          avatarUrl: appModel.authService.user?.avatarUrl,
-                          isActive: (appModel.isOnlineGameMode &&
-                                  !appModel.shouldRunLocalAiInOnlineVsAi)
-                              ? (appModel.turn == appModel.playerSide &&
+                              : appModel.player1TimeLeft;
+                          final bottomActive = isSpectator
+                              ? (appModel.turn == Player.player2 &&
                                   !appModel.gameOver)
-                              : (!appModel.isAIsTurn && !appModel.gameOver),
-                          mirror: true,
-                          moveTimeLimitSeconds: appModel.moveTimeLimit,
-                          moveTimeLeft: appModel.moveTimeLeft,
-                          dockToMenu: true,
-                          onTap: () => showCapturedPiecesSheet(
-                            context,
-                            appModel,
-                            Player.player1,
-                            l.capturedYourPieces,
-                          ),
-                        ),
+                              : isOnlinePvP
+                                  ? (appModel.turn == appModel.playerSide &&
+                                      !appModel.gameOver)
+                                  : (!appModel.isAIsTurn && !appModel.gameOver);
+                          return MatchCornerProfile(
+                            name: bottomName,
+                            elo: bottomElo,
+                            eloLabel: l.eloLabel(bottomElo),
+                            totalTimeLeft: isSpectator
+                                ? appModel.player2TimeLeft
+                                : bottomClock,
+                            showTotalTime: isOnlinePvP ||
+                                appModel.timeLimit > 0 ||
+                                isSpectator,
+                            avatarUrl: bottomAvatar,
+                            isActive: bottomActive,
+                            mirror: true,
+                            moveTimeLimitSeconds:
+                                isSpectator ? 0 : appModel.moveTimeLimit,
+                            moveTimeLeft: appModel.moveTimeLeft,
+                            dockToMenu: true,
+                            onTap: () => showCapturedPiecesSheet(
+                              context,
+                              appModel,
+                              Player.player1,
+                              l.capturedYourPieces,
+                            ),
+                          );
+                        }),
                       ),
                     ],
                   ),

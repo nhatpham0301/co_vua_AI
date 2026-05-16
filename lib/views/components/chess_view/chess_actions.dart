@@ -66,6 +66,7 @@ class ActionButtonsPanel extends StatelessWidget {
   Future<void> _showQuickMenu(BuildContext context) async {
     final l = AppLocalizations.of(context)!;
     final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
+    final isSpectator = appModel.isSpectatorMode;
 
     await showGeneralDialog<void>(
       context: context,
@@ -118,14 +119,15 @@ class ActionButtonsPanel extends StatelessWidget {
                           }
                         },
                       ),
-                      _MenuItem(
-                        icon: Icons.refresh_rounded,
-                        label: l.newGameTitle,
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          _showRestartDialog(context, l);
-                        },
-                      ),
+                      if (!isSpectator)
+                        _MenuItem(
+                          icon: Icons.refresh_rounded,
+                          label: l.newGameTitle,
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            _showRestartDialog(context, l);
+                          },
+                        ),
                       if (showUndoRedo)
                         _MenuItem(
                           icon: Icons.undo_rounded,

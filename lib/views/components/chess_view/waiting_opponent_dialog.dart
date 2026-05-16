@@ -116,7 +116,7 @@ class _WaitingOpponentDialogState extends State<WaitingOpponentDialog> {
         action: 'createAiGame(timeoutFallback)',
         execute: () => appModel.apiClient.createAiGame(
           aiLevel: aiLevel,
-          color: appModel.selectedSide.index == 1 ? 'black' : 'white',
+          color: appModel.nextOnlineAiColor(),
           timeControl: 'rapid_15',
           moveTimeLimit: 0,
         ),

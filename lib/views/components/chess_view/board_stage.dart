@@ -118,6 +118,7 @@ class _TurnBar extends StatelessWidget {
           Player turn,
           bool opponentDisconnected,
           String? gameEndReason,
+          String? onlineWinner,
         })>(
       selector: (_, model) => (
         isAI: model.isAIsTurn,
@@ -137,6 +138,7 @@ class _TurnBar extends StatelessWidget {
         turn: model.turn,
         opponentDisconnected: model.opponentDisconnected,
         gameEndReason: model.gameEndReason,
+        onlineWinner: model.onlineWinner,
       ),
       builder: (context, state, __) {
         final l = AppLocalizations.of(context)!;
@@ -149,6 +151,19 @@ class _TurnBar extends StatelessWidget {
           if (state.draw) {
             label = l.stalemate;
             dotColor = Colors.orangeAccent;
+          } else if (state.isSpectator) {
+            // Spectator: show who actually won, not "Bạn thắng/thua"
+            final langCode = Localizations.localeOf(context).languageCode;
+            if (state.onlineWinner == 'white') {
+              label = langCode == 'vi' ? 'Trắng thắng' : 'White wins';
+              dotColor = Colors.white;
+            } else if (state.onlineWinner == 'black') {
+              label = langCode == 'vi' ? 'Đen thắng' : 'Black wins';
+              dotColor = Colors.grey.shade400;
+            } else {
+              label = l.stalemate;
+              dotColor = Colors.orangeAccent;
+            }
           } else if (state.isOnlinePvP &&
               (state.gameEndReason == 'abandoned' ||
                   state.gameEndReason == 'resigned')) {

@@ -50,6 +50,12 @@ class AppModel extends ChangeNotifier {
   Player selectedSide = Player.player1;
   Player playerSide = Player.player1;
 
+  /// Lưu side của ván vừa xong để luân phiên ở ván tiếp theo (offline/AI).
+  Player _lastOfflinePlayerSide = Player.player1;
+
+  /// Màu của ván online AI cuối — để luân phiên trắng/đen tự động.
+  String _lastOnlineAiColor = 'black'; // first call returns 'white'
+
   // ── Services ──
   final UserPreferences prefs = UserPreferences();
   final AudioService audio = AudioService();
@@ -128,6 +134,8 @@ class AppModel extends ChangeNotifier {
   bool userWon = false;
   bool opponentDisconnected = false;
   String? gameEndReason; // e.g. 'checkmate', 'timeout', 'abandoned', 'resigned'
+  String?
+      onlineWinner; // 'white', 'black', or null (draw) — set on game:end for spectator display
   Player turn = Player.player1;
   List<MoveMeta> moveMetaList = [];
   List<ChessPieceType> capturedWhite = [];
@@ -170,6 +178,13 @@ class AppModel extends ChangeNotifier {
   /// Tiếp tục đồng bộ đồng hồ từ server (gọi khi user nhấn Sẵn sàng).
   void resumeGameClock() => _clockSyncPaused = false;
 
+  /// Trả về màu (white/black) cho ván online AI kế tiếp, tự động luân phiên.
+
+  String nextOnlineAiColor() {
+    _lastOnlineAiColor = _lastOnlineAiColor == 'white' ? 'black' : 'white';
+    return _lastOnlineAiColor;
+  }
+
   void _logSpectator(
     String message, {
     DevLogCategory category = DevLogCategory.game,
@@ -186,9 +201,17 @@ class AppModel extends ChangeNotifier {
   /// Profile công khai của đối thủ trong ván online (null nếu chưa fetch hoặc là AI game).
   Map<String, dynamic>? opponentProfile;
 
+  /// Profile của người chơi trắng trong spectator mode.
+  Map<String, dynamic>? spectatorWhiteProfile;
+
+  /// Profile của người chơi đen trong spectator mode.
+  Map<String, dynamic>? spectatorBlackProfile;
+
   /// Xóa profile đối thủ (gọi khi thoát ván).
   void clearOpponentProfile() {
     opponentProfile = null;
+    spectatorWhiteProfile = null;
+    spectatorBlackProfile = null;
   }
 
   /// ID của đối thủ trong ván online (null nếu chưa có hoặc là AI game).
@@ -224,8 +247,34 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Đồng bộ snapshot ngay từ response join để UI có đủ whiteId/blackId lập tức.
+  /// Đồng thời set playerSide ngay từ snapshot (trước khi socket game:state đến)
+  /// để board render đúng màu ngay khi vào ChessView.
   void applyJoinGameResponse(Map<String, dynamic> joinedJson) {
     onlineGameSnapshot = OnlineGameSnapshot.fromJson(joinedJson);
+    if (!_spectatorMode) {
+      // For AI games: use aiColor field (always present) to determine user's side.
+      // aiColor = AI's color → user is the OPPOSITE.
+      // This is more reliable than whiteId/blackId because the AI slot has no user ID (null).
+      final aiColor = joinedJson['aiColor'] as String?;
+      if (aiColor != null) {
+        playerSide = aiColor == 'white' ? Player.player2 : Player.player1;
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[APP_MODEL] applyJoinGameResponse: aiColor=$aiColor → playerSide=${playerSide.name}',
+        );
+      } else {
+        // PvP game: resolve side from whiteId/blackId vs my user ID.
+        final myId = authService.user?.id.trim() ?? '';
+        final snap = onlineGameSnapshot!;
+        if (myId.isNotEmpty) {
+          if (snap.whiteId?.trim() == myId) {
+            playerSide = Player.player1;
+          } else if (snap.blackId?.trim() == myId) {
+            playerSide = Player.player2;
+          }
+        }
+      }
+    }
     notifyListeners();
   }
 
@@ -235,6 +284,18 @@ class AppModel extends ChangeNotifier {
     final snap = onlineGameSnapshot;
     if (snap == null || snap.isAiGame) {
       opponentProfile = null;
+      notifyListeners();
+      return;
+    }
+
+    // Spectator mode: fetch cả white và black profile.
+    if (_spectatorMode) {
+      await Future.wait([
+        _fetchProfileInto(
+            snap.whiteId, (p) => spectatorWhiteProfile = p, 'white'),
+        _fetchProfileInto(
+            snap.blackId, (p) => spectatorBlackProfile = p, 'black'),
+      ]);
       notifyListeners();
       return;
     }
@@ -260,6 +321,27 @@ class AppModel extends ChangeNotifier {
         DevLogCategory.http,
         '[PROFILE] fetch opponent failed | opponentId=$opponentId | error=$e',
       );
+    }
+  }
+
+  Future<void> _fetchProfileInto(
+    String? userId,
+    void Function(Map<String, dynamic>?) setter,
+    String role,
+  ) async {
+    if (userId == null || userId.trim().isEmpty) {
+      setter(null);
+      return;
+    }
+    try {
+      final profile = await apiClient.fetchUserProfile(userId.trim());
+      setter(profile);
+    } catch (e) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[PROFILE] fetch spectator $role profile failed | userId=$userId | error=$e',
+      );
+      setter(null);
     }
   }
 
@@ -339,6 +421,7 @@ class AppModel extends ChangeNotifier {
     clearServerCastlingVisual(notify: false);
     opponentDisconnected = false;
     gameEndReason = null;
+    onlineWinner = null;
     _endGameAdDisplayed = false;
     _prevServerWhiteSec = null;
     _prevServerBlackSec = null;
@@ -375,8 +458,12 @@ class AppModel extends ChangeNotifier {
             ? Player.player1
             : Player.player2;
       } else {
-        playerSide = selectedSide;
+        // Tự động luân phiên: đảo side so với ván trước.
+        playerSide = _lastOfflinePlayerSide == Player.player1
+            ? Player.player2
+            : Player.player1;
       }
+      _lastOfflinePlayerSide = playerSide;
       // In a local 2-player game, rotation is always relative to player1 at bottom.
       if (!playingWithAI) {
         playerSide = Player.player1;
@@ -622,7 +709,12 @@ class AppModel extends ChangeNotifier {
     _logSpectator(
       'game:state received | status=$status | hasPlayers=${playersObj != null} | hasFen=${(data['fen'] as String?)?.isNotEmpty == true} | hasClocks=${data['clocks'] is Map}',
     );
-    if (playersObj != null) {
+    // For AI games: playerSide was already set from aiColor in applyJoinGameResponse.
+    // BE has a known bug where game:state players.white.id = user's ID even when user
+    // is black — so we skip socket-based side detection for AI games to avoid override.
+    // For PvP games: rely on socket players field as usual.
+    final isAiGame = onlineGameSnapshot?.isAiGame == true;
+    if (playersObj != null && !isAiGame) {
       final myId = authService.user?.id.trim() ?? '';
       final whitePlayer = playersObj['white'] as Map<String, dynamic>?;
       final blackPlayer = playersObj['black'] as Map<String, dynamic>?;
@@ -639,6 +731,9 @@ class AppModel extends ChangeNotifier {
               '[SOCKET] game:state: I am BLACK | blackId=$blackId');
         }
       }
+    } else if (isAiGame) {
+      DevLogger.instance.log(DevLogCategory.game,
+          '[SOCKET] game:state: AI game — skip player detection, trust applyJoinGameResponse | playerSide=${playerSide.name}');
     }
 
     // ── Sync board + turn from authoritative server state ───────────────────
@@ -960,6 +1055,8 @@ class AppModel extends ChangeNotifier {
 
     // Store reason so UI can show contextual message (e.g. "Opponent left")
     gameEndReason = status != 'unknown' ? status : reason;
+    // Store actual winner for spectator display (white/black/null=draw)
+    onlineWinner = (winner == 'white' || winner == 'black') ? winner : null;
     // Clear disconnected flag — game is now officially over
     opponentDisconnected = false;
 

@@ -129,9 +129,10 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
     setState(() => _isLoading = true);
 
     try {
+      final color = appModel.nextOnlineAiColor();
       DevLogger.instance.log(
         DevLogCategory.game,
-        '[AI_TEST] Starting game with AI Level $level, player color: white',
+        '[AI_TEST] Starting game with AI Level $level, player color: $color',
       );
 
       final gameData = await _withAuthRetry(
@@ -139,7 +140,7 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
         action: 'createAiGame',
         execute: () => appModel.apiClient.createAiGame(
           aiLevel: level,
-          color: 'white',
+          color: color,
           timeControl: 'rapid_15',
           moveTimeLimit: 0,
         ),
@@ -160,6 +161,8 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
       }
 
       // Apply the game snapshot and start online tracking
+      appModel.setPlayerCount(1);
+      appModel.markOnlineVsAiLocalFallbackSession(false);
       appModel.applyJoinGameResponse(gameData);
       await appModel.startOnlineEventTracking(gameId);
 

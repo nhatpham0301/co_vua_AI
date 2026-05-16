@@ -422,7 +422,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
               action: 'createAiGame(timeoutFallback)',
               execute: () => appModel.apiClient.createAiGame(
                 aiLevel: aiLevel,
-                color: 'white',
+                color: appModel.nextOnlineAiColor(),
                 timeControl: appModel.onlineTimeControl,
                 moveTimeLimit: 0,
               ),
