@@ -198,6 +198,10 @@ class AppModel extends ChangeNotifier {
   bool isWaitingForOpponent = false;
   bool opponentJoined = false;
 
+  /// True khi màn hình countdown chưa xong — người dùng chưa bấm Sẵn sàng.
+  /// Game engine đọc cờ này để chặn input trong lúc chờ.
+  bool isInputLocked = false;
+
   /// Profile công khai của đối thủ trong ván online (null nếu chưa fetch hoặc là AI game).
   Map<String, dynamic>? opponentProfile;
 
@@ -482,8 +486,9 @@ class AppModel extends ChangeNotifier {
     // Online PvP: local timer runs for smooth display; server game:clock events
     // sync/correct values every second. Game end is driven by game:end socket event.
 
-    // Trigger AI move if it's AI's turn natively for standard games
-    if (isAIsTurn && !gameOver) {
+    // Trigger AI move if it's AI's turn natively for standard games.
+    // Skip if input is locked (countdown screen — View will trigger after Ready).
+    if (isAIsTurn && !gameOver && !isInputLocked) {
       gameController!.triggerAIMove();
     }
 

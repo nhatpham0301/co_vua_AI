@@ -9,23 +9,14 @@ import '../../../model/app_model.dart';
 import '../../../model/player.dart';
 import '../shared/app_dialog.dart';
 
-void showExitDialog(BuildContext context) {
+void showExitDialog(BuildContext context, {VoidCallback? onCancel}) {
   final l = AppLocalizations.of(context)!;
   final appModel = context.read<AppModel>();
 
   showAppDialog<void>(
     context: context,
     title: l.leaveGameTitle,
-    // message: l.leaveGameSubtitle,
     actions: [
-      // AppDialogAction(
-      //   label: l.saveAndExit,
-      //   isPrimary: true,
-      //   onPressed: () {
-      //     appModel.saveAndExitChessView();
-      //     Navigator.of(context).pop();
-      //   },
-      // ),
       AppDialogAction(
         label: l.exit,
         isDestructive: true,
@@ -34,7 +25,7 @@ void showExitDialog(BuildContext context) {
           Navigator.of(context).pop();
         },
       ),
-      AppDialogAction(label: l.cancel),
+      AppDialogAction(label: l.cancel, onPressed: onCancel),
     ],
   );
 }

@@ -27,11 +27,13 @@ class LiveMatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     final previewAsset = _kPreviewAssets[previewIndex % _kPreviewAssets.length];
+    final cardHeight = isTablet ? 150.0 : 132.0;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: EdgeInsets.symmetric(horizontal: isTablet ? 4 : 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         image: DecorationImage(
@@ -58,7 +60,7 @@ class LiveMatchCard extends StatelessWidget {
           child: Column(
             children: [
               SizedBox(
-                height: 132,
+                height: cardHeight,
                 child: Stack(
                   children: [
                     Row(

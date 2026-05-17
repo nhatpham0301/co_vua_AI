@@ -15,9 +15,11 @@ import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
 import 'components/settings_view/language_picker.dart';
 import 'components/settings_view/toggles.dart';
+import 'components/shared/adaptive_width.dart';
 import 'components/shared/app_dialog.dart';
 import 'components/shared/bottom_padding.dart';
 import 'components/shared/rounded_button.dart';
+import 'delete_account_view.dart';
 import 'developer_view.dart';
 
 class SettingsView extends StatelessWidget {
@@ -329,103 +331,127 @@ class SettingsView extends StatelessWidget {
           ),
           const BoardBackground(),
           const CornerKnots(),
-          Padding(
-            padding: const EdgeInsets.all(30),
-            child: Column(
-              children: [
-                SizedBox(height: MediaQuery.of(context).padding.top),
-                Row(
-                  children: [
-                    _TopActionButton(
-                      icon: CupertinoIcons.back,
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    const Spacer(),
-                    Consumer<AppModel>(
-                      builder: (context, appModel, child) => _TopActionButton(
-                        icon: Icons.settings_backup_restore_rounded,
-                        onTap: () => _showResetConfirmation(context, appModel),
+          AdaptiveWidth(
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Column(
+                children: [
+                  SizedBox(height: MediaQuery.of(context).padding.top),
+                  Row(
+                    children: [
+                      _TopActionButton(
+                        icon: CupertinoIcons.back,
+                        onTap: () => Navigator.pop(context),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: CupertinoScrollbar(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
-                      physics: const ClampingScrollPhysics(),
-                      children: [
-                        const LanguagePicker(),
-                        const SizedBox(height: 10),
-                        Consumer<AppModel>(
-                          builder: (context, appModel, child) {
-                            if (appModel.authService.isLoggedIn) {
-                              return const SizedBox.shrink();
-                            }
-                            return _GuestGameModeSection(appModel: appModel);
-                          },
+                      const Spacer(),
+                      Consumer<AppModel>(
+                        builder: (context, appModel, child) => _TopActionButton(
+                          icon: Icons.settings_backup_restore_rounded,
+                          onTap: () =>
+                              _showResetConfirmation(context, appModel),
                         ),
-                        const SizedBox(height: 10),
-                        Consumer<AppModel>(
-                          builder: (context, appModel, child) {
-                            if (!appModel.authService.isLoggedIn) {
-                              return const SizedBox.shrink();
-                            }
-                            return Column(
-                              children: [
-                                RoundedButton(
-                                  'Nhập mã vào bàn',
-                                  onPressed: () =>
-                                      _showJoinCodeDialog(context, appModel),
-                                ),
-                                const SizedBox(height: 10),
-                                RoundedButton(
-                                  'Xem Test Game',
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    CupertinoPageRoute(
-                                      builder: (_) => const TestGameView(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: CupertinoScrollbar(
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        physics: const ClampingScrollPhysics(),
+                        children: [
+                          const LanguagePicker(),
+                          const SizedBox(height: 10),
+                          Consumer<AppModel>(
+                            builder: (context, appModel, child) {
+                              if (appModel.authService.isLoggedIn) {
+                                return const SizedBox.shrink();
+                              }
+                              return _GuestGameModeSection(appModel: appModel);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          Consumer<AppModel>(
+                            builder: (context, appModel, child) {
+                              if (!appModel.authService.isLoggedIn) {
+                                return const SizedBox.shrink();
+                              }
+                              return Column(
+                                children: [
+                                  RoundedButton(
+                                    'Nhập mã vào bàn',
+                                    onPressed: () =>
+                                        _showJoinCodeDialog(context, appModel),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  RoundedButton(
+                                    'Xem Test Game',
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      CupertinoPageRoute(
+                                        builder: (_) => const TestGameView(),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                              ],
-                            );
-                          },
-                        ),
-                        Consumer<AppModel>(
-                          builder: (context, appModel, child) =>
-                              Toggles(appModel),
-                        ),
-                      ],
+                                  const SizedBox(height: 10),
+                                ],
+                              );
+                            },
+                          ),
+                          Consumer<AppModel>(
+                            builder: (context, appModel, child) =>
+                                Toggles(appModel),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 20),
-                Consumer<AppModel>(
-                  builder: (context, appModel, _) {
-                    final isLoggedIn = appModel.authService.isLoggedIn;
-                    if (!isLoggedIn) return const SizedBox.shrink();
-                    return Column(
-                      children: [
-                        RoundedButton(
-                          l.logoutButton,
-                          onPressed: () async {
-                            await appModel.authService.logout();
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    );
-                  },
-                ),
-                const _DevTapTarget(),
-                BottomPadding(),
-              ],
+                  SizedBox(height: 20),
+                  Consumer<AppModel>(
+                    builder: (context, appModel, _) {
+                      final isLoggedIn = appModel.authService.isLoggedIn;
+                      if (!isLoggedIn) return const SizedBox.shrink();
+                      return Column(
+                        children: [
+                          RoundedButton(
+                            l.logoutButton,
+                            onPressed: () async {
+                              await appModel.authService.logout();
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: CupertinoButton(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              onPressed: () => Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  builder: (_) => const DeleteAccountView(),
+                                ),
+                              ),
+                              child: Text(
+                                'Xóa tài khoản',
+                                style: TextStyle(
+                                  color: Colors.red.shade400,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      );
+                    },
+                  ),
+                  const _DevTapTarget(),
+                  BottomPadding(),
+                ],
+              ),
             ),
           ),
         ],

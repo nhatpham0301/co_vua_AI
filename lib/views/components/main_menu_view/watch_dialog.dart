@@ -17,10 +17,24 @@ class WatchMatchesDialogContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final isTablet = media.size.shortestSide >= 600;
+
+    // background_view_match.png is 1080×1920 → 9:16 portrait ratio.
+    // On tablet we fill most of the screen height and derive width from the
+    // image's aspect ratio so the decorative frame never looks distorted.
+    final availableH =
+        media.size.height - media.padding.top - media.padding.bottom - 36;
+    final tabletW = (availableH * 9 / 16).clamp(360.0, 560.0);
+
     return SafeArea(
       child: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 640, maxHeight: 860),
+          width: isTablet ? tabletW : null,
+          height: isTablet ? availableH : null,
+          constraints: isTablet
+              ? null
+              : const BoxConstraints(maxWidth: 640, maxHeight: 860),
           margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
@@ -41,7 +55,7 @@ class WatchMatchesDialogContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: Column(
               children: [
-                const SizedBox(height: 100),
+                SizedBox(height: isTablet ? 185 : 100),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24),
                   child: _WatchFilterBar(),

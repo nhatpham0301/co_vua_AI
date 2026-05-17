@@ -1,168 +1,167 @@
-# Store Listing Content - Chess AI
+# Nội dung Store Listing — Chess AI
 
-Tai lieu nay tong hop noi dung de dang len store cho ca Android (Google Play) va iOS (App Store Connect).
+Tài liệu này tổng hợp nội dung để đăng lên store cho cả Android (Google Play) và iOS (App Store Connect).
 
-Luu y quan trong:
+**Lưu ý quan trọng:**
 
-- Can kiem tra lai tung muc theo tinh nang thuc te truoc khi submit.
-- Khong khai bao sai ve du lieu nguoi dung, quyen truy cap, va tinh nang thanh toan.
-- Neu co thay doi tinh nang (ads, login, online match), phai cap nhat Data Safety va Privacy.
+- Cần kiểm tra lại từng mục theo tính năng thực tế trước khi submit.
+- Không khai báo sai về dữ liệu người dùng, quyền truy cập, và tính năng thanh toán.
+- Nếu có thay đổi tính năng (ads, login, online match), phải cập nhật Data Safety và Privacy.
 
-## 1. Thong tin chung
+## 1. Thông tin chung
 
-- App Name: Chess AI
-- Android Package Name: com.azentra.chessai
-- iOS Bundle ID: com.azentra.chessai
-- Category goi y:
+- **App Name**: Chess AI
+- **Android Package Name**: com.azentra.chessai
+- **iOS Bundle ID**: com.azentra.chessai
+- **Danh mục gợi ý**:
   - Android: Board / Strategy
   - iOS: Games > Board
-- Support email: support@azentra.com
-- Privacy Policy URL: https://your-domain.com/privacy
-- Terms of Use URL (neu co): https://your-domain.com/terms
+- **Email hỗ trợ**: trochoigiaitri11@gmail.com
+- **Privacy Policy URL**: https://giaitri.cloud/privacy
+- **Terms of Use URL** (nếu có): https://giaitri.cloud/terms
 
 ## 2. Google Play (Android)
 
-### 2.1 App title (toi da 30 ky tu)
+### 2.1 Tiêu đề ứng dụng (tối đa 30 ký tự)
 
 Chess AI
 
-### 2.2 Short description (toi da 80 ky tu)
+### 2.2 Mô tả ngắn (tối đa 80 ký tự)
 
-Choi co vua voi AI thong minh, dau online va leo hang moi ngay.
+Chơi cờ vua với AI thông minh, đấu online và leo hạng mỗi ngày.
 
-### 2.3 Full description (toi da 4000 ky tu)
+### 2.3 Mô tả đầy đủ (tối đa 4000 ký tự)
 
-Chess AI la ung dung co vua day du, toi uu cho nguoi choi moi den nang cao.
+Chess AI là ứng dụng cờ vua đầy đủ tính năng, tối ưu cho người chơi từ mới bắt đầu đến nâng cao.
 
-Tinh nang noi bat:
+Tính năng nổi bật:
 
-- Dau voi AI nhieu cap do, phu hop tu nguoi moi bat dau den nguoi choi co kinh nghiem.
-- Dau online voi nguoi choi khac.
-- He thong tim tran co fallback thong minh de ban luon co tran de choi.
-- Ho tro bo co da dang, giao dien than thien va de su dung.
-- Co che Undo/Redo de hoc nuoc di va cai thien ky nang.
-- Co cai dat thoi gian van dau de luyen tap theo phong cach rieng.
+- Đấu với AI nhiều cấp độ, phù hợp từ người mới đến người chơi có kinh nghiệm.
+- Đấu online với người chơi khác trên toàn thế giới.
+- Hệ thống tìm trận có fallback thông minh để bạn luôn có trận để chơi.
+- Hỗ trợ bộ cờ đa dạng, giao diện thân thiện và dễ sử dụng.
+- Cơ chế Undo/Redo để học nước đi và cải thiện kỹ năng.
+- Có cài đặt thời gian ván đấu để luyện tập theo phong cách riêng.
 
-Voi Chess AI, ban co the:
+Với Chess AI, bạn có thể:
 
-- Ren luyen tu duy chien thuat moi ngay.
-- Thu suc voi nhieu muc do kho AI.
-- Choi nhanh bat cu luc nao tren dien thoai.
+- Rèn luyện tư duy chiến thuật mỗi ngày.
+- Thử sức với nhiều mức độ khó AI.
+- Chơi nhanh bất cứ lúc nào trên điện thoại.
 
-Chung toi lien tuc cap nhat de nang cao hieu nang, cai tien trai nghiem, va bo sung tinh nang moi.
-Neu ban co gop y, hay lien he qua email ho tro de chung toi phuc vu tot hon.
+Chúng tôi liên tục cập nhật để nâng cao hiệu năng, cải tiến trải nghiệm, và bổ sung tính năng mới.
+Nếu bạn có góp ý, hãy liên hệ qua email hỗ trợ để chúng tôi phục vụ tốt hơn.
 
-### 2.4 Release notes (What is new)
+### 2.4 Ghi chú phát hành (What's new)
 
-Phien ban 1.0.0:
+Phiên bản 1.0.0:
 
-- Cai thien luong choi va toi uu hieu nang.
-- Bo sung lua chon bat dau tran: dau voi nguoi hoac dau voi may.
-- Nang cap giao dien va trai nghiem nguoi dung.
-- Sua mot so loi nho de ung dung on dinh hon.
+- Cải thiện luồng chơi và tối ưu hiệu năng.
+- Bổ sung lựa chọn bắt đầu trận: đấu với người hoặc đấu với máy.
+- Nâng cấp giao diện và trải nghiệm người dùng.
+- Sửa một số lỗi nhỏ để ứng dụng ổn định hơn.
 
-### 2.5 Keywords / Search tags (noi bo)
+### 2.5 Từ khoá / Search tags (nội bộ)
 
-co vua, chess, chess ai, board game, minimax, online chess, danh co, game tri tue
+cờ vua, chess, chess ai, board game, minimax, online chess, đánh cờ, game trí tuệ
 
-### 2.6 Data Safety checklist (can xac minh lai 100%)
+### 2.6 Danh sách kiểm tra Data Safety (cần xác minh lại 100%)
 
-Can danh dau chinh xac theo implementation hien tai:
+Cần đánh dấu chính xác theo implementation hiện tại:
 
-- Co thu thap du lieu ca nhan khong?
-- Co chia se du lieu voi ben thu ba khong?
-- Co ma hoa du lieu khi truyen khong?
-- Co cho nguoi dung yeu cau xoa tai khoan/du lieu khong?
+- Có thu thập dữ liệu cá nhân không? ✅ Có (xem tài liệu Privacy Policy)
+- Có chia sẻ dữ liệu với bên thứ ba không? ✅ Có (Google AdMob)
+- Có mã hoá dữ liệu khi truyền không? ✅ Có (HTTPS / WSS)
+- Có cho người dùng yêu cầu xoá tài khoản/dữ liệu không? ✅ Có (qua email và trong app)
 
-Neu ung dung co ads (Google Mobile Ads), thuong se can khai bao:
+Vì ứng dụng có ads (Google Mobile Ads), cần khai báo:
 
 - Device or other IDs
 - App interactions
 - Diagnostics
 
-Khuyen nghi: doi chieu voi tai lieu chinh thuc cua Google Play Data Safety truoc khi submit.
+Khuyến nghị: đối chiếu với tài liệu chính thức của Google Play Data Safety trước khi submit.
 
-### 2.7 Graphic assets checklist
+### 2.7 Danh sách kiểm tra tài nguyên đồ hoạ
 
-- App icon: 512 x 512 PNG
-- Feature graphic: 1024 x 500 PNG/JPG
-- Phone screenshots: toi thieu 2 anh, khuyen nghi 6-8 anh
-- Tablet screenshots (neu co)
-- Video preview YouTube (tuỳ chon)
+- App icon: 512 × 512 PNG
+- Feature graphic: 1024 × 500 PNG/JPG
+- Ảnh chụp màn hình điện thoại: tối thiểu 2 ảnh, khuyến nghị 6–8 ảnh
+- Ảnh chụp màn hình máy tính bảng (nếu có)
+- Video preview YouTube (tuỳ chọn)
 
 ## 3. App Store Connect (iOS)
 
-### 3.1 Name (toi da 30 ky tu)
+### 3.1 Tên ứng dụng (tối đa 30 ký tự)
 
 Chess AI
 
-### 3.2 Subtitle (toi da 30 ky tu)
+### 3.2 Tiêu đề phụ (tối đa 30 ký tự)
 
-Dau co vua voi AI va online
+Đấu cờ vua với AI và online
 
-### 3.3 Promotional text (toi da 170 ky tu)
+### 3.3 Văn bản quảng bá (tối đa 170 ký tự)
 
-Luyen co vua moi ngay voi AI da cap do, dau online nhanh va giao dien de su dung.
+Luyện cờ vua mỗi ngày với AI đa cấp độ, đấu online nhanh và giao diện dễ sử dụng.
 
-### 3.4 Description (toi da 4000 ky tu)
+### 3.4 Mô tả (tối đa 4000 ký tự)
 
-Chess AI la ung dung co vua danh cho ca nguoi moi va nguoi choi nang cao.
+Chess AI là ứng dụng cờ vua dành cho cả người mới và người chơi nâng cao.
 
-Ban co the chon dau voi AI hoac dau online de ren luyen ky nang moi ngay.
-Ung dung cung cap giao dien de dung, toc do muot ma va nhieu tuy chon tran dau.
+Bạn có thể chọn đấu với AI hoặc đấu online để rèn luyện kỹ năng mỗi ngày.
+Ứng dụng cung cấp giao diện dễ dùng, tốc độ mượt mà và nhiều tuỳ chọn trận đấu.
 
-Tinh nang chinh:
+Tính năng chính:
 
-- AI nhieu cap do de luyen chien thuat.
-- Dau online de thu suc voi nguoi choi khac.
-- Undo/Redo de hoc tu nuoc di.
-- Tuy chon thoi gian van dau.
-- Giao dien toi uu cho dien thoai.
+- AI nhiều cấp độ để luyện chiến thuật.
+- Đấu online để thử sức với người chơi khác.
+- Undo/Redo để học từ nước đi.
+- Tuỳ chọn thời gian ván đấu.
+- Giao diện tối ưu cho điện thoại.
 
-Chung toi luon lang nghe phan hoi de cai tien chat luong ung dung.
+Chúng tôi luôn lắng nghe phản hồi để cải tiến chất lượng ứng dụng.
 
-### 3.5 Keywords (toi da 100 ky tu, cach nhau boi dau phay)
+### 3.5 Từ khoá (tối đa 100 ký tự, cách nhau bởi dấu phẩy)
 
-co vua,chess,chess ai,online chess,board game,game tri tue,danh co
+cờ vua,chess,chess ai,online chess,board game,game trí tuệ,đánh cờ
 
-### 3.6 Support URL
+### 3.6 URL Hỗ trợ
 
-https://your-domain.com/support
+https://giaitri.cloud/support
 
-### 3.7 Marketing URL (tuy chon)
+### 3.7 URL Marketing (tuỳ chọn)
 
-https://your-domain.com
+https://giaitri.cloud
 
-### 3.8 Privacy Policy URL
+### 3.8 URL Chính sách quyền riêng tư
 
-https://your-domain.com/privacy
+https://giaitri.cloud/privacy
 
-### 3.9 App Review Information
+### 3.9 Thông tin App Review
 
-- Contact first name: <your_name>
-- Contact last name: <your_name>
-- Phone number: <your_phone>
-- Email: support@azentra.com
-- Demo account (neu can login):
-  - Username: <review_account>
-  - Password: <review_password>
+- Họ tên liên hệ: _(điền trước khi submit)_
+- Số điện thoại: _(điền trước khi submit)_
+- Email: trochoigiaitri11@gmail.com
+- Tài khoản demo (nếu cần đăng nhập để review):
+  - Username: _(điền trước khi submit)_
+  - Password: _(điền trước khi submit)_
 
-### 3.10 Content Rights / Age Rating checklist
+### 3.10 Danh sách kiểm tra Nội dung / Xếp hạng tuổi
 
-Can xac nhan:
+Cần xác nhận:
 
-- Co noi dung bao luc khong? (thuong la khong)
-- Co noi dung danh bac/ruou/thuoc la khong? (thuong la khong)
-- Co user-generated content/chat khong?
-- Co quang cao khong?
+- Có nội dung bạo lực không? ❌ Không
+- Có nội dung cờ bạc / rượu / thuốc lá không? ❌ Không
+- Có user-generated content / chat không? ❌ Không
+- Có quảng cáo không? ✅ Có (Google AdMob)
 
-## 4. Ban tieng Anh (goi y)
+## 4. Bản tiếng Anh (gợi ý)
 
-### 4.1 Android - Short description
+### 4.1 Android — Mô tả ngắn
 
 Play chess with smart AI, online matches, and daily ranked practice.
 
-### 4.2 Android - Full description
+### 4.2 Android — Mô tả đầy đủ
 
 Chess AI is a complete chess app for beginners and advanced players.
 
@@ -177,15 +176,15 @@ Key features:
 
 Whether you want quick practice or serious training, Chess AI helps you improve your chess skills every day.
 
-### 4.3 iOS - Subtitle
+### 4.3 iOS — Tiêu đề phụ
 
 Chess with AI and online play
 
-### 4.4 iOS - Promotional text
+### 4.4 iOS — Văn bản quảng bá
 
 Train daily with smart AI levels, quick online matches, and smooth mobile gameplay.
 
-### 4.5 iOS - Description
+### 4.5 iOS — Mô tả
 
 Chess AI is designed for both new and experienced chess players.
 Play against AI, challenge online opponents, and improve with practical in-game tools.
@@ -198,17 +197,18 @@ Features:
 - Configurable match time options
 - Clean and responsive interface
 
-## 5. Checklist truoc khi submit
+## 5. Danh sách kiểm tra trước khi submit
 
-- Tang version trong pubspec.yaml (build number phai tang moi lan upload)
-- Build release AAB cho Android
-- Build release IPA cho iOS
-- Xac nhan icon, splash, screenshots dung kich thuoc
-- Dien day du Privacy Policy URL
-- Khai bao Data Safety (Android) va Privacy Nutrition Label (iOS)
-- Chay test tren thiet bi that
-- Kiem tra crash va hieu nang co ban
+- [ ] Tăng version trong `pubspec.yaml` (build number phải tăng mỗi lần upload)
+- [ ] Build release AAB cho Android
+- [ ] Build release IPA cho iOS
+- [ ] Xác nhận icon, splash, screenshots đúng kích thước
+- [ ] Điền đầy đủ Privacy Policy URL
+- [ ] Khai báo Data Safety (Android) và Privacy Nutrition Label (iOS)
+- [ ] Chạy test trên thiết bị thật
+- [ ] Kiểm tra crash và hiệu năng cơ bản
+- [ ] Điền thông tin App Review (họ tên, số điện thoại, tài khoản demo)
 
-## 6. Mau commit message (neu can)
+## 6. Mẫu commit message (nếu cần)
 
 chore(store): add Play Store and App Store listing content template

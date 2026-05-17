@@ -24,6 +24,7 @@ class LiveMatchList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
@@ -38,26 +39,45 @@ class LiveMatchList extends StatelessWidget {
             );
           },
         ),
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(12, 2, 12, bottomPadding),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              const SizedBox(height: 2),
-              if (hasSavedGame) ...[
-                const SavedGameCard(),
-                const SizedBox(height: 8),
-              ],
-              ...matches.asMap().entries.map((entry) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: LiveMatchCard(
-                      match: entry.value,
-                      previewIndex: entry.key,
-                      onWatchTap: onWatchTap,
-                    ),
-                  )),
-            ]),
+        if (hasSavedGame)
+          const SliverPadding(
+            padding: EdgeInsets.fromLTRB(12, 2, 12, 0),
+            sliver: SliverToBoxAdapter(child: SavedGameCard()),
           ),
-        ),
+        if (isTablet)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(12, 8, 12, bottomPadding),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: LiveMatchCard(
+                    match: matches[index],
+                    previewIndex: index,
+                    onWatchTap: onWatchTap,
+                  ),
+                ),
+                childCount: matches.length,
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(12, 2, 12, bottomPadding),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 2),
+                ...matches.asMap().entries.map((entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LiveMatchCard(
+                        match: entry.value,
+                        previewIndex: entry.key,
+                        onWatchTap: onWatchTap,
+                      ),
+                    )),
+              ]),
+            ),
+          ),
       ],
     );
   }

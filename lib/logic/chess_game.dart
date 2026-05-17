@@ -96,7 +96,8 @@ class ChessGame extends FlameGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     if (!appModel.gameOver &&
         !appModel.isAIsTurn &&
-        !appModel.isSpectatorMode) {
+        !appModel.isSpectatorMode &&
+        !appModel.isInputLocked) {
       var tile = _vector2ToTile(event.localPosition);
       var touchedPiece = board.tiles[tile];
       if (touchedPiece == selectedPiece) {

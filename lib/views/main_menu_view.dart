@@ -15,6 +15,7 @@ import 'components/main_menu_view/mm_quick_play_btn.dart';
 import 'components/main_menu_view/user_profile_dialog.dart';
 import 'components/main_menu_view/watch_dialog.dart';
 import 'components/shared/ranked_profile_avatar.dart';
+import 'components/shared/adaptive_width.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 
@@ -642,84 +643,89 @@ class _MainMenuViewState extends State<MainMenuView> {
                   ),
                 ),
               ),
-              Column(
-                children: [
-                  SafeArea(
-                    bottom: false,
-                    child: isLoggedIn
-                        ? _HomeProfileHeader(
-                            userName: userName,
-                            elo: userElo,
-                            avatarUrl: auth.user?.avatarUrl,
-                            onTapProfile: _showUserProfile,
-                            onTapInbox: _showUserProfile,
-                            onTapSettings: () => Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                builder: (_) => SettingsView(),
+              AdaptiveWidth(
+                child: Column(
+                  children: [
+                    SafeArea(
+                      bottom: false,
+                      child: isLoggedIn
+                          ? _HomeProfileHeader(
+                              userName: userName,
+                              elo: userElo,
+                              avatarUrl: auth.user?.avatarUrl,
+                              onTapProfile: _showUserProfile,
+                              onTapInbox: _showUserProfile,
+                              onTapSettings: () => Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  builder: (_) => SettingsView(),
+                                ),
                               ),
-                            ),
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    _GuestHeaderActionButton(
-                                      icon: CupertinoIcons.person_crop_circle,
-                                      label: l.loginTitle,
-                                      primary: true,
-                                      onTap: _handleLogin,
-                                    ),
-                                    _GuestHeaderActionButton(
-                                      icon: CupertinoIcons.settings,
-                                      label: l.settings,
-                                      primary: true,
-                                      onTap: () => Navigator.push(
-                                        context,
-                                        CupertinoPageRoute(
-                                          builder: (_) => SettingsView(),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _GuestHeaderActionButton(
+                                        icon: CupertinoIcons.person_crop_circle,
+                                        label: l.loginTitle,
+                                        primary: true,
+                                        onTap: _handleLogin,
+                                      ),
+                                      _GuestHeaderActionButton(
+                                        icon: CupertinoIcons.settings,
+                                        label: l.settings,
+                                        primary: true,
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          CupertinoPageRoute(
+                                            builder: (_) => SettingsView(),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                      child: Column(
+                        children: [
+                          _ImageHomeButton(
+                            assetPath: 'assets/images/home/watch_match.png',
+                            loading: _isLoadingLiveMatches,
+                            semanticLabel: l.watch,
+                            onTap:
+                                (_isLoadingLiveMatches || _isOpeningSpectator)
+                                    ? null
+                                    : _showWatchDialog,
+                          ),
+                          const SizedBox(height: 18),
+                          QuickPlayBtn(
+                            hasSavedGame: _hasSavedGame,
+                            onGameFinished: _checkSavedGame,
+                            buttonBuilder: (ctx, isStarting) =>
+                                _ImageHomeButton(
+                              assetPath: 'assets/images/home/play_game.png',
+                              loading: false,
+                              semanticLabel: l.play,
                             ),
                           ),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: Column(
-                      children: [
-                        _ImageHomeButton(
-                          assetPath: 'assets/images/home/watch_match.png',
-                          loading: _isLoadingLiveMatches,
-                          semanticLabel: l.watch,
-                          onTap: (_isLoadingLiveMatches || _isOpeningSpectator)
-                              ? null
-                              : _showWatchDialog,
-                        ),
-                        const SizedBox(height: 18),
-                        QuickPlayBtn(
-                          hasSavedGame: _hasSavedGame,
-                          onGameFinished: _checkSavedGame,
-                          buttonBuilder: (ctx, isStarting) => _ImageHomeButton(
-                            assetPath: 'assets/images/home/play_game.png',
-                            loading: false,
-                            semanticLabel: l.play,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
-                ],
+                    SizedBox(
+                        height: MediaQuery.of(context).padding.bottom + 24),
+                  ],
+                ),
               ),
               if (_isLoadingLiveMatches || _isOpeningSpectator)
                 Positioned.fill(
@@ -1025,13 +1031,19 @@ class _GuestHeaderActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final height = isTablet ? 44.0 : 34.0;
+    final hPad = isTablet ? 18.0 : 12.0;
+    final iconSize = isTablet ? 18.0 : 15.0;
+    final fontSize = isTablet ? 15.0 : 12.0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: height,
+        padding: EdgeInsets.symmetric(horizontal: hPad),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -1058,14 +1070,14 @@ class _GuestHeaderActionButton extends StatelessWidget {
             Icon(
               icon,
               color: primary ? const Color(0xFFF4D396) : Colors.white70,
-              size: 15,
+              size: iconSize,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 color: primary ? const Color(0xFFF4D396) : Colors.white70,
-                fontSize: 12,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w700,
               ),
             ),

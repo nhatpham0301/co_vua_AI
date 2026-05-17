@@ -110,6 +110,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     _readyTimer?.cancel();
     _readySeconds = 30;
     _isReady = false;
+    appModel.isInputLocked = true;
 
     appModel.timerService.pause();
     appModel
@@ -127,6 +128,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
       if (_readySeconds == 0) {
         timer.cancel();
+        appModel.isInputLocked = false;
         appModel.exitChessView();
         if (mounted) {
           Navigator.of(context).popUntil((route) => route.isFirst);
@@ -177,6 +179,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         _postGameFlowHandled = false;
         _showPostGameOptions = false;
         _isReady = true;
+        appModel.isInputLocked = false;
         appModel.timerService.resume();
         if (appModel.isAIsTurn && !appModel.gameOver) {
           appModel.gameController?.triggerAIMove();
@@ -310,6 +313,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
     _readyTimer?.cancel();
     _readyTimer = null;
+    appModel.isInputLocked = false;
     setState(() => _isReady = true);
 
     appModel.resumeGameClock(); // tiếp tục nhận clock events từ server
@@ -429,7 +433,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   double _boardSizeFor(BoxConstraints constraints) {
-    final maxBoardWidth = constraints.maxWidth - 34;
+    final maxBoardWidth = math.min(constraints.maxWidth - 34, 680.0);
     final preferredHeight = constraints.maxHeight * 0.66;
     return math.max(280, math.min(maxBoardWidth, preferredHeight));
   }
@@ -541,7 +545,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
               appModel.exitChessView();
               Navigator.of(context).pop();
             } else {
-              showExitDialog(context);
+              // Tạm dừng countdown để dialog không bị đóng tự động
+              final wasInCountdown = !_isReady && _readyTimer != null;
+              _readyTimer?.cancel();
+              _readyTimer = null;
+              showExitDialog(
+                context,
+                onCancel: wasInCountdown ? _startReadyCountdown : null,
+              );
             }
           },
           child: Scaffold(

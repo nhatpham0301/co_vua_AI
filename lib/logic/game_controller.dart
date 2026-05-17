@@ -443,6 +443,7 @@ class GameController {
     if (appModel.isAIsTurn &&
         clearRedo &&
         changeTurn &&
+        !appModel.isInputLocked &&
         (!appModel.isOnlineGameMode || appModel.shouldRunLocalAiInOnlineVsAi)) {
       _aiMove();
     }

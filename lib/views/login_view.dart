@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../model/app_model.dart';
 import 'components/main_menu_view/mm_background.dart';
 import 'components/main_menu_view/mm_palette.dart';
+import 'components/shared/adaptive_width.dart';
 import 'components/shared/app_dialog.dart';
 
 class LoginView extends StatefulWidget {
@@ -170,235 +171,259 @@ class _LoginViewState extends State<LoginView> {
           ),
           const BoardBackground(),
           const CornerKnots(),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Icon(
-                          CupertinoIcons.back,
-                          color: Colors.white70,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isRegister ? l.registerTitle : l.loginTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Jura',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: bgCard.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Column(
+          AdaptiveWidth(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+                child: Column(
+                  children: [
+                    Row(
                       children: [
-                        CupertinoSlidingSegmentedControl<bool>(
-                          groupValue: _isRegister,
-                          children: {
-                            false: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              child: Text(
-                                l.loginTitle,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            true: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
-                              ),
-                              child: Text(
-                                l.registerTitle,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          },
-                          onValueChanged: (value) {
-                            if (value != null) {
-                              setState(() => _isRegister = value);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _InputField(
-                          controller: _emailCtrl,
-                          placeholder: l.email,
-                          icon: CupertinoIcons.mail,
-                        ),
-                        const SizedBox(height: 12),
-                        _InputField(
-                          controller: _passwordCtrl,
-                          placeholder: l.password,
-                          icon: CupertinoIcons.lock,
-                          obscureText: _obscurePassword,
-                          suffix: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: Icon(
-                                _obscurePassword
-                                    ? CupertinoIcons.eye
-                                    : CupertinoIcons.eye_slash,
-                                color: Colors.white60,
-                                size: 18,
-                              ),
-                            ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Icon(
+                            CupertinoIcons.back,
+                            color: Colors.white70,
+                            size: 24,
                           ),
                         ),
-                        if (_isRegister) ...[
-                          const SizedBox(height: 12),
-                          _InputField(
-                            controller: _usernameCtrl,
-                            placeholder: l.username,
-                            icon: CupertinoIcons.person,
+                        const SizedBox(width: 8),
+                        Text(
+                          _isRegister ? l.registerTitle : l.loginTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Jura',
                           ),
-                        ],
-                        const SizedBox(height: 16),
-                        Consumer<AppModel>(
-                          builder: (ctx, model, _) {
-                            final busy = model.authService.busy;
-                            return SizedBox(
-                              width: double.infinity,
-                              child: CupertinoButton(
-                                color: primary,
-                                borderRadius: BorderRadius.circular(14),
-                                onPressed:
-                                    busy ? null : () => _submit(model, l),
-                                child: busy
-                                    ? const CupertinoActivityIndicator(
-                                        color: Colors.white)
-                                    : Text(
-                                        _isRegister
-                                            ? l.registerButton
-                                            : l.loginButton,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 19,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                              ),
-                            );
-                          },
                         ),
-                        const SizedBox(height: 10),
-                        if (!_isRegister)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: 4,
-                              right: 12,
-                              bottom: 6,
-                            ),
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () {
-                                setState(() {
-                                  _rememberLogin = !_rememberLogin;
-                                });
-                              },
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: Checkbox(
-                                      value: _rememberLogin,
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _rememberLogin = value ?? false;
-                                        });
-                                      },
-                                      side: BorderSide(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.7),
-                                      ),
-                                      checkColor: const Color(0xFF4B2B15),
-                                      fillColor:
-                                          WidgetStateProperty.resolveWith(
-                                        (states) {
-                                          if (states.contains(
-                                            WidgetState.selected,
-                                          )) {
-                                            return const Color(0xFFD79D49);
-                                          }
-                                          return Colors.transparent;
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    Localizations.localeOf(context)
-                                                .languageCode ==
-                                            'vi'
-                                        ? 'Ghi nhớ đăng nhập'
-                                        : 'Remember login',
-                                    style: TextStyle(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.82),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        if (!_isRegister)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {},
-                              child: Text(
-                                l.forgotPassword,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  CupertinoButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      l.continueGuest,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 14,
+                    Expanded(
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 18),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: bgCard.withValues(alpha: 0.45),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    CupertinoSlidingSegmentedControl<bool>(
+                                      groupValue: _isRegister,
+                                      children: {
+                                        false: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 6,
+                                          ),
+                                          child: Text(
+                                            l.loginTitle,
+                                            style: const TextStyle(
+                                                color: Colors.white),
+                                          ),
+                                        ),
+                                        true: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 6,
+                                          ),
+                                          child: Text(
+                                            l.registerTitle,
+                                            style: const TextStyle(
+                                                color: Colors.white),
+                                          ),
+                                        ),
+                                      },
+                                      onValueChanged: (value) {
+                                        if (value != null) {
+                                          setState(() => _isRegister = value);
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _InputField(
+                                      controller: _emailCtrl,
+                                      placeholder: l.email,
+                                      icon: CupertinoIcons.mail,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    _InputField(
+                                      controller: _passwordCtrl,
+                                      placeholder: l.password,
+                                      icon: CupertinoIcons.lock,
+                                      obscureText: _obscurePassword,
+                                      suffix: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _obscurePassword =
+                                                !_obscurePassword;
+                                          });
+                                        },
+                                        child: Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 10),
+                                          child: Icon(
+                                            _obscurePassword
+                                                ? CupertinoIcons.eye
+                                                : CupertinoIcons.eye_slash,
+                                            color: Colors.white60,
+                                            size: 18,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (_isRegister) ...[
+                                      const SizedBox(height: 12),
+                                      _InputField(
+                                        controller: _usernameCtrl,
+                                        placeholder: l.username,
+                                        icon: CupertinoIcons.person,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 16),
+                                    Consumer<AppModel>(
+                                      builder: (ctx, model, _) {
+                                        final busy = model.authService.busy;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          child: CupertinoButton(
+                                            color: primary,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            onPressed: busy
+                                                ? null
+                                                : () => _submit(model, l),
+                                            child: busy
+                                                ? const CupertinoActivityIndicator(
+                                                    color: Colors.white)
+                                                : Text(
+                                                    _isRegister
+                                                        ? l.registerButton
+                                                        : l.loginButton,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 19,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (!_isRegister)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 4,
+                                          right: 12,
+                                          bottom: 6,
+                                        ),
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            setState(() {
+                                              _rememberLogin = !_rememberLogin;
+                                            });
+                                          },
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child: Checkbox(
+                                                  value: _rememberLogin,
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      _rememberLogin =
+                                                          value ?? false;
+                                                    });
+                                                  },
+                                                  side: BorderSide(
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.7),
+                                                  ),
+                                                  checkColor:
+                                                      const Color(0xFF4B2B15),
+                                                  fillColor: WidgetStateProperty
+                                                      .resolveWith(
+                                                    (states) {
+                                                      if (states.contains(
+                                                        WidgetState.selected,
+                                                      )) {
+                                                        return const Color(
+                                                            0xFFD79D49);
+                                                      }
+                                                      return Colors.transparent;
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                Localizations.localeOf(context)
+                                                            .languageCode ==
+                                                        'vi'
+                                                    ? 'Ghi nhớ đăng nhập'
+                                                    : 'Remember login',
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.82),
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    if (!_isRegister)
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: CupertinoButton(
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () {},
+                                          child: Text(
+                                            l.forgotPassword,
+                                            style: TextStyle(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.75),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              CupertinoButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: Text(
+                                  l.continueGuest,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

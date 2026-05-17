@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chính sách Quyền riêng tư — Chess AI</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 14pt;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background: #f5f5f5;
+    }
+
+    /* ── Page wrapper (simulates A4 paper) ── */
+    .page {
+      width: 794px;       /* A4 at 96dpi */
+      min-height: 1123px;
+      margin: 40px auto;
+      background: #ffffff;
+      padding: 72px 80px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+    }
+
+    /* ── Header block ── */
+    .doc-header {
+      border-bottom: 3px solid #1a56db;
+      padding-bottom: 20px;
+      margin-bottom: 32px;
+    }
+
+    .doc-header h1 {
+      font-size: 22pt;
+      font-weight: 700;
+      color: #1a56db;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .doc-header .subtitle {
+      font-size: 11pt;
+      color: #555;
+      margin-bottom: 16px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 32px;
+      font-size: 10pt;
+      color: #444;
+      margin-top: 14px;
+    }
+
+    .meta-grid span {
+      display: flex;
+      gap: 6px;
+    }
+
+    .meta-grid .label {
+      font-weight: 600;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    /* ── Section headings ── */
+    h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1a56db;
+      margin-top: 36px;
+      margin-bottom: 10px;
+      padding-left: 12px;
+      border-left: 4px solid #1a56db;
+      page-break-after: avoid;
+    }
+
+    h3 {
+      font-size: 11pt;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      page-break-after: avoid;
+    }
+
+    /* ── Paragraphs & lists ── */
+    p {
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+      margin-bottom: 12px;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    /* ── Note box ── */
+    .note {
+      background: #eef4ff;
+      border-left: 4px solid #1a56db;
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-size: 10.5pt;
+      color: #1e3a5f;
+      margin: 14px 0;
+    }
+
+    .note.warning {
+      background: #fff8e6;
+      border-left-color: #f59e0b;
+      color: #7c4e00;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px;
+      font-size: 10pt;
+    }
+
+    thead tr {
+      background: #1a56db;
+      color: #ffffff;
+    }
+
+    thead th {
+      padding: 9px 12px;
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f0f5ff;
+    }
+
+    tbody tr:hover {
+      background: #dceafe;
+    }
+
+    tbody td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #dde3ee;
+      vertical-align: top;
+    }
+
+    /* ── Divider ── */
+    hr {
+      border: none;
+      border-top: 1px solid #d1d9e6;
+      margin: 30px 0;
+    }
+
+    /* ── Links ── */
+    a {
+      color: #1a56db;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* ── Inline code ── */
+    code {
+      background: #eef0f4;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 10pt;
+    }
+
+    /* ── Bold inline ── */
+    strong { color: #111; }
+
+    /* ── Footer ── */
+    .doc-footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 2px solid #e2e8f0;
+      font-size: 9.5pt;
+      color: #888;
+      text-align: center;
+    }
+
+    /* ── Appendix badge ── */
+    .appendix-title {
+      display: inline-block;
+      background: #1a56db;
+      color: #fff;
+      font-size: 9pt;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── Print / export styles ── */
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .page {
+        width: 100%;
+        margin: 0;
+        padding: 40px 60px;
+        box-shadow: none;
+      }
+      h2 { page-break-before: auto; }
+      table { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ══════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════ -->
+  <div class="doc-header">
+    <div class="subtitle">Tài liệu pháp lý · Ứng dụng di động</div>
+    <h1>Chính sách Quyền riêng tư</h1>
+    <div class="meta-grid">
+      <span><span class="label">Ứng dụng:</span> Chess AI</span>
+      <span><span class="label">Nhà phát triển:</span> Azentra</span>
+      <span><span class="label">Phiên bản:</span> 1.0</span>
+      <span><span class="label">Liên hệ:</span> <a href="mailto:trochoigiaitri11@gmail.com">trochoigiaitri11@gmail.com</a></span>
+      <span><span class="label">Ngày hiệu lực:</span> 16 tháng 05 năm 2026</span>
+      <span><span class="label">Website:</span> <a href="https://giaitri.cloud" target="_blank">giaitri.cloud</a></span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       1. GIỚI THIỆU
+  ══════════════════════════════════════════════ -->
+  <h2>1. Giới thiệu</h2>
+  <p>
+    Chính sách Quyền riêng tư này mô tả cách ứng dụng <strong>Chess AI</strong>
+    ("chúng tôi", "ứng dụng") thu thập, sử dụng và bảo vệ thông tin của bạn khi
+    bạn sử dụng dịch vụ của chúng tôi trên nền tảng Android và iOS.
+  </p>
+  <p>
+    Bằng cách cài đặt hoặc sử dụng Chess AI, bạn xác nhận rằng bạn đã đọc,
+    hiểu và đồng ý với các điều khoản trong chính sách này. Nếu bạn không đồng
+    ý, vui lòng không sử dụng ứng dụng.
+  </p>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       2. THÔNG TIN THU THẬP
+  ══════════════════════════════════════════════ -->
+  <h2>2. Thông tin chúng tôi thu thập</h2>
+
+  <h3>2.1 Thông tin tài khoản (khi đăng ký)</h3>
+  <p>Khi bạn tạo tài khoản để sử dụng tính năng chơi online, chúng tôi thu thập:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Trường dữ liệu</th>
+        <th>Mục đích</th>
+        <th>Bắt buộc?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tên đăng nhập (username)</td>
+        <td>Hiển thị trong ván đấu và bảng xếp hạng</td>
+        <td>Có</td>
+      </tr>
+      <tr>
+        <td>Địa chỉ email</td>
+        <td>Xác thực tài khoản, khôi phục mật khẩu</td>
+        <td>Có</td>
+      </tr>
+      <tr>
+        <td>Mật khẩu (đã băm)</td>
+        <td>Bảo mật đăng nhập — không lưu dạng thô</td>
+        <td>Có</td>
+      </tr>
+      <tr>
+        <td>Điểm ELO</td>
+        <td>Hệ thống xếp hạng và ghép trận tương xứng</td>
+        <td>Tự động</td>
+      </tr>
+      <tr>
+        <td>Ảnh đại diện (URL)</td>
+        <td>Hiển thị trong hồ sơ người chơi</td>
+        <td>Không (tuỳ chọn)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    Bạn có thể sử dụng ứng dụng ở <strong>chế độ khách</strong> (chưa đăng nhập)
+    để chơi cờ với AI cục bộ mà không cần cung cấp bất kỳ thông tin cá nhân nào.
+  </div>
+
+  <h3>2.2 Dữ liệu trò chơi</h3>
+  <p>Khi chơi online, chúng tôi ghi nhận:</p>
+  <ul>
+    <li>Lịch sử các nước đi trong mỗi ván đấu</li>
+    <li>Kết quả ván đấu (thắng / thua / hoà)</li>
+    <li>Thay đổi điểm ELO sau mỗi ván</li>
+    <li>Chế độ thời gian đã chọn (rapid, blitz, …)</li>
+    <li>ID ván đấu và ID đối thủ</li>
+  </ul>
+
+  <h3>2.3 Dữ liệu kỹ thuật &amp; thiết bị</h3>
+  <p>Chúng tôi có thể thu thập tự động:</p>
+  <ul>
+    <li>Loại thiết bị, hệ điều hành và phiên bản hệ điều hành</li>
+    <li>Phiên bản ứng dụng đang sử dụng</li>
+    <li>Nhật ký lỗi ứng dụng (crash logs) — nhằm mục đích sửa lỗi</li>
+    <li>Địa chỉ IP — chỉ dùng để kết nối server, không lưu trữ lâu dài</li>
+  </ul>
+
+  <h3>2.4 Dữ liệu lưu cục bộ trên thiết bị</h3>
+  <p>
+    Ứng dụng lưu một số dữ liệu <strong>trực tiếp trên thiết bị của bạn</strong>
+    (không gửi về server), bao gồm:
+  </p>
+  <ul>
+    <li>Cài đặt giao diện (chủ đề bàn cờ, bộ quân cờ)</li>
+    <li>Cài đặt âm thanh và ngôn ngữ</li>
+    <li>Token xác thực (access token, refresh token) — dùng để duy trì phiên đăng nhập</li>
+  </ul>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       3. QUẢNG CÁO
+  ══════════════════════════════════════════════ -->
+  <h2>3. Quảng cáo — Google AdMob</h2>
+  <p>
+    Ứng dụng tích hợp <strong>Google AdMob</strong> để hiển thị quảng cáo (dạng
+    banner và interstitial). Google AdMob có thể thu thập các dữ liệu sau nhằm
+    phân phối quảng cáo phù hợp:
+  </p>
+  <ul>
+    <li>Mã định danh quảng cáo (Advertising ID) của thiết bị</li>
+    <li>Dữ liệu hành vi sử dụng ứng dụng</li>
+  </ul>
+  <p>Để tìm hiểu thêm về cách Google xử lý dữ liệu:</p>
+  <ul>
+    <li>
+      <a href="https://policies.google.com/privacy" target="_blank">
+        Chính sách quyền riêng tư của Google
+      </a>
+    </li>
+    <li>
+      <a href="https://policies.google.com/technologies/partner-sites" target="_blank">
+        Cách Google sử dụng dữ liệu khi bạn dùng app của đối tác
+      </a>
+    </li>
+  </ul>
+  <div class="note">
+    Bạn có thể tắt quảng cáo cá nhân hóa bất kỳ lúc nào tại:
+    <strong>Cài đặt thiết bị → Google → Quảng cáo → Tắt cá nhân hóa quảng cáo</strong>.
+  </div>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       4. SỬ DỤNG THÔNG TIN
+  ══════════════════════════════════════════════ -->
+  <h2>4. Cách chúng tôi sử dụng thông tin</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Mục đích</th>
+        <th>Dữ liệu liên quan</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Xác thực và bảo mật tài khoản</td>
+        <td>Email, mật khẩu (đã băm), token</td>
+      </tr>
+      <tr>
+        <td>Ghép trận đấu online</td>
+        <td>Điểm ELO, username</td>
+      </tr>
+      <tr>
+        <td>Hiển thị hồ sơ người chơi</td>
+        <td>Username, ELO, ảnh đại diện</td>
+      </tr>
+      <tr>
+        <td>Theo dõi kết quả và thống kê</td>
+        <td>Lịch sử ván đấu, điểm ELO</td>
+      </tr>
+      <tr>
+        <td>Cải thiện chất lượng ứng dụng</td>
+        <td>Nhật ký lỗi, thông tin thiết bị</td>
+      </tr>
+      <tr>
+        <td>Hiển thị quảng cáo</td>
+        <td>Dữ liệu AdMob (xử lý bởi Google)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Chúng tôi <strong>không bán</strong> thông tin cá nhân của bạn cho bất kỳ bên thứ ba nào.</p>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       5. BẢO MẬT
+  ══════════════════════════════════════════════ -->
+  <h2>5. Lưu trữ và bảo mật dữ liệu</h2>
+  <ul>
+    <li>Dữ liệu tài khoản được lưu trên máy chủ tại <code>giaitri.cloud</code> với giao thức <strong>HTTPS / WSS</strong>.</li>
+    <li>Mật khẩu được <strong>băm (hash)</strong> trước khi lưu trữ — chúng tôi không có khả năng đọc mật khẩu của bạn.</li>
+    <li>Token xác thực được lưu cục bộ trên thiết bị và được <strong>gia hạn tự động</strong> (JWT ngắn hạn).</li>
+    <li>Mọi giao tiếp giữa ứng dụng và máy chủ đều được <strong>mã hoá</strong>.</li>
+  </ul>
+  <div class="note warning">
+    <strong>Lưu ý:</strong> Token xác thực hiện được lưu trong bộ nhớ tiêu chuẩn của thiết bị. Trên các
+    thiết bị đã root (Android) hoặc jailbreak (iOS), dữ liệu này có thể bị ứng dụng khác truy cập.
+    Khuyến nghị không sử dụng ứng dụng trên thiết bị đã can thiệp hệ thống.
+  </div>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       6. CHIA SẺ THÔNG TIN
+  ══════════════════════════════════════════════ -->
+  <h2>6. Chia sẻ thông tin</h2>
+  <p>Chúng tôi <strong>không chia sẻ</strong> thông tin cá nhân của bạn với bên thứ ba, ngoại trừ:</p>
+  <ol>
+    <li>
+      <strong>Google AdMob</strong> — để phục vụ hiển thị quảng cáo trong ứng dụng
+      (xem Mục 3 để biết thêm chi tiết).
+    </li>
+    <li>
+      <strong>Yêu cầu pháp lý</strong> — khi cơ quan nhà nước hoặc tòa án có thẩm
+      quyền yêu cầu cung cấp thông tin theo quy định của pháp luật hiện hành.
+    </li>
+    <li>
+      <strong>Bảo vệ quyền lợi hợp pháp</strong> — khi cần thiết để điều tra, phòng
+      ngừa hoặc xử lý hành vi gian lận, lạm dụng hoặc vi phạm điều khoản dịch vụ.
+    </li>
+  </ol>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       7. QUYỀN CỦA BẠN
+  ══════════════════════════════════════════════ -->
+  <h2>7. Quyền của bạn</h2>
+  <p>Bạn có các quyền sau đây đối với dữ liệu cá nhân của mình:</p>
+  <ul>
+    <li>
+      <strong>Truy cập:</strong> Xem thông tin tài khoản trực tiếp trong ứng dụng
+      tại phần Hồ sơ.
+    </li>
+    <li>
+      <strong>Chỉnh sửa:</strong> Cập nhật tên đăng nhập, ảnh đại diện trong phần
+      Cài đặt tài khoản.
+    </li>
+    <li>
+      <strong>Xoá tài khoản:</strong> Gửi yêu cầu tới
+      <a href="mailto:trochoigiaitri11@gmail.com">trochoigiaitri11@gmail.com</a>
+      để xoá toàn bộ dữ liệu của bạn khỏi hệ thống.
+    </li>
+    <li>
+      <strong>Rút đồng ý:</strong> Ngừng sử dụng và gỡ cài đặt ứng dụng bất kỳ
+      lúc nào.
+    </li>
+  </ul>
+  <p>
+    Để thực hiện bất kỳ quyền nào ở trên, vui lòng liên hệ:
+    <a href="mailto:trochoigiaitri11@gmail.com"><strong>trochoigiaitri11@gmail.com</strong></a>
+  </p>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       8. TRẺ EM
+  ══════════════════════════════════════════════ -->
+  <h2>8. Trẻ em</h2>
+  <p>
+    Ứng dụng <strong>không dành cho trẻ em dưới 13 tuổi</strong> (hoặc dưới 16 tuổi
+    tại một số quốc gia thuộc Liên minh Châu Âu theo quy định GDPR). Chúng tôi
+    không cố ý thu thập thông tin cá nhân từ trẻ em.
+  </p>
+  <p>
+    Nếu bạn cho rằng con em mình đã cung cấp thông tin cho chúng tôi mà không
+    có sự đồng ý của phụ huynh, vui lòng liên hệ để yêu cầu xoá ngay lập tức.
+  </p>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       9. CHẾ ĐỘ KHÁCH
+  ══════════════════════════════════════════════ -->
+  <h2>9. Chế độ khách (không đăng nhập)</h2>
+  <p>Khi sử dụng ứng dụng mà không tạo tài khoản:</p>
+  <ul>
+    <li>Không có thông tin cá nhân nào được thu thập hoặc gửi lên máy chủ.</li>
+    <li>Tất cả dữ liệu (cài đặt, ván cờ đã lưu) chỉ tồn tại trên thiết bị của bạn.</li>
+    <li>Tính năng <strong>chơi online và đấu xếp hạng không khả dụng</strong> ở chế độ này.</li>
+  </ul>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       10. THAY ĐỔI CHÍNH SÁCH
+  ══════════════════════════════════════════════ -->
+  <h2>10. Thay đổi chính sách</h2>
+  <p>Chúng tôi có thể cập nhật Chính sách Quyền riêng tư này theo thời gian. Khi có thay đổi:</p>
+  <ul>
+    <li>"Ngày hiệu lực" ở đầu tài liệu sẽ được cập nhật.</li>
+    <li>Thông báo có thể được hiển thị trong ứng dụng với những thay đổi quan trọng.</li>
+    <li>
+      Việc tiếp tục sử dụng ứng dụng sau ngày hiệu lực đồng nghĩa với việc bạn
+      chấp thuận phiên bản chính sách mới nhất.
+    </li>
+  </ul>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       11. LIÊN HỆ
+  ══════════════════════════════════════════════ -->
+  <h2>11. Liên hệ</h2>
+  <p>Nếu bạn có câu hỏi, góp ý hoặc yêu cầu liên quan đến Chính sách Quyền riêng tư này, vui lòng liên hệ:</p>
+  <ul>
+    <li><strong>Email:</strong> <a href="mailto:trochoigiaitri11@gmail.com">trochoigiaitri11@gmail.com</a></li>
+    <li><strong>Website:</strong> <a href="https://giaitri.cloud" target="_blank">https://giaitri.cloud</a></li>
+  </ul>
+  <p>Chúng tôi sẽ phản hồi trong vòng <strong>7 ngày làm việc</strong>.</p>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       PHỤ LỤC A — GOOGLE PLAY DATA SAFETY
+  ══════════════════════════════════════════════ -->
+  <div class="appendix-title">Phụ lục A</div>
+  <h2 style="margin-top:8px">Khai báo Data Safety — Google Play Console</h2>
+  <p>
+    Bảng dưới đây dùng để điền vào mục <strong>Data Safety</strong> trên
+    Google Play Console khi phát hành ứng dụng.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Loại dữ liệu</th>
+        <th>Thu thập?</th>
+        <th>Mục đích</th>
+        <th>Bắt buộc?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Tên / Username</td>
+        <td>✅ Có</td>
+        <td>Chức năng ứng dụng</td>
+        <td>Không (chỉ khi online)</td>
+      </tr>
+      <tr>
+        <td>Địa chỉ email</td>
+        <td>✅ Có</td>
+        <td>Quản lý tài khoản</td>
+        <td>Không (chỉ khi online)</td>
+      </tr>
+      <tr>
+        <td>ID người dùng</td>
+        <td>✅ Có</td>
+        <td>Chức năng ứng dụng</td>
+        <td>Không (chỉ khi online)</td>
+      </tr>
+      <tr>
+        <td>Hoạt động trong app</td>
+        <td>✅ Có</td>
+        <td>Phân tích, cải thiện chất lượng</td>
+        <td>Không</td>
+      </tr>
+      <tr>
+        <td>Crash logs</td>
+        <td>✅ Có</td>
+        <td>Sửa lỗi</td>
+        <td>Không</td>
+      </tr>
+      <tr>
+        <td>Thông tin thiết bị</td>
+        <td>✅ Có</td>
+        <td>Sửa lỗi</td>
+        <td>Không</td>
+      </tr>
+      <tr>
+        <td>Dữ liệu quảng cáo (AdMob)</td>
+        <td>✅ Có</td>
+        <td>Quảng cáo</td>
+        <td>Không</td>
+      </tr>
+      <tr>
+        <td>Vị trí chính xác</td>
+        <td>❌ Không</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Danh bạ</td>
+        <td>❌ Không</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td>Camera / Microphone</td>
+        <td>❌ Không</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <ul>
+    <li><strong>Truyền dữ liệu có mã hoá:</strong> ✅ Có (HTTPS / WSS)</li>
+    <li><strong>Hỗ trợ yêu cầu xoá dữ liệu:</strong> ✅ Có (qua email)</li>
+  </ul>
+
+  <hr />
+
+  <!-- ══════════════════════════════════════════════
+       PHỤ LỤC B — APPLE APP STORE PRIVACY
+  ══════════════════════════════════════════════ -->
+  <div class="appendix-title">Phụ lục B</div>
+  <h2 style="margin-top:8px">Khai báo App Privacy — Apple App Store Connect</h2>
+  <p>
+    Bảng dưới đây dùng để điền vào mục <strong>App Privacy</strong> trên
+    App Store Connect khi phát hành ứng dụng.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Loại dữ liệu</th>
+        <th>Sử dụng</th>
+        <th>Liên kết với danh tính?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Email</td>
+        <td>Quản lý tài khoản</td>
+        <td>✅ Có</td>
+      </tr>
+      <tr>
+        <td>Username</td>
+        <td>Chức năng ứng dụng</td>
+        <td>✅ Có</td>
+      </tr>
+      <tr>
+        <td>Lịch sử trò chơi (Game history)</td>
+        <td>Chức năng ứng dụng, Phân tích</td>
+        <td>✅ Có</td>
+      </tr>
+      <tr>
+        <td>Device ID (Advertising)</td>
+        <td>Quảng cáo — xử lý bởi Google AdMob</td>
+        <td>❌ Không</td>
+      </tr>
+      <tr>
+        <td>Dữ liệu lỗi (Crash data)</td>
+        <td>Sửa lỗi, cải thiện ổn định</td>
+        <td>❌ Không</td>
+      </tr>
+      <tr>
+        <td>Vị trí</td>
+        <td>Không thu thập</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════ -->
+  <div class="doc-footer">
+    Chess AI · Azentra · Chính sách Quyền riêng tư v1.0 · Ngày hiệu lực: 16/05/2026<br />
+    Liên hệ: <a href="mailto:trochoigiaitri11@gmail.com">trochoigiaitri11@gmail.com</a>
+    · <a href="https://giaitri.cloud" target="_blank">giaitri.cloud</a>
+  </div>
+
+</div><!-- /.page -->
+</body>
+</html>
