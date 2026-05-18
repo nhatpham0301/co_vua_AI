@@ -415,6 +415,7 @@ class _MainMenuViewState extends State<MainMenuView> {
         DevLogCategory.http,
         '[SPECTATOR][CLIENT] blocked local placeholder match id=${match.id} (not BE gameId)',
       );
+      if (mounted) setState(() => _isOpeningSpectator = false);
       showCupertinoDialog<void>(
         context: context,
         builder: (_) => CupertinoAlertDialog(
@@ -434,6 +435,7 @@ class _MainMenuViewState extends State<MainMenuView> {
     }
 
     if (!appModel.authService.isLoggedIn) {
+      if (mounted) setState(() => _isOpeningSpectator = false);
       showCupertinoDialog<void>(
         context: context,
         builder: (_) => CupertinoAlertDialog(

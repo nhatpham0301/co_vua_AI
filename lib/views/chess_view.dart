@@ -828,9 +828,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             avatarUrl: opponentAvatar,
                             isActive: opponentActive,
                             mirror: false,
-                            moveTimeLimitSeconds:
-                                isSpectator ? 0 : appModel.moveTimeLimit,
-                            moveTimeLeft: appModel.moveTimeLeft,
+                            moveTimeLimitSeconds: isSpectator
+                                ? appModel.timeLimit * 60
+                                : appModel.moveTimeLimit,
+                            moveTimeLeft: isSpectator
+                                ? opponentClock
+                                : appModel.moveTimeLeft,
                             onTap: () => _showOpponentProfile(
                                 context, appModel, l, opponentElo),
                           );
@@ -890,9 +893,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             avatarUrl: bottomAvatar,
                             isActive: bottomActive,
                             mirror: true,
-                            moveTimeLimitSeconds:
-                                isSpectator ? 0 : appModel.moveTimeLimit,
-                            moveTimeLeft: appModel.moveTimeLeft,
+                            moveTimeLimitSeconds: isSpectator
+                                ? appModel.timeLimit * 60
+                                : appModel.moveTimeLimit,
+                            moveTimeLeft: isSpectator
+                                ? appModel.player2TimeLeft
+                                : appModel.moveTimeLeft,
                             dockToMenu: true,
                             onTap: () => showCapturedPiecesSheet(
                               context,
