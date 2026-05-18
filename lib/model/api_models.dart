@@ -354,3 +354,131 @@ class OnlineMoveSubmitResult {
     );
   }
 }
+
+// ── Game History ──────────────────────────────────────────────────────────────
+
+class GameHistoryItem {
+  final String id;
+  final String status;
+  final String result;
+  final String myColor;
+  final String myResult; // 'win' | 'loss' | 'draw'
+  final String? opponentId;
+  final String opponentName;
+  final String? opponentAvatarUrl;
+  final String timeControl;
+  final bool isAiGame;
+  final String currentFen;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  GameHistoryItem({
+    required this.id,
+    required this.status,
+    required this.result,
+    required this.myColor,
+    required this.myResult,
+    required this.opponentId,
+    required this.opponentName,
+    required this.opponentAvatarUrl,
+    required this.timeControl,
+    required this.isAiGame,
+    required this.currentFen,
+    required this.startedAt,
+    required this.endedAt,
+  });
+
+  factory GameHistoryItem.fromJson(Map<String, dynamic> json) {
+    return GameHistoryItem(
+      id: json['id'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      result: json['result'] as String? ?? 'unknown',
+      myColor: json['myColor'] as String? ?? 'white',
+      myResult: json['myResult'] as String? ?? 'draw',
+      opponentId: json['opponentId'] as String?,
+      opponentName: json['opponentName'] as String? ?? 'Unknown',
+      opponentAvatarUrl: json['opponentAvatarUrl'] as String?,
+      timeControl: json['timeControl'] as String? ?? 'rapid_15',
+      isAiGame: json['isAiGame'] as bool? ?? false,
+      currentFen: json['currentFen'] as String? ?? '',
+      startedAt: json['startedAt'] == null
+          ? null
+          : DateTime.tryParse(json['startedAt'] as String),
+      endedAt: json['endedAt'] == null
+          ? null
+          : DateTime.tryParse(json['endedAt'] as String),
+    );
+  }
+}
+
+// ── Position Analysis ─────────────────────────────────────────────────────────
+
+class MoveHint {
+  final String uci;
+  final String san;
+  final String from;
+  final String to;
+
+  MoveHint({
+    required this.uci,
+    required this.san,
+    required this.from,
+    required this.to,
+  });
+
+  factory MoveHint.fromJson(Map<String, dynamic> json) {
+    return MoveHint(
+      uci: json['uci'] as String? ?? '',
+      san: json['san'] as String? ?? '',
+      from: json['from'] as String? ?? '',
+      to: json['to'] as String? ?? '',
+    );
+  }
+}
+
+class PositionAnalysis {
+  final MoveHint bestMove;
+  final String classification; // best/excellent/good/inaccurate/mistake/blunder/unknown
+  final int? evalScore;
+  final int? evalPlayed;
+
+  PositionAnalysis({
+    required this.bestMove,
+    required this.classification,
+    required this.evalScore,
+    required this.evalPlayed,
+  });
+
+  factory PositionAnalysis.fromJson(Map<String, dynamic> json) {
+    return PositionAnalysis(
+      bestMove: MoveHint.fromJson(
+        (json['bestMove'] as Map<String, dynamic>?) ?? {},
+      ),
+      classification: json['classification'] as String? ?? 'unknown',
+      evalScore: (json['evalScore'] as num?)?.toInt(),
+      evalPlayed: (json['evalPlayed'] as num?)?.toInt(),
+    );
+  }
+
+  String get classificationLabel {
+    switch (classification) {
+      case 'best':
+        return 'Nước đi tốt nhất!';
+      case 'excellent':
+        return 'Xuất sắc!';
+      case 'good':
+        return 'Nước đi tốt';
+      case 'inaccurate':
+        return 'Không chính xác';
+      case 'mistake':
+        return 'Sai lầm';
+      case 'blunder':
+        return 'Sai lầm nghiêm trọng!';
+      default:
+        return 'Không xác định';
+    }
+  }
+
+  bool get isPositive =>
+      classification == 'best' || classification == 'excellent' || classification == 'good';
+}

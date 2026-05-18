@@ -16,6 +16,7 @@ import 'components/main_menu_view/user_profile_dialog.dart';
 import 'components/main_menu_view/watch_dialog.dart';
 import 'components/shared/ranked_profile_avatar.dart';
 import 'components/shared/adaptive_width.dart';
+import 'game_history_view.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 
@@ -552,6 +553,13 @@ class _MainMenuViewState extends State<MainMenuView> {
     }
   }
 
+  void _openGameHistory() {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => const GameHistoryView()),
+    );
+  }
+
   void _showUserProfile() async {
     final auth = Provider.of<AppModel>(context, listen: false).authService;
     if (!auth.isLoggedIn || auth.user == null) return;
@@ -719,6 +727,12 @@ class _MainMenuViewState extends State<MainMenuView> {
                               semanticLabel: l.play,
                             ),
                           ),
+                          if (isLoggedIn) ...[
+                            const SizedBox(height: 14),
+                            _GameHistoryButton(
+                              onTap: _openGameHistory,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1138,4 +1152,45 @@ class _HomeBackgroundVariant {
     required this.width,
     required this.height,
   });
+}
+
+class _GameHistoryButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _GameHistoryButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFE8BE75).withValues(alpha: 0.45),
+            width: 1.2,
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.clock_fill, color: Color(0xFFE8BE75), size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Ván đấu của tôi',
+              style: TextStyle(
+                color: Color(0xFFE8BE75),
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

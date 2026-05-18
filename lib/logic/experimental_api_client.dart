@@ -187,6 +187,43 @@ class ExperimentalApiClient {
     return [];
   }
 
+  Future<List<GameHistoryItem>> fetchGameHistory({
+    required String userId,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final json = await _getJson(
+      '/api/users/$userId/games',
+      requiresAuth: false,
+      queryParams: {
+        'limit': '$limit',
+        'offset': '$offset',
+      },
+    );
+    final rawGames = (json['games'] as List?) ?? [];
+    return rawGames
+        .whereType<Map<String, dynamic>>()
+        .map(GameHistoryItem.fromJson)
+        .toList();
+  }
+
+  Future<PositionAnalysis> analyzePosition({
+    required String fen,
+    String? playedMove,
+    int level = 8,
+  }) async {
+    final json = await _postJson(
+      '/api/games/analyze',
+      requiresAuth: false,
+      body: {
+        'fen': fen,
+        if (playedMove != null) 'playedMove': playedMove,
+        'level': level,
+      },
+    );
+    return PositionAnalysis.fromJson(json);
+  }
+
   // ── Public POST (no Bearer token) ──────────────────────────────────────────
   Future<Map<String, dynamic>> postJsonPublic(
     String path, {
