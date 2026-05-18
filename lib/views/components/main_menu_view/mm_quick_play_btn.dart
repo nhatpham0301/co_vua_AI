@@ -291,6 +291,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       bool onlineGameReady = false;
       String? matchedGameId;
       bool createdAiFallback = false;
+      Map<String, dynamic>? aiFallbackGame;
       bool matchmakingDialogVisible = false;
 
       // Connect socket first so client can receive match events immediately.
@@ -431,6 +432,7 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
             if (createdGameId.isNotEmpty) {
               matchedGameId = createdGameId;
               createdAiFallback = true;
+              aiFallbackGame = created;
               DevLogger.instance.log(
                 DevLogCategory.http,
                 '[HOME_PLAY] POST /api/games/ai fallback success | gameId=$createdGameId | aiLevel=$aiLevel',
@@ -478,7 +480,12 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
           await appModel.startOnlineEventTracking(gameId);
 
           // Hydrate snapshot/profile for board orientation and header info.
-          await appModel.fetchOnlineGameSnapshotPreview(gameId);
+          if (createdAiFallback && aiFallbackGame != null) {
+            // Use the create response directly (has aiColor for playerSide).
+            appModel.applyJoinGameResponse(aiFallbackGame);
+          } else {
+            await appModel.fetchOnlineGameSnapshotPreview(gameId);
+          }
           if (createdAiFallback) {
             appModel.currentGameInviteCode = null;
             appModel.isWaitingForOpponent = false;
@@ -518,7 +525,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
       }
 
       appModel.setPlayerCount(createdAiFallback ? 1 : 2);
-      appModel.markOnlineVsAiLocalFallbackSession(createdAiFallback);
+      // AI fallback always uses server-side Stockfish — never local Minimax.
+      appModel.markOnlineVsAiLocalFallbackSession(false);
       if (!mounted) return;
       hideTransitionLoading();
       DevLogger.instance.log(

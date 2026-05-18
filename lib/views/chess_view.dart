@@ -107,6 +107,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   void _startReadyCountdown() {
+    // If already ready (e.g. online AI game set ready in initState), skip.
+    if (_isReady) return;
     _readyTimer?.cancel();
     _readySeconds = 30;
     _isReady = false;
