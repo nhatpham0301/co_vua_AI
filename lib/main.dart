@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:flame/flame.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/cupertino.dart';
@@ -33,11 +35,32 @@ void main() async {
     ),
   );
 
-  // Heavy work in background after UI is visible:
-  // 1. Initialize Mobile Ads SDK (500 ms – 2 s on Android)
-  // 2. Pre-load one interstitial ad
-  // 3. Pre-load Flame images & audio
-  unawaited(_warmUpServices());
+  // Delay startup services slightly so first frame is on screen,
+  // then request ATT on iOS before any ad SDK work.
+  unawaited(_bootstrapServicesAfterFirstFrame());
+}
+
+Future<void> _bootstrapServicesAfterFirstFrame() async {
+  await Future<void>.delayed(const Duration(milliseconds: 300));
+  await _requestTrackingPermissionIfNeeded();
+  await _warmUpServices();
+}
+
+Future<void> _requestTrackingPermissionIfNeeded() async {
+  if (!Platform.isIOS) return;
+
+  try {
+    final status = await AppTrackingTransparency.trackingAuthorizationStatus;
+    debugPrint('[ATT] Current status: $status');
+
+    if (status == TrackingStatus.notDetermined) {
+      final result =
+          await AppTrackingTransparency.requestTrackingAuthorization();
+      debugPrint('[ATT] Request result: $result');
+    }
+  } catch (e) {
+    debugPrint('[ATT] Failed to request tracking authorization: $e');
+  }
 }
 
 Future<void> _warmUpServices() async {
