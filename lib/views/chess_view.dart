@@ -86,6 +86,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         final isOnlineAi = appModel.isOnlineGameMode && appModel.playingWithAI;
         if (isOnlineAi && !appModel.isSpectatorMode) {
           _isReady = true;
+          appModel.isInputLocked = false;
+          appModel.resumeGameClock();
           appModel.timerService.resume();
           DevLogger.instance.log(
             DevLogCategory.game,
@@ -183,7 +185,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         _isReady = true;
         appModel.isInputLocked = false;
         appModel.timerService.resume();
-        if (appModel.isAIsTurn && !appModel.gameOver) {
+        if (appModel.isAIsTurn &&
+            !appModel.gameOver &&
+            (!appModel.isOnlineGameMode ||
+                appModel.shouldRunLocalAiInOnlineVsAi)) {
           appModel.gameController?.triggerAIMove();
         }
         if (mounted) setState(() {});
@@ -265,7 +270,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
       } else {
         _isReady = true;
         appModel.timerService.resume();
-        if (appModel.isAIsTurn && !appModel.gameOver) {
+        if (appModel.isAIsTurn &&
+            !appModel.gameOver &&
+            (!appModel.isOnlineGameMode ||
+                appModel.shouldRunLocalAiInOnlineVsAi)) {
           appModel.gameController?.triggerAIMove();
         }
       }
@@ -320,7 +328,10 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
 
     appModel.resumeGameClock(); // tiếp tục nhận clock events từ server
     appModel.timerService.resume();
-    if (appModel.isAIsTurn && !appModel.gameOver) {
+    if (appModel.isAIsTurn &&
+        !appModel.gameOver &&
+        (!appModel.isOnlineGameMode ||
+            appModel.shouldRunLocalAiInOnlineVsAi)) {
       appModel.gameController?.triggerAIMove();
     }
 

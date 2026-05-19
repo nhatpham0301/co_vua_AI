@@ -561,7 +561,22 @@ class _MoveList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (moves.isEmpty) return const SizedBox.shrink();
+    if (moves.isEmpty) {
+      return Container(
+        height: 48,
+        color: const Color(0xFF221810),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: const Text(
+          'Van nay khong co nuoc di nao duoc luu tren server',
+          style: TextStyle(
+            color: Color(0xFF7A6A5A),
+            fontSize: 12,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
 
     // Pair moves: index 0 & 1 form "1. Nf3 d5", etc.
     final pairs = <(int, int?)>[];

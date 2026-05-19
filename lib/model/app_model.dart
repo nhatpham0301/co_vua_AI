@@ -416,6 +416,7 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
+    isInputLocked = false;
     gameOver = false;
     stalemate = false;
     userWon = false;
@@ -448,9 +449,9 @@ class AppModel extends ChangeNotifier {
       final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;
       final minutesToUse =
           serverMinutes != null && serverMinutes > 0 ? serverMinutes : 15;
-      // Spectator mode: no per-move limit — server drives clocks via game:clock.
-      // Per-move limit 60s for all other online game modes.
-      final moveLimitSec = _spectatorMode ? 0 : 60;
+      // Spectator mode never uses the per-move timer locally.
+      final serverMoveTimeLimit = onlineGameSnapshot?.moveTimeLimit ?? 0;
+      final moveLimitSec = _spectatorMode ? 0 : serverMoveTimeLimit;
       timerService.configure(minutesToUse, moveTimeLimitSeconds: moveLimitSec);
     }
     audio.enabled = prefs.soundEnabled;
@@ -488,9 +489,12 @@ class AppModel extends ChangeNotifier {
     // Online PvP: local timer runs for smooth display; server game:clock events
     // sync/correct values every second. Game end is driven by game:end socket event.
 
-    // Trigger AI move if it's AI's turn natively for standard games.
-    // Skip if input is locked (countdown screen — View will trigger after Ready).
-    if (isAIsTurn && !gameOver && !isInputLocked) {
+    // Trigger local AI only for offline games or explicit local-fallback sessions.
+    // Online server-AI games must wait for socket events from the backend.
+    if (isAIsTurn &&
+        !gameOver &&
+        !isInputLocked &&
+        (!isOnlineGameMode || shouldRunLocalAiInOnlineVsAi)) {
       gameController!.triggerAIMove();
     }
 
@@ -1704,8 +1708,10 @@ class AppModel extends ChangeNotifier {
 
     notifyListeners();
 
-    // Trigger AI move if it's AI's turn
-    if (isAIsTurn && !gameOver) {
+    // Resume local AI only for offline games or explicit local-fallback sessions.
+    if (isAIsTurn &&
+        !gameOver &&
+        (!isOnlineGameMode || shouldRunLocalAiInOnlineVsAi)) {
       gameController!.triggerAIMove();
     }
 
