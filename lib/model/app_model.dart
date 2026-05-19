@@ -448,8 +448,10 @@ class AppModel extends ChangeNotifier {
       final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;
       final minutesToUse =
           serverMinutes != null && serverMinutes > 0 ? serverMinutes : 15;
-      // Per-move limit default 60s for all game modes.
-      timerService.configure(minutesToUse, moveTimeLimitSeconds: 60);
+      // Spectator mode: no per-move limit — server drives clocks via game:clock.
+      // Per-move limit 60s for all other online game modes.
+      final moveLimitSec = _spectatorMode ? 0 : 60;
+      timerService.configure(minutesToUse, moveTimeLimitSeconds: moveLimitSec);
     }
     audio.enabled = prefs.soundEnabled;
     // For online games, playerSide is assigned by the server via game:state.
