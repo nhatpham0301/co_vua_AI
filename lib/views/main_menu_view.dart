@@ -731,9 +731,6 @@ class _MainMenuViewState extends State<MainMenuView> {
                           ),
                           if (isLoggedIn) ...[
                             const SizedBox(height: 14),
-                            _GameHistoryButton(
-                              onTap: _openGameHistory,
-                            ),
                           ],
                         ],
                       ),

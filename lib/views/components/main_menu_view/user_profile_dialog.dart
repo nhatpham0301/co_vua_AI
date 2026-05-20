@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../logic/chess_piece.dart';
 import '../../../logic/rank_system.dart';
 import '../../../logic/shared_functions.dart';
+import '../../../model/api_models.dart';
 import '../../../model/app_model.dart';
+import '../../game_review_view.dart';
 import '../shared/ranked_profile_avatar.dart';
 
 class UserProfileDialog extends StatefulWidget {
@@ -36,6 +38,13 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
   List<dynamic>? _eloHistory;
   bool _loading = false;
 
+  // Game history pagination
+  final List<GameHistoryItem> _gameHistory = [];
+  bool _historyLoading = false;
+  bool _historyHasMore = true;
+  int _historyOffset = 0;
+  static const int _historyPageSize = 15;
+
   bool get _hasCapturedTab => widget.capturedPieces != null;
 
   @override
@@ -46,32 +55,65 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
 
   Future<void> _loadUserData() async {
     if (_loading) return;
-    // Tab Quân cờ không cần gọi API
+    // Tab Quân cờ và Tab Lịch sử không dùng _eloHistory
+    if (_selectedTab == 1) {
+      _loadHistory();
+      return;
+    }
     if (_hasCapturedTab && _selectedTab == 2) return;
     setState(() => _loading = true);
 
     try {
       final appModel = Provider.of<AppModel>(context, listen: false);
-      final apiClient = appModel.apiClient;
-
-      if (_selectedTab == 0) {
-        final history = await apiClient.fetchUserEloHistory(widget.userId);
-        if (mounted) setState(() => _eloHistory = history);
-      } else {
-        final games = await apiClient.fetchUserGames(
-          userId: widget.userId,
-          limit: 20,
-        );
-        if (mounted) {
-          final gamesList = (games['games'] as List?)?.toList() ?? [];
-          setState(() => _eloHistory = gamesList);
-        }
-      }
+      final history =
+          await appModel.apiClient.fetchUserEloHistory(widget.userId);
+      if (mounted) setState(() => _eloHistory = history);
     } catch (e) {
       debugPrint('Error loading user data: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _loadHistory({bool refresh = false}) async {
+    if (_historyLoading) return;
+    if (!_historyHasMore && !refresh) return;
+
+    setState(() {
+      _historyLoading = true;
+      if (refresh) {
+        _gameHistory.clear();
+        _historyOffset = 0;
+        _historyHasMore = true;
+      }
+    });
+
+    try {
+      final appModel = Provider.of<AppModel>(context, listen: false);
+      final items = await appModel.apiClient.fetchGameHistory(
+        userId: widget.userId,
+        limit: _historyPageSize,
+        offset: _historyOffset,
+      );
+      if (mounted) {
+        setState(() {
+          _gameHistory.addAll(items);
+          _historyOffset += items.length;
+          _historyHasMore = items.length == _historyPageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading game history: $e');
+    } finally {
+      if (mounted) setState(() => _historyLoading = false);
+    }
+  }
+
+  void _openReview(GameHistoryItem game) {
+    Navigator.push(
+      context,
+      CupertinoPageRoute(builder: (_) => GameReviewView(game: game)),
+    );
   }
 
   @override
@@ -210,7 +252,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                         selected: _selectedTab == 1,
                         onTap: () {
                           setState(() => _selectedTab = 1);
-                          _loadUserData();
+                          if (_gameHistory.isEmpty) _loadHistory();
                         },
                       ),
                     ),
@@ -230,7 +272,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                 ),
               ),
               Expanded(
-                child: _loading && _selectedTab != 2
+                child: _loading && _selectedTab == 0
                     ? const Center(
                         child: CupertinoActivityIndicator(
                           color: Color(0xFF9A612E),
@@ -304,65 +346,66 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
   }
 
   Widget _buildHistoryTab() {
-    if (_eloHistory == null || _eloHistory!.isEmpty) {
+    if (_gameHistory.isEmpty && _historyLoading) {
       return const Center(
-        child: Text(
-          'Chưa có ván nào',
-          style: TextStyle(
-            color: Color(0xFF7E5A3A),
-            fontWeight: FontWeight.w600,
-          ),
+        child: CupertinoActivityIndicator(color: Color(0xFF9A612E)),
+      );
+    }
+    if (_gameHistory.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('♟', style: TextStyle(fontSize: 44)),
+            const SizedBox(height: 10),
+            const Text(
+              'Chưa có ván đấu nào',
+              style: TextStyle(
+                color: Color(0xFF5A3921),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _loadHistory(refresh: true),
+              child: const Text(
+                'Tải lại',
+                style: TextStyle(color: Color(0xFF9A612E)),
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _eloHistory!.take(10).map((game) {
-          final isWin = (game['result'] as String?)?.contains('win') ?? false;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1E1C7),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: (isWin
-                          ? const Color(0xFF3E8A50)
-                          : const Color(0xFF9B4444))
-                      .withValues(alpha: 0.45),
-                ),
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n is ScrollEndNotification &&
+            n.metrics.pixels >= n.metrics.maxScrollExtent - 160) {
+          _loadHistory();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+        itemCount: _gameHistory.length + (_historyHasMore ? 1 : 0),
+        itemBuilder: (ctx, i) {
+          if (i == _gameHistory.length) {
+            return const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(
+                child: CupertinoActivityIndicator(color: Color(0xFF9A612E)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isWin ? 'Thắng' : 'Thua',
-                    style: TextStyle(
-                      color: isWin
-                          ? const Color(0xFF2D7C43)
-                          : const Color(0xFF8E3535),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    game.toString(),
-                    style: const TextStyle(
-                      color: Color(0xFF6D4B2E),
-                      fontSize: 11,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
+            );
+          }
+          final game = _gameHistory[i];
+          return _ProfileHistoryRow(
+            game: game,
+            onTap: () => _openReview(game),
           );
-        }).toList(),
+        },
       ),
     );
   }
@@ -472,6 +515,157 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ProfileHistoryRow extends StatelessWidget {
+  final GameHistoryItem game;
+  final VoidCallback onTap;
+
+  const _ProfileHistoryRow({required this.game, required this.onTap});
+
+  Color get _resultColor {
+    switch (game.myResult) {
+      case 'win':
+        return const Color(0xFF2D7C43);
+      case 'loss':
+        return const Color(0xFF9B3535);
+      default:
+        return const Color(0xFF7A6040);
+    }
+  }
+
+  Color get _resultBg {
+    switch (game.myResult) {
+      case 'win':
+        return const Color(0xFFD4EDD9);
+      case 'loss':
+        return const Color(0xFFEDD4D4);
+      default:
+        return const Color(0xFFE8DEC8);
+    }
+  }
+
+  String get _resultLabel {
+    switch (game.myResult) {
+      case 'win':
+        return 'Thắng';
+      case 'loss':
+        return 'Thua';
+      default:
+        return 'Hòa';
+    }
+  }
+
+  String get _timeControlLabel {
+    final tc = game.timeControl;
+    if (tc.startsWith('bullet')) return '⚡ Bullet';
+    if (tc.startsWith('blitz')) return '⏱ Blitz';
+    if (tc.startsWith('rapid')) return '🕐 Rapid';
+    if (tc.startsWith('classical')) return '♟ Classical';
+    return tc;
+  }
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '';
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inDays == 0) return 'Hôm nay';
+    if (diff.inDays == 1) return 'Hôm qua';
+    if (diff.inDays < 7) return '${diff.inDays} ngày trước';
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1E1C7),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: _resultColor.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          children: [
+            // Badge kết quả
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: _resultBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _resultColor.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _resultLabel,
+                    style: TextStyle(
+                      color: _resultColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    game.myColor == 'white' ? '♔' : '♚',
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Thông tin ván
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'vs ${game.opponentName}',
+                    style: const TextStyle(
+                      color: Color(0xFF3D2514),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        _timeControlLabel,
+                        style: const TextStyle(
+                          color: Color(0xFF7A5A3A),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _formatDate(game.endedAt),
+                        style: const TextStyle(
+                          color: Color(0xFF9E7A55),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              CupertinoIcons.chevron_right,
+              color: Color(0xFFBE945F),
+              size: 14,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
