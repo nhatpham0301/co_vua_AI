@@ -11,6 +11,7 @@ import '../model/player.dart';
 import 'chess_board.dart';
 import 'chess_piece.dart';
 import 'chess_piece_sprite.dart';
+import 'dev_logger.dart';
 import 'game_controller.dart';
 import 'move_calculation/move_classes/move.dart';
 import 'shared_functions.dart';
@@ -94,11 +95,16 @@ class ChessGame extends FlameGame with TapCallbacks {
   // ── Input Handling ──
 
   void onTapDown(TapDownEvent event) {
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[TAP] gameOver=${appModel.gameOver} isAIsTurn=${appModel.isAIsTurn} spectator=${appModel.isSpectatorMode} inputLocked=${appModel.isInputLocked} turn=${appModel.turn.name} playerSide=${appModel.playerSide.name} pos=${event.localPosition}',
+    );
     if (!appModel.gameOver &&
         !appModel.isAIsTurn &&
         !appModel.isSpectatorMode &&
         !appModel.isInputLocked) {
       var tile = _vector2ToTile(event.localPosition);
+      if (tile < 0 || tile >= 64) return;
       var touchedPiece = board.tiles[tile];
       if (touchedPiece == selectedPiece) {
         validMoves = [];

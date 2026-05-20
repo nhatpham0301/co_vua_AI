@@ -78,6 +78,23 @@ class GameController {
       );
       // Selection may have changed while waiting for the network response.
       if (selectedPiece?.tile != piece.tile) return;
+
+      // If the server says it's not our turn but the local state disagrees,
+      // this is likely an auth issue (expired token → treated as guest by
+      // optionalAuth, whiteId !== GUEST_USER_ID → waitingForTurn:true).
+      // Fall back to local moves so the player is never stuck.
+      final isWaitingForTurn = payload['waitingForTurn'] == true;
+      if (isWaitingForTurn && appModel.turn == appModel.playerSide) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[ONLINE] legal-moves: waitingForTurn=true but local turn=${appModel.turn.name}==playerSide=${appModel.playerSide.name} for $from — auth issue suspected, using local moves',
+        );
+        validMoves = board.movesForPiece(piece);
+        if (validMoves.isEmpty) selectedPiece = null;
+        appModel.update();
+        return;
+      }
+
       validMoves = _extractServerLegalMoveTiles(payload);
       if (validMoves.isEmpty) {
         selectedPiece = null;
