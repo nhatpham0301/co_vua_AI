@@ -14,6 +14,7 @@ typedef _StatusState = ({
   bool userWon,
   Player turn,
   bool stalemate,
+  String? gameEndReason,
   int aiDifficulty,
 });
 
@@ -28,13 +29,14 @@ class GameStatus extends StatelessWidget {
         userWon: m.userWon,
         turn: m.turn,
         stalemate: m.stalemate,
+        gameEndReason: m.gameEndReason,
         aiDifficulty: m.aiDifficulty,
       ),
       builder: (context, state, child) {
         final l = AppLocalizations.of(context)!;
         return Row(
           children: [
-            TextRegular(_getStatus(state, l)),
+            TextRegular(_getStatus(context, state, l)),
             !state.gameOver && state.playerCount == 1 && state.isAIsTurn
                 ? CupertinoActivityIndicator(radius: 12)
                 : Container()
@@ -45,7 +47,14 @@ class GameStatus extends StatelessWidget {
     );
   }
 
-  String _getStatus(_StatusState s, AppLocalizations l) {
+  String _drawLabel(BuildContext context, String? reason, AppLocalizations l) {
+    if (reason == 'stalemate') return l.stalemate;
+    return Localizations.localeOf(context).languageCode == 'vi'
+        ? 'Hòa cờ'
+        : 'Draw';
+  }
+
+  String _getStatus(BuildContext context, _StatusState s, AppLocalizations l) {
     if (!s.gameOver) {
       if (s.playerCount == 1) {
         if (s.isAIsTurn) {
@@ -62,7 +71,7 @@ class GameStatus extends StatelessWidget {
       }
     } else {
       if (s.stalemate) {
-        return l.stalemate;
+        return _drawLabel(context, s.gameEndReason, l);
       }
       return s.userWon ? l.youWin : l.youLose;
     }

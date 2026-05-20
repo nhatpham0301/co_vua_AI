@@ -218,6 +218,20 @@ class AppModel extends ChangeNotifier {
     spectatorBlackProfile = null;
   }
 
+  void clearOnlinePreviewState({bool notify = true}) {
+    onlineGameSnapshot = null;
+    onlineMoveHistory = [];
+    onlineMoveSubmitSnapshot = null;
+    clearOpponentProfile();
+    serverCheck = false;
+    serverCheckMessage = null;
+    gameEndReason = null;
+    onlineWinner = null;
+    _prevServerWhiteSec = null;
+    _prevServerBlackSec = null;
+    if (notify) notifyListeners();
+  }
+
   /// ID của đối thủ trong ván online (null nếu chưa có hoặc là AI game).
   String? get opponentUserId {
     final snap = onlineGameSnapshot;
@@ -286,7 +300,13 @@ class AppModel extends ChangeNotifier {
   /// Không throw để tránh chặn luồng vào bàn nếu API profile lỗi tạm thời.
   Future<void> hydrateOpponentProfileFromSnapshot() async {
     final snap = onlineGameSnapshot;
-    if (snap == null || snap.isAiGame) {
+    if (snap == null) {
+      opponentProfile = null;
+      notifyListeners();
+      return;
+    }
+
+    if (!_spectatorMode && snap.isAiGame) {
       opponentProfile = null;
       notifyListeners();
       return;
@@ -294,11 +314,23 @@ class AppModel extends ChangeNotifier {
 
     // Spectator mode: fetch cả white và black profile.
     if (_spectatorMode) {
+      spectatorWhiteProfile = _copyProfileMap(snap.white);
+      spectatorBlackProfile = _copyProfileMap(snap.black);
+      notifyListeners();
+
       await Future.wait([
-        _fetchProfileInto(
-            snap.whiteId, (p) => spectatorWhiteProfile = p, 'white'),
-        _fetchProfileInto(
-            snap.blackId, (p) => spectatorBlackProfile = p, 'black'),
+        _enrichSpectatorProfile(
+          seed: snap.white,
+          userId: snap.whiteId,
+          role: 'white',
+          setter: (p) => spectatorWhiteProfile = p,
+        ),
+        _enrichSpectatorProfile(
+          seed: snap.black,
+          userId: snap.blackId,
+          role: 'black',
+          setter: (p) => spectatorBlackProfile = p,
+        ),
       ]);
       notifyListeners();
       return;
@@ -328,24 +360,35 @@ class AppModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchProfileInto(
-    String? userId,
-    void Function(Map<String, dynamic>?) setter,
-    String role,
-  ) async {
+  Map<String, dynamic>? _copyProfileMap(Map<String, dynamic>? profile) {
+    if (profile == null) return null;
+    return Map<String, dynamic>.from(profile);
+  }
+
+  Future<void> _enrichSpectatorProfile({
+    required Map<String, dynamic>? seed,
+    required String? userId,
+    required String role,
+    required void Function(Map<String, dynamic>?) setter,
+  }) async {
+    final base = _copyProfileMap(seed);
+    if ((base?['isBot'] as bool?) == true) {
+      setter(base);
+      return;
+    }
     if (userId == null || userId.trim().isEmpty) {
-      setter(null);
+      setter(base);
       return;
     }
     try {
-      final profile = await apiClient.fetchUserProfile(userId.trim());
-      setter(profile);
+      final profile = await apiClient.fetchUserProfile(userId);
+      setter({...?base, ...profile});
     } catch (e) {
+      setter(base);
       DevLogger.instance.log(
         DevLogCategory.http,
         '[PROFILE] fetch spectator $role profile failed | userId=$userId | error=$e',
       );
-      setter(null);
     }
   }
 
@@ -381,6 +424,7 @@ class AppModel extends ChangeNotifier {
     };
     timerService.onExpired = _handleTimerExpired;
     audio.enabled = prefs.soundEnabled;
+
     authService.addListener(() => notifyListeners());
 
     prefs.load();
@@ -484,6 +528,7 @@ class AppModel extends ChangeNotifier {
         _replayOnlineMoveHistoryToBoard();
       }
       _syncTurnFromFen(fen);
+      _seedSpectatorClocksFromMoveHistory();
     }
     timerService.start(() => turn, () => gameOver);
     // Online PvP: local timer runs for smooth display; server game:clock events
@@ -511,6 +556,7 @@ class AppModel extends ChangeNotifier {
   }
 
   void exitChessView() {
+    final wasSpectator = _spectatorMode;
     // Nếu game chưa kết thúc, đánh dấu cần hiện ad trước ván tiếp theo.
     if (!gameOver) adService.markGameAbandoned();
     gameController?.cancelAIMove();
@@ -533,10 +579,14 @@ class AppModel extends ChangeNotifier {
     serverCheckMessage = null;
     clearServerCastlingVisual(notify: false);
     unawaited(onlineEvents.stopTracking());
+    if (wasSpectator) {
+      clearOnlinePreviewState(notify: false);
+    }
     notifyListeners();
   }
 
   void saveAndExitChessView() {
+    final wasSpectator = _spectatorMode;
     // Nếu game chưa kết thúc, đánh dấu cần hiện ad trước ván tiếp theo.
     if (!gameOver) adService.markGameAbandoned();
     saveGameState();
@@ -555,6 +605,9 @@ class AppModel extends ChangeNotifier {
     serverCheckMessage = null;
     clearServerCastlingVisual(notify: false);
     unawaited(onlineEvents.stopTracking());
+    if (wasSpectator) {
+      clearOnlinePreviewState(notify: false);
+    }
     notifyListeners();
   }
 
@@ -607,6 +660,21 @@ class AppModel extends ChangeNotifier {
 
   void _handleTimerExpired() {
     final timedOutPlayer = _resolveTimedOutPlayer();
+
+    // For server-authoritative online games (including spectator mode), local
+    // clock expiry is only a visual milestone. Wait for the backend `game:end`
+    // event so the winner/reason stays consistent and we do not disconnect early.
+    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
+      gameEndReason = 'timeout';
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[TIMER] local timeout observed for ${timedOutPlayer?.name ?? 'unknown'}; waiting for server game:end',
+      );
+      timerService.pause();
+      notifyListeners();
+      return;
+    }
+
     if (timedOutPlayer == null) {
       gameEndReason = 'timeout';
       endGame();
@@ -669,18 +737,17 @@ class AppModel extends ChangeNotifier {
     _lastSocketClockAt = null;
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
-    await onlineEvents.startTracking(
-      socketBaseUrl: socketBaseUrl,
-      gameId: gameId,
-      accessToken: token,
-    );
-    // Register socket event handlers after tracking starts.
     onlineEvents.onGameState = _handleSocketGameState;
     onlineEvents.onGameMoveOk = _handleSocketGameMoveOk;
     onlineEvents.onGameClock = _handleSocketGameClock;
     onlineEvents.onGameEnd = _handleSocketGameEnd;
     onlineEvents.onPlayerDisconnected = _handleSocketPlayerDisconnected;
     onlineEvents.onPlayerReconnected = _handleSocketPlayerReconnected;
+    await onlineEvents.startTracking(
+      socketBaseUrl: socketBaseUrl,
+      gameId: gameId,
+      accessToken: token,
+    );
   }
 
   Future<void> startMatchmakingEventTracking() async {
@@ -805,10 +872,9 @@ class AppModel extends ChangeNotifier {
   }
 
   /// Handles `game:move:ok` — broadcast to all players after a valid move.
-  /// NOTE: game:move:ok clock values are intentionally NOT applied here.
-  /// The server still sends incorrect values for the player who just moved
-  /// (clock is bumped UP instead of decremented — BE fix pending).
-  /// Timer accuracy is maintained by the local countdown + game:clock drift correction.
+  /// Do not trust the clocks payload here: the server can still report a bumped
+  /// clock for the player who just moved. The authoritative correction comes
+  /// from the next `game:clock` tick.
   void _handleSocketGameMoveOk(Map<String, dynamic> data) {
     final from = data['from']?.toString();
     final to = data['to']?.toString();
@@ -824,9 +890,6 @@ class AppModel extends ChangeNotifier {
     final castling = data['castling'] as Map<String, dynamic>?;
 
     final clocks = data['clocks'] as Map<String, dynamic>?;
-    if (clocks != null) {
-      _syncClocksFromPayload(clocks, source: 'game:move:ok');
-    }
 
     // Determine whose move this was.
     // `turn` field = who plays NEXT. If it's my turn next, the opponent moved.
@@ -851,6 +914,7 @@ class AppModel extends ChangeNotifier {
 
     // Server is authoritative for board state after each move.
     _applyServerFenToBoard(fen, source: 'game:move:ok');
+    _syncTurnFromFen(fen);
 
     // Keep latest-move highlight aligned with server payload.
     final controller = gameController;
@@ -949,8 +1013,19 @@ class AppModel extends ChangeNotifier {
     final whiteSec = rawWhite?.truncate();
     final blackSec = rawBlack?.truncate();
 
-    // Sync clocks with drift threshold check
-    _syncClocksIfDrifted(whiteSec, blackSec);
+    // Spectator mode should follow the server's 1 Hz clock exactly. Using local
+    // drift-only correction here causes the 3-second jumps visible on slower devices.
+    if (_spectatorMode) {
+      timerService.setServerClocks(
+        whiteSeconds: whiteSec,
+        blackSeconds: blackSec,
+        source: 'game:clock:spectator',
+      );
+      _prevServerWhiteSec = whiteSec;
+      _prevServerBlackSec = blackSec;
+    } else {
+      _syncClocksIfDrifted(whiteSec, blackSec);
+    }
 
     // Sync whose turn it is from server activeColor (authoritative)
     final activeColor = data['activeColor']?.toString();
@@ -1132,6 +1207,14 @@ class AppModel extends ChangeNotifier {
     if (notify) notifyListeners();
   }
 
+  void prepareOnlineSession({bool spectatorMode = false, bool notify = false}) {
+    _sessionStartedOnline = true;
+    _spectatorMode = spectatorMode;
+    _endGameAdDisplayed = false;
+    _onlineVsAiLocalFallbackSession = false;
+    if (notify) notifyListeners();
+  }
+
   void setSpectatorMode(bool enabled, {bool notify = false}) {
     _spectatorMode = enabled;
     if (notify) notifyListeners();
@@ -1217,6 +1300,45 @@ class AppModel extends ChangeNotifier {
     controller.snapSprites();
     _logSpectator(
       'replay completed | history=${sorted.length} applied=$applied skipped=$skipped latestMove=${controller.latestMove?.from}->${controller.latestMove?.to}',
+    );
+  }
+
+  void _seedSpectatorClocksFromMoveHistory() {
+    if (!_spectatorMode || onlineMoveHistory.isEmpty) return;
+
+    final sorted = [...onlineMoveHistory]
+      ..sort((a, b) => a.moveNumber.compareTo(b.moveNumber));
+    final last = sorted.last;
+    final whiteMs = last.clockWhiteMs;
+    final blackMs = last.clockBlackMs;
+    if (whiteMs == null || blackMs == null) {
+      _logSpectator(
+        'clock seed skipped | missing move clock values on last move=${last.moveNumber}',
+      );
+      return;
+    }
+
+    var whiteSec = (whiteMs / 1000).floor();
+    var blackSec = (blackMs / 1000).floor();
+    final movedAt = last.movedAt;
+    if (movedAt != null && onlineGameSnapshot?.status == 'in_progress') {
+      final elapsedSec = math.max(0, DateTime.now().difference(movedAt).inSeconds);
+      if (turn == Player.player1) {
+        whiteSec = math.max(0, whiteSec - elapsedSec);
+      } else {
+        blackSec = math.max(0, blackSec - elapsedSec);
+      }
+    }
+
+    _prevServerWhiteSec = whiteSec;
+    _prevServerBlackSec = blackSec;
+    timerService.setServerClocks(
+      whiteSeconds: whiteSec,
+      blackSeconds: blackSec,
+      source: 'moves:seed',
+    );
+    _logSpectator(
+      'clock seed applied | white=$whiteSec black=$blackSec lastMove=${last.moveNumber}',
     );
   }
 
@@ -1426,6 +1548,7 @@ class AppModel extends ChangeNotifier {
   Future<void> fetchOnlineGameSnapshotPreview(String gameId) async {
     apiBusy = true;
     apiLastError = null;
+    onlineGameSnapshot = null;
     notifyListeners();
     try {
       onlineGameSnapshot = await apiClient.fetchGameSnapshot(gameId);
@@ -1435,6 +1558,7 @@ class AppModel extends ChangeNotifier {
       );
     } catch (e) {
       apiLastError = e.toString();
+      onlineGameSnapshot = null;
       DevLogger.instance.log(
         DevLogCategory.http,
         'GET /api/games/$gameId ERROR | $apiLastError',
@@ -1448,6 +1572,7 @@ class AppModel extends ChangeNotifier {
   Future<void> fetchOnlineGameMovesPreview(String gameId) async {
     apiBusy = true;
     apiLastError = null;
+    onlineMoveHistory = [];
     notifyListeners();
     try {
       onlineMoveHistory = await apiClient.fetchGameMoves(gameId);
@@ -1457,6 +1582,7 @@ class AppModel extends ChangeNotifier {
       );
     } catch (e) {
       apiLastError = e.toString();
+      onlineMoveHistory = [];
       DevLogger.instance.log(
         DevLogCategory.http,
         'GET /api/games/$gameId/moves ERROR | $apiLastError',

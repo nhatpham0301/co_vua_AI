@@ -29,8 +29,14 @@ const _kTopBannerSlotHeight = 56.0;
 class ChessView extends StatefulWidget {
   final AppModel appModel;
   final bool isResuming;
+  final bool skipInitialNewGame;
 
-  const ChessView(this.appModel, {super.key, this.isResuming = false});
+  const ChessView(
+    this.appModel, {
+    super.key,
+    this.isResuming = false,
+    this.skipInitialNewGame = false,
+  });
 
   @override
   State<ChessView> createState() => _ChessViewState(appModel);
@@ -71,7 +77,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         }
         appModel.restoreGameState().then((_) => _initFlameGame());
       } else {
-        appModel.newGame(notify: false);
+        final reusePreparedGame =
+            widget.skipInitialNewGame && appModel.gameController != null;
+        if (!reusePreparedGame) {
+          appModel.newGame(notify: false);
+        }
         _initFlameGame();
         if (appModel.isSpectatorMode) {
           _isReady = true;
