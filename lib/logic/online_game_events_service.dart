@@ -42,7 +42,7 @@ class OnlineGameEventsService {
     String? gameId,
     required String accessToken,
   }) async {
-    await stopTracking();
+    await stopTracking(clearHandlers: false);
 
     final base = _normalizeBaseUrl(socketBaseUrl);
     final uri = '$base/live';
@@ -135,7 +135,7 @@ class OnlineGameEventsService {
     socket.connect();
   }
 
-  Future<void> stopTracking() async {
+  Future<void> stopTracking({bool clearHandlers = true}) async {
     final socket = _socket;
     final gameId = _activeGameId;
 
@@ -158,14 +158,16 @@ class OnlineGameEventsService {
     _socket = null;
     _activeGameId = null;
     _hasJoinedActiveGame = false;
-    onGameState = null;
-    onGameMoveOk = null;
-    onGameClock = null;
-    onGameEnd = null;
-    onMatchFound = null;
-    onMatchTimeout = null;
-    onPlayerDisconnected = null;
-    onPlayerReconnected = null;
+    if (clearHandlers) {
+      onGameState = null;
+      onGameMoveOk = null;
+      onGameClock = null;
+      onGameEnd = null;
+      onMatchFound = null;
+      onMatchTimeout = null;
+      onPlayerDisconnected = null;
+      onPlayerReconnected = null;
+    }
   }
 
   /// Emit a move via socket (realtime submission for online games)

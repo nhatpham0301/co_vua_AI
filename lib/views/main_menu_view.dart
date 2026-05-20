@@ -14,8 +14,8 @@ import 'components/main_menu_view/mm_models.dart';
 import 'components/main_menu_view/mm_quick_play_btn.dart';
 import 'components/main_menu_view/user_profile_dialog.dart';
 import 'components/main_menu_view/watch_dialog.dart';
-import 'components/shared/ranked_profile_avatar.dart';
 import 'components/shared/adaptive_width.dart';
+import 'components/shared/ranked_profile_avatar.dart';
 import 'login_view.dart';
 import 'settings_view.dart';
 
@@ -241,6 +241,9 @@ class _MainMenuViewState extends State<MainMenuView> {
       }
 
       await model.fetchOnlineGameMovesPreview(gameId);
+      model.prepareOnlineSession();
+      model.newGame(notify: false);
+      model.timerService.pause();
       await model.startOnlineEventTracking(gameId);
       await model.hydrateOpponentProfileFromSnapshot();
 
@@ -253,7 +256,9 @@ class _MainMenuViewState extends State<MainMenuView> {
       if (!mounted) return;
       await Navigator.push(
         context,
-        CupertinoPageRoute(builder: (_) => ChessView(model)),
+        CupertinoPageRoute(
+          builder: (_) => ChessView(model, skipInitialNewGame: true),
+        ),
       );
     } catch (e) {
       DevLogger.instance.log(
@@ -301,9 +306,10 @@ class _MainMenuViewState extends State<MainMenuView> {
 
   static LiveMatch _jsonToLiveMatch(Map<String, dynamic> json) {
     final status = (json['status']?.toString() ?? '').toLowerCase();
-    if (status == 'ended' || status == 'draw' || status == 'checkmate') {
+    if (status != 'in_progress') {
       return LiveMatch(
         id: '',
+        title: 'Trận đã kết thúc',
         white: const MatchPlayer('White', 0),
         black: const MatchPlayer('Black', 0),
         moveCount: 0,
@@ -312,12 +318,24 @@ class _MainMenuViewState extends State<MainMenuView> {
       );
     }
 
-    String resolveName(dynamic user, String? fallbackId, String sideLabel) {
+    final participants = json['participants'] as Map<String, dynamic>?;
+
+    String resolveName(
+      dynamic user,
+      dynamic participant,
+      String? fallbackId,
+      String sideLabel,
+    ) {
       if (user is Map<String, dynamic>) {
-        final username = user['username'] as String?;
+        final username = (user['username'] ?? user['name']) as String?;
         if (username != null && username.trim().isNotEmpty) {
           return username.trim();
         }
+      }
+      if (participant is Map<String, dynamic> && participant['type'] == 'ai') {
+        final level = (participant['aiLevel'] as num?)?.toInt();
+        if (level != null) return 'AI Lv.$level';
+        return 'AI';
       }
       if (fallbackId != null && fallbackId.isNotEmpty) {
         final short =
@@ -325,6 +343,13 @@ class _MainMenuViewState extends State<MainMenuView> {
         return '$sideLabel-$short';
       }
       return '$sideLabel-?';
+    }
+
+    bool resolveIsBot(dynamic user, dynamic participant) {
+      if (user is Map<String, dynamic> && user['isBot'] == true) {
+        return true;
+      }
+      return participant is Map<String, dynamic> && participant['type'] == 'ai';
     }
 
     int resolveElo(dynamic user, String key) {
@@ -342,17 +367,36 @@ class _MainMenuViewState extends State<MainMenuView> {
             .difference(DateTime.tryParse(startedAt) ?? DateTime.now())
             .inSeconds
             .clamp(0, 99999);
+    final white = MatchPlayer(
+      resolveName(
+        json['white'],
+        participants?['white'],
+        json['whiteId'] as String?,
+        'White',
+      ),
+      resolveElo(json['white'], 'whiteEloSnapshot'),
+      isBot: resolveIsBot(json['white'], participants?['white']),
+    );
+    final black = MatchPlayer(
+      resolveName(
+        json['black'],
+        participants?['black'],
+        json['blackId'] as String?,
+        'Black',
+      ),
+      resolveElo(json['black'], 'blackEloSnapshot'),
+      isBot: resolveIsBot(json['black'], participants?['black']),
+    );
+    final apiTitle = (json['title'] as String?)?.trim();
+    final title = (apiTitle != null && apiTitle.isNotEmpty)
+        ? apiTitle
+        : 'Trận của ${white.name} vs ${black.name}';
 
     return LiveMatch(
       id: gameId,
-      white: MatchPlayer(
-        resolveName(json['white'], json['whiteId'] as String?, 'White'),
-        resolveElo(json['white'], 'whiteEloSnapshot'),
-      ),
-      black: MatchPlayer(
-        resolveName(json['black'], json['blackId'] as String?, 'Black'),
-        resolveElo(json['black'], 'blackEloSnapshot'),
-      ),
+      title: title,
+      white: white,
+      black: black,
       moveCount: (json['spectatorCount'] as num?)?.toInt() ?? 0,
       elapsedSec: elapsed,
       board: MatchGen.generateRandomBoard(),
@@ -453,6 +497,8 @@ class _MainMenuViewState extends State<MainMenuView> {
     }
 
     try {
+      appModel.clearOnlinePreviewState(notify: false);
+
       final s1 = Stopwatch()..start();
       await appModel.fetchOnlineGameSnapshotPreview(match.id);
       if (appModel.apiLastError != null ||
@@ -468,6 +514,21 @@ class _MainMenuViewState extends State<MainMenuView> {
         '[SPECTATOR] snapshot loaded | gameId=${match.id} | ms=${s1.elapsedMilliseconds} | status=${appModel.onlineGameSnapshot?.status}',
       );
 
+      final snapshotStatus =
+          (appModel.onlineGameSnapshot?.status ?? '').trim().toLowerCase();
+      if (snapshotStatus != 'in_progress') {
+        appModel.clearOnlinePreviewState(notify: false);
+        if (mounted) {
+          setState(() {
+            _matches.removeWhere((item) => item.id == match.id);
+          });
+        }
+        unawaited(_fetchRecentGames());
+        throw Exception(
+          'Trận này đã kết thúc và đã được xóa khỏi danh sách trực tiếp.',
+        );
+      }
+
       final s2 = Stopwatch()..start();
       await appModel.fetchOnlineGameMovesPreview(match.id);
       if (appModel.apiLastError != null) {
@@ -481,6 +542,10 @@ class _MainMenuViewState extends State<MainMenuView> {
         DevLogCategory.http,
         '[SPECTATOR] moves loaded | gameId=${match.id} | ms=${s2.elapsedMilliseconds} | moves=${appModel.onlineMoveHistory.length}',
       );
+
+      appModel.prepareOnlineSession(spectatorMode: true);
+      appModel.newGame(notify: false);
+      appModel.timerService.pause();
 
       final s3 = Stopwatch()..start();
       await appModel.startOnlineEventTracking(match.id, spectatorMode: true);
@@ -509,8 +574,13 @@ class _MainMenuViewState extends State<MainMenuView> {
       );
       await Navigator.push(
         context,
-        CupertinoPageRoute(builder: (_) => ChessView(appModel)),
+        CupertinoPageRoute(
+          builder: (_) => ChessView(appModel, skipInitialNewGame: true),
+        ),
       );
+      if (mounted) {
+        unawaited(_fetchRecentGames());
+      }
       DevLogger.instance.log(
         DevLogCategory.game,
         '[SPECTATOR] returned from ChessView | gameId=${match.id} | totalMs=${watch.elapsedMilliseconds}',

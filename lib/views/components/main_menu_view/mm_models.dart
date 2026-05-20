@@ -10,6 +10,7 @@ class MatchPlayer {
 
 class LiveMatch {
   final String id;
+  final String title;
   final MatchPlayer white;
   final MatchPlayer black;
   int moveCount;
@@ -18,6 +19,7 @@ class LiveMatch {
 
   LiveMatch({
     required this.id,
+    required this.title,
     required this.white,
     required this.black,
     required this.moveCount,
@@ -77,10 +79,13 @@ class MatchGen {
   static List<LiveMatch> generateTen() {
     return List.generate(10, (i) {
       final isBotMatch = i >= 2;
+      final white = isBotMatch ? _bot() : _human();
+      final black = isBotMatch ? _bot() : _human();
       return LiveMatch(
         id: 'match_$i',
-        white: isBotMatch ? _bot() : _human(),
-        black: isBotMatch ? _bot() : _human(),
+        title: 'Trận của ${white.name} vs ${black.name}',
+        white: white,
+        black: black,
         moveCount: 10 + _rng.nextInt(60),
         elapsedSec: 60 + _rng.nextInt(1800),
         board: _randomBoard(),

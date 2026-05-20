@@ -229,6 +229,9 @@ class OnlineGameSnapshot {
   final String result;
   final String? whiteId;
   final String? blackId;
+  final Map<String, dynamic>? white;
+  final Map<String, dynamic>? black;
+  final String? title;
   final int? aiLevel;
   final int moveTimeLimit;
   final String currentFen;
@@ -245,6 +248,9 @@ class OnlineGameSnapshot {
     required this.result,
     required this.whiteId,
     required this.blackId,
+    required this.white,
+    required this.black,
+    required this.title,
     this.aiLevel,
     required this.moveTimeLimit,
     required this.currentFen,
@@ -271,6 +277,13 @@ class OnlineGameSnapshot {
       result: json['result'] as String? ?? 'unknown',
       whiteId: json['whiteId'] as String?,
       blackId: json['blackId'] as String?,
+        white: json['white'] is Map
+          ? Map<String, dynamic>.from(json['white'] as Map)
+          : null,
+        black: json['black'] is Map
+          ? Map<String, dynamic>.from(json['black'] as Map)
+          : null,
+        title: json['title'] as String?,
       aiLevel: (json['aiLevel'] as num?)?.toInt(),
       moveTimeLimit: (json['moveTimeLimit'] as num?)?.toInt() ?? 0,
       currentFen: json['currentFen'] as String? ?? '',
@@ -291,6 +304,9 @@ class OnlineMoveRecord {
   final String? promotion;
   final String sanNotation;
   final String fenAfter;
+  final int? clockWhiteMs;
+  final int? clockBlackMs;
+  final DateTime? movedAt;
 
   OnlineMoveRecord({
     required this.id,
@@ -301,6 +317,9 @@ class OnlineMoveRecord {
     required this.promotion,
     required this.sanNotation,
     required this.fenAfter,
+    required this.clockWhiteMs,
+    required this.clockBlackMs,
+    required this.movedAt,
   });
 
   factory OnlineMoveRecord.fromJson(Map<String, dynamic> json) {
@@ -328,6 +347,9 @@ class OnlineMoveRecord {
       promotion: promotion,
       sanNotation: json['sanNotation'] as String? ?? '',
       fenAfter: json['fenAfter'] as String? ?? '',
+      clockWhiteMs: (json['clockWhiteMs'] as num?)?.toInt(),
+      clockBlackMs: (json['clockBlackMs'] as num?)?.toInt(),
+      movedAt: DateTime.tryParse(json['movedAt'] as String? ?? ''),
     );
   }
 }

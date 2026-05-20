@@ -101,6 +101,13 @@ class _TurnBar extends StatelessWidget {
 
   const _TurnBar(this.appModel);
 
+  String _drawLabel(BuildContext context, String? reason, AppLocalizations l) {
+    if (reason == 'stalemate') return l.stalemate;
+    return Localizations.localeOf(context).languageCode == 'vi'
+        ? 'Hòa cờ'
+        : 'Draw';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Selector<
@@ -149,7 +156,7 @@ class _TurnBar extends StatelessWidget {
 
         if (state.over) {
           if (state.draw) {
-            label = l.stalemate;
+            label = _drawLabel(context, state.gameEndReason, l);
             dotColor = Colors.orangeAccent;
           } else if (state.isSpectator) {
             // Spectator: show who actually won, not "Bạn thắng/thua"
@@ -161,7 +168,7 @@ class _TurnBar extends StatelessWidget {
               label = langCode == 'vi' ? 'Đen thắng' : 'Black wins';
               dotColor = Colors.grey.shade400;
             } else {
-              label = l.stalemate;
+              label = _drawLabel(context, state.gameEndReason, l);
               dotColor = Colors.orangeAccent;
             }
           } else if (state.isOnlinePvP &&

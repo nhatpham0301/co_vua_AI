@@ -72,7 +72,10 @@ class LiveMatchCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: _VsCenter(moveCount: match.moveCount),
+                          child: _VsCenter(
+                            title: match.title,
+                            moveCount: match.moveCount,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _SidePlayer(
@@ -142,16 +145,40 @@ class _SidePlayer extends StatelessWidget {
 }
 
 class _VsCenter extends StatelessWidget {
+  final String title;
   final int moveCount;
 
-  const _VsCenter({required this.moveCount});
+  const _VsCenter({required this.title, required this.moveCount});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.max,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: const Color(0xFFF4DDB8),
+              fontSize: 12,
+              height: 1.15,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Jura',
+              shadows: [
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         // VS title with a chess-themed gold capsule.
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -192,6 +219,7 @@ class _VsCenter extends StatelessWidget {
             ),
           ),
         ),
+        const Spacer(),
         // LIVE badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
