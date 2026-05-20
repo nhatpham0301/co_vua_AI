@@ -115,6 +115,27 @@ class _SidePlayer extends StatelessWidget {
           avatarSize: 46,
           badgeScale: 1.25,
         ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 72,
+          child: Text(
+            player.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignRight ? TextAlign.right : TextAlign.left,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              shadows: [
+                Shadow(
+                  color: Colors.black,
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
