@@ -19,6 +19,7 @@ class MatchCornerProfile extends StatelessWidget {
   final ValueListenable<Duration> moveTimeLeft;
   final VoidCallback onTap;
   final bool dockToMenu;
+  final bool isTimerActive;
 
   const MatchCornerProfile({
     super.key,
@@ -34,6 +35,7 @@ class MatchCornerProfile extends StatelessWidget {
     required this.moveTimeLeft,
     required this.onTap,
     this.dockToMenu = false,
+    this.isTimerActive = true,
   });
 
   @override
@@ -54,6 +56,7 @@ class MatchCornerProfile extends StatelessWidget {
             moveTimeLimitSeconds: moveTimeLimitSeconds,
             moveTimeLeft: moveTimeLeft,
             dockToMenu: dockToMenu,
+            isTimerActive: isTimerActive,
           ),
           const SizedBox(width: 8),
           _InfoPlates(
@@ -186,7 +189,7 @@ class _InfoPlates extends StatelessWidget {
   }
 }
 
-class _AvatarWithCountdown extends StatelessWidget {
+class _AvatarWithCountdown extends StatefulWidget {
   final String name;
   final int elo;
   final String? avatarUrl;
@@ -194,6 +197,7 @@ class _AvatarWithCountdown extends StatelessWidget {
   final int moveTimeLimitSeconds;
   final ValueListenable<Duration> moveTimeLeft;
   final bool dockToMenu;
+  final bool isTimerActive;
 
   const _AvatarWithCountdown({
     required this.name,
@@ -203,53 +207,102 @@ class _AvatarWithCountdown extends StatelessWidget {
     required this.moveTimeLimitSeconds,
     required this.moveTimeLeft,
     required this.dockToMenu,
+    this.isTimerActive = true,
   });
 
   @override
+  State<_AvatarWithCountdown> createState() => _AvatarWithCountdownState();
+}
+
+class _AvatarWithCountdownState extends State<_AvatarWithCountdown>
+    with SingleTickerProviderStateMixin {
+  // Animates progress value (1.0 → 0.0) smoothly every frame.
+  late AnimationController _countdown;
+
+  @override
+  void initState() {
+    super.initState();
+    _countdown = AnimationController(vsync: this, value: 1.0);
+    widget.moveTimeLeft.addListener(_sync);
+    _sync();
+  }
+
+  void _sync() {
+    if (!mounted) return;
+    if (!widget.isActive ||
+        widget.moveTimeLimitSeconds <= 0 ||
+        !widget.isTimerActive) {
+      _countdown.stop();
+      return;
+    }
+    final remaining = widget.moveTimeLeft.value;
+    final totalMs = widget.moveTimeLimitSeconds * 1000.0;
+    final progress = (remaining.inMilliseconds / totalMs).clamp(0.0, 1.0);
+    _countdown.value = progress;
+    if (remaining > Duration.zero) {
+      _countdown.animateTo(0, duration: remaining, curve: Curves.linear);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _AvatarWithCountdown old) {
+    super.didUpdateWidget(old);
+    if (old.moveTimeLeft != widget.moveTimeLeft) {
+      old.moveTimeLeft.removeListener(_sync);
+      widget.moveTimeLeft.addListener(_sync);
+    }
+    if (old.isActive != widget.isActive ||
+        old.moveTimeLimitSeconds != widget.moveTimeLimitSeconds ||
+        old.isTimerActive != widget.isTimerActive) {
+      _sync();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.moveTimeLeft.removeListener(_sync);
+    _countdown.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final showRing = widget.isActive && widget.moveTimeLimitSeconds > 0;
     return SizedBox(
       width: 80,
-      height: dockToMenu ? 74 : 100,
-      child: ValueListenableBuilder<Duration>(
-        valueListenable: moveTimeLeft,
-        builder: (_, value, __) {
-          final total = moveTimeLimitSeconds <= 0 ? 1 : moveTimeLimitSeconds;
-          final progress = (value.inMilliseconds / (total * 1000))
-              .clamp(0.0, 1.0)
-              .toDouble();
-
-          return Stack(
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: 0,
-                child: SizedBox(
-                  width: 58,
-                  height: 58,
-                  child: CustomPaint(
-                    painter: _CountdownRingPainter(
-                      progress:
-                          isActive && moveTimeLimitSeconds > 0 ? progress : 1,
-                      showProgress: isActive && moveTimeLimitSeconds > 0,
-                    ),
+      height: widget.dockToMenu ? 74 : 100,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: 0,
+            child: SizedBox(
+              width: 58,
+              height: 58,
+              child: AnimatedBuilder(
+                animation: _countdown,
+                builder: (_, __) => CustomPaint(
+                  painter: _CountdownRingPainter(
+                    progress: showRing ? _countdown.value : 1,
+                    showProgress: showRing,
                   ),
                 ),
               ),
-              Positioned(
-                top: 4,
-                child: RankedProfileAvatar(
-                  name: name,
-                  elo: elo,
-                  avatarUrl: avatarUrl,
-                  avatarSize: 50,
-                  compactDecorations: true,
-                  badgeScale: 1.22,
-                ),
-              ),
-            ],
-          );
-        },
+            ),
+          ),
+          Positioned(
+            top: 4,
+            child: RankedProfileAvatar(
+              name: widget.name,
+              elo: widget.elo,
+              avatarUrl: widget.avatarUrl,
+              avatarSize: 50,
+              compactDecorations: true,
+              badgeScale: 1.22,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -259,38 +312,37 @@ class _CountdownRingPainter extends CustomPainter {
   final double progress;
   final bool showProgress;
 
-  _CountdownRingPainter({required this.progress, required this.showProgress});
+  _CountdownRingPainter({
+    required this.progress,
+    required this.showProgress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (math.min(size.width, size.height) / 2) - 1.5;
-    final progressColor = Color.lerp(
-          const Color(0xFFE14B4B),
-          const Color.fromARGB(255, 49, 255, 94),
-          progress.clamp(0.0, 1.0),
-        ) ??
-        const Color(0xFF31A8FF);
 
+    // Gray background ring
     final base = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.8
-      ..color = const Color(0xFF31A8FF).withValues(alpha: 0.18);
-
+      ..strokeWidth = 3.2
+      ..color = const Color(0xFF8A8A8A).withValues(alpha: 0.35);
     canvas.drawCircle(center, radius, base);
 
     if (!showProgress) return;
 
+    // Green arc — fixed at top (12 o'clock), sweeps clockwise → shrinks from left side
     final ring = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.2
-      ..color = progressColor;
+      ..color = const Color(0xFF4CAF50);
 
+    // Positive sweep = clockwise (arc shrinks from left going clockwise)
     final sweep = 2 * math.pi * progress;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2,
+      -math.pi / 2, // fixed start: 12 o'clock (top)
       sweep,
       false,
       ring,

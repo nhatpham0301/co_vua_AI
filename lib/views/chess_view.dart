@@ -91,25 +91,12 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
             '[SPECTATOR] ChessView init ready immediately (skip countdown/waiting)',
           );
         }
-        // Online AI game: skip countdown — server already started the game.
-        // User should see the board immediately and start playing.
-        final isOnlineAi = appModel.isOnlineGameMode && appModel.playingWithAI;
-        if (isOnlineAi && !appModel.isSpectatorMode) {
-          _isReady = true;
-          appModel.isInputLocked = false;
-          appModel.resumeGameClock();
-          appModel.timerService.resume();
-          DevLogger.instance.log(
-            DevLogCategory.game,
-            '[CHESS_VIEW] Online AI game — skip countdown, ready immediately',
-          );
-        }
         // When waiting for opponent, pause timers and show waiting dialog.
         // When not waiting, start the ready countdown immediately.
         if (appModel.isWaitingForOpponent && !appModel.isSpectatorMode) {
           appModel.timerService.pause();
           appModel.gameController?.cancelAIMove();
-        } else if (!appModel.isSpectatorMode && !isOnlineAi) {
+        } else if (!appModel.isSpectatorMode) {
           _startReadyCountdown();
         }
       }
@@ -337,11 +324,11 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     setState(() => _isReady = true);
 
     appModel.resumeGameClock(); // tiếp tục nhận clock events từ server
+    appModel.timerService.resetMoveTimer();
     appModel.timerService.resume();
     if (appModel.isAIsTurn &&
         !appModel.gameOver &&
-        (!appModel.isOnlineGameMode ||
-            appModel.shouldRunLocalAiInOnlineVsAi)) {
+        (!appModel.isOnlineGameMode || appModel.shouldRunLocalAiInOnlineVsAi)) {
       appModel.gameController?.triggerAIMove();
     }
 
@@ -376,9 +363,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     final profile = appModel.opponentProfile;
     final opponentName = isAI
         ? l.botLevel(diff)
-        : (profile?['username'] as String?)?.isNotEmpty == true
-            ? profile!['username'] as String
-            : (isGuestLocalTwoPlayer ? l.twoPlayer : l.opponent);
+        : (isGuestLocalTwoPlayer ? l.twoPlayer : appModel.opponentDisplayName);
     final opponentElo =
         isAI ? botElo : (profile?['elo'] as num?)?.toInt() ?? botElo;
     final opponentAvatar = isAI ? null : profile?['avatarUrl'] as String?;
@@ -809,14 +794,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                           final profile = isSpectator
                               ? appModel.spectatorWhiteProfile
                               : appModel.opponentProfile;
+                          print('isAI: $isAI');
                           final opponentName = isAI
-                              ? l.botLevel(diff)
-                              : (profile?['username'] as String?)?.isNotEmpty ==
-                                      true
-                                  ? profile!['username'] as String
-                                  : (!appModel.authService.isLoggedIn
-                                      ? l.twoPlayer
-                                      : (isSpectator ? 'White' : l.opponent));
+                              ? appModel.opponentDisplayName
+                              : (!appModel.authService.isLoggedIn
+                                  ? l.twoPlayer
+                                  : (isSpectator
+                                      ? 'White'
+                                      : appModel.opponentDisplayName));
                           final opponentElo = isAI
                               ? botElo
                               : (profile?['elo'] as num?)?.toInt() ?? botElo;
@@ -851,12 +836,17 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             avatarUrl: opponentAvatar,
                             isActive: opponentActive,
                             mirror: false,
+                            isTimerActive: _isReady,
                             moveTimeLimitSeconds: isSpectator
                                 ? appModel.timeLimit * 60
-                                : appModel.moveTimeLimit,
+                                : (appModel.moveTimeLimit > 0
+                                    ? appModel.moveTimeLimit
+                                    : appModel.timeLimit * 60),
                             moveTimeLeft: isSpectator
                                 ? opponentClock
-                                : appModel.moveTimeLeft,
+                                : (appModel.moveTimeLimit > 0
+                                    ? appModel.moveTimeLeft
+                                    : opponentClock),
                             onTap: () => _showOpponentProfile(
                                 context, appModel, l, opponentElo),
                           );
@@ -918,11 +908,16 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                             mirror: true,
                             moveTimeLimitSeconds: isSpectator
                                 ? appModel.timeLimit * 60
-                                : appModel.moveTimeLimit,
+                                : (appModel.moveTimeLimit > 0
+                                    ? appModel.moveTimeLimit
+                                    : appModel.timeLimit * 60),
                             moveTimeLeft: isSpectator
                                 ? appModel.player2TimeLeft
-                                : appModel.moveTimeLeft,
+                                : (appModel.moveTimeLimit > 0
+                                    ? appModel.moveTimeLeft
+                                    : bottomClock),
                             dockToMenu: true,
+                            isTimerActive: _isReady,
                             onTap: () => showCapturedPiecesSheet(
                               context,
                               appModel,

@@ -58,6 +58,41 @@ class MatchGen {
     'AlphaZero9',
     'NightRider',
     'GrandPawn',
+    'TigerBlitz',
+    'ShadowRook',
+    'PhongVu99',
+    'LongKy2k',
+    'ThanCo88',
+    'HoangAnh_CK',
+    'MinhTuong',
+    'KyThuViet',
+    'VietChess01',
+    'TrungHau7',
+    'CoVuaPro',
+    'AnhViet_CK',
+    'QuanCoVua',
+    'SteelBishop',
+    'BlitzRaider',
+    'CastleRush',
+    'ForkMaster',
+    'PinBreaker',
+    'SkeweredKing',
+    'ZugZwang99',
+    'FianchettoX',
+    'EnPassant7',
+    'TacticsGod',
+    'QueenGambit',
+    'SicilianDrg',
+    'CaroKann55',
+    'KingsCourt',
+    'IronDefense',
+    'GambitKing',
+    'XuatThan99',
+    'BaoVe_Vua',
+    'TocChien88',
+    'SieuCoVua',
+    'HoaNghiem',
+    'ThachTung07',
   ];
 
   static MatchPlayer _bot() {
@@ -65,9 +100,10 @@ class MatchGen {
     return MatchPlayer(name, 800 + _rng.nextInt(1000), isBot: true);
   }
 
-  static MatchPlayer _human() {
-    final name = _humanNames[_rng.nextInt(_humanNames.length)];
-    return MatchPlayer(name, 900 + _rng.nextInt(1200));
+  /// Returns a random human name, optionally using a provided [rng].
+  static String randomHumanName([math.Random? rng]) {
+    final r = rng ?? _rng;
+    return _humanNames[r.nextInt(_humanNames.length)];
   }
 
   static List<List<bool>> generateRandomBoard() => _randomBoard();
@@ -77,10 +113,19 @@ class MatchGen {
 
   /// Generates 10 matches: first 2 human vs human, rest Bot vs Bot.
   static List<LiveMatch> generateTen() {
+    // Shuffle a copy so each generation picks different names without repeats.
+    final names = List<String>.from(_humanNames)..shuffle(_rng);
+    int nameIdx = 0;
+    MatchPlayer nextHuman() {
+      final name = names[nameIdx % names.length];
+      nameIdx++;
+      return MatchPlayer(name, 900 + _rng.nextInt(1200));
+    }
+
     return List.generate(10, (i) {
       final isBotMatch = i >= 2;
-      final white = isBotMatch ? _bot() : _human();
-      final black = isBotMatch ? _bot() : _human();
+      final white = isBotMatch ? _bot() : nextHuman();
+      final black = isBotMatch ? _bot() : nextHuman();
       return LiveMatch(
         id: 'match_$i',
         title: 'Trận của ${white.name} vs ${black.name}',

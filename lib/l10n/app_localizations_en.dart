@@ -147,8 +147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get matchmakingTitle => 'Finding opponent...';
 
   @override
-  String get matchmakingSubtitle =>
-      'Matching by rank. If time runs out,\nwill automatically switch to AI.';
+  String get matchmakingSubtitle => 'Matching by rank.';
 
   @override
   String get gameMode => 'Game Mode';
@@ -269,7 +268,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String botLevel(int level) {
-    return 'Player 2';
+    return 'DragonKnight';
   }
 
   @override

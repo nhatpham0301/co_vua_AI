@@ -51,7 +51,7 @@
   "watchMatchComingSoon": "Chế độ quan sát (observer) đang phát triển.",
 
   "matchmakingTitle": "Đang tìm đối thủ...",
-  "matchmakingSubtitle": "Ghép trận theo bậc xếp hạng. Nếu hết thời gian\nsẽ tự động chuyển sang AI.",
+  "matchmakingSubtitle": "Ghép trận theo bậc xếp hạng.",
 
   "gameMode": "Chế độ chơi",
   "onePlayer": "Người chơi 1",
@@ -93,7 +93,7 @@
   "rankName5": "Đại kiện tướng",
   "youPlayer": "BẠN",
   "opponent": "ĐỐI THỦ",
-  "botLevel": "Người chơi 2",
+  "botLevel": "DragonKnight",
   "eloLabel": "{elo} ELO",
 
   "capturedYourPieces": "Quân của bạn đã mất",

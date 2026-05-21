@@ -371,7 +371,7 @@ abstract class AppLocalizations {
   /// No description provided for @matchmakingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Matching by rank. If time runs out,\nwill automatically switch to AI.'**
+  /// **'Matching by rank.'**
   String get matchmakingSubtitle;
 
   /// No description provided for @gameMode.
@@ -605,7 +605,7 @@ abstract class AppLocalizations {
   /// No description provided for @botLevel.
   ///
   /// In en, this message translates to:
-  /// **'Player 2'**
+  /// **'DragonKnight'**
   String botLevel(int level);
 
   /// No description provided for @eloLabel.

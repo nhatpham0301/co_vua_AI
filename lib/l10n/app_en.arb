@@ -57,7 +57,7 @@
   "watchMatchComingSoon": "Observer mode is under development.",
 
   "matchmakingTitle": "Finding opponent...",
-  "matchmakingSubtitle": "Matching by rank. If time runs out,\nwill automatically switch to AI.",
+  "matchmakingSubtitle": "Matching by rank.",
 
   "gameMode": "Game Mode",
   "onePlayer": "Player 1",
@@ -104,7 +104,7 @@
   "rankName5": "Grandmaster",
   "youPlayer": "YOU",
   "opponent": "OPPONENT",
-  "botLevel": "Player 2",
+  "botLevel": "DragonKnight",
   "@botLevel": {
     "placeholders": {
       "level": { "type": "int" }

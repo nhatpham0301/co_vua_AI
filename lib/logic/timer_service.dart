@@ -70,6 +70,7 @@ class TimerService {
       }
 
       // ── Move clock ─────────────────────────────────────────────────────────
+      // ── Move clock ─────────────────────────────────────────────────────────
       if (_moveTimeLimitSeconds > 0) {
         _decrementMove();
         if (moveTimeLeft.value <= Duration.zero) {

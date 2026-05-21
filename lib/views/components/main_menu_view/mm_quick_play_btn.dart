@@ -568,8 +568,8 @@ class _QuickPlayBtnState extends State<QuickPlayBtn>
           child: Material(
             color: Colors.transparent,
             child: Container(
-              width: 360,
-              margin: const EdgeInsets.symmetric(horizontal: 24),
+              width: double.infinity,
+              margin: const EdgeInsets.symmetric(horizontal: 14),
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               decoration: BoxDecoration(
                 color: bgCard,
@@ -758,11 +758,13 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
       decoration: const BoxDecoration(
         color: Color(0xFF071428),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: const EdgeInsets.fromLTRB(28, 20, 28, 40),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -819,6 +821,7 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
               Navigator.pop(context, MatchResult.cancelled);
             },
             child: Container(
+              width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white10,
@@ -827,6 +830,7 @@ class _MatchmakingDialogState extends State<MatchmakingDialog> {
               ),
               child: Text(
                 l.cancel,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ),

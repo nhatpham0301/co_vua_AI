@@ -19,6 +19,7 @@ import '../logic/move_calculation/move_classes/move_stack_object.dart';
 import '../logic/online_game_events_service.dart';
 import '../logic/shared_functions.dart';
 import '../logic/timer_service.dart';
+import '../views/components/main_menu_view/mm_models.dart';
 import 'api_models.dart';
 import 'app_themes.dart';
 import 'player.dart';
@@ -204,6 +205,9 @@ class AppModel extends ChangeNotifier {
 
   /// Profile công khai của đối thủ trong ván online (null nếu chưa fetch hoặc là AI game).
   Map<String, dynamic>? opponentProfile;
+
+  /// Tên hiển thị ngẫu nhiên cho đối thủ online — tạo mới mỗi ván (tránh lộ username thật).
+  String opponentDisplayName = '';
 
   /// Profile của người chơi trắng trong spectator mode.
   Map<String, dynamic>? spectatorWhiteProfile;
@@ -481,6 +485,8 @@ class AppModel extends ChangeNotifier {
       onlineGameSnapshot = null;
       opponentProfile = null;
     }
+    // Generate a fresh random display name for the opponent each game.
+    opponentDisplayName = MatchGen.randomHumanName();
     turn = Player.player1;
     moveMetaList = [];
     capturedWhite = [];
@@ -493,9 +499,9 @@ class AppModel extends ChangeNotifier {
       final serverMinutes = onlineGameSnapshot?.timeLimitMinutes;
       final minutesToUse =
           serverMinutes != null && serverMinutes > 0 ? serverMinutes : 15;
-      // Spectator mode never uses the per-move timer locally.
-      final serverMoveTimeLimit = onlineGameSnapshot?.moveTimeLimit ?? 0;
-      final moveLimitSec = _spectatorMode ? 0 : serverMoveTimeLimit;
+      // Always 60 s per move for online non-spectator games.
+      // Spectator mode has no per-move limit — server drives clocks via game:clock.
+      final moveLimitSec = _spectatorMode ? 0 : 60;
       timerService.configure(minutesToUse, moveTimeLimitSeconds: moveLimitSec);
     }
     audio.enabled = prefs.soundEnabled;
@@ -661,10 +667,15 @@ class AppModel extends ChangeNotifier {
   void _handleTimerExpired() {
     final timedOutPlayer = _resolveTimedOutPlayer();
 
-    // For server-authoritative online games (including spectator mode), local
-    // clock expiry is only a visual milestone. Wait for the backend `game:end`
-    // event so the winner/reason stays consistent and we do not disconnect early.
-    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
+    // Per-move timer expiry (total clocks still > 0) always ends the game
+    // immediately, even in online mode — the 60s rule is locally enforced.
+    final isPerMoveExpiry = timerService.moveTimeLeft.value <= Duration.zero &&
+        timerService.player1TimeLeft.value > Duration.zero &&
+        timerService.player2TimeLeft.value > Duration.zero;
+
+    // For server-authoritative online games, TOTAL clock expiry defers to
+    // server game:end so winner/reason stays consistent.
+    if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi && !isPerMoveExpiry) {
       gameEndReason = 'timeout';
       DevLogger.instance.log(
         DevLogCategory.game,
@@ -1322,7 +1333,8 @@ class AppModel extends ChangeNotifier {
     var blackSec = (blackMs / 1000).floor();
     final movedAt = last.movedAt;
     if (movedAt != null && onlineGameSnapshot?.status == 'in_progress') {
-      final elapsedSec = math.max(0, DateTime.now().difference(movedAt).inSeconds);
+      final elapsedSec =
+          math.max(0, DateTime.now().difference(movedAt).inSeconds);
       if (turn == Player.player1) {
         whiteSec = math.max(0, whiteSec - elapsedSec);
       } else {

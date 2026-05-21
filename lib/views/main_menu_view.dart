@@ -320,31 +320,6 @@ class _MainMenuViewState extends State<MainMenuView> {
 
     final participants = json['participants'] as Map<String, dynamic>?;
 
-    String resolveName(
-      dynamic user,
-      dynamic participant,
-      String? fallbackId,
-      String sideLabel,
-    ) {
-      if (user is Map<String, dynamic>) {
-        final username = (user['username'] ?? user['name']) as String?;
-        if (username != null && username.trim().isNotEmpty) {
-          return username.trim();
-        }
-      }
-      if (participant is Map<String, dynamic> && participant['type'] == 'ai') {
-        final level = (participant['aiLevel'] as num?)?.toInt();
-        if (level != null) return 'AI Lv.$level';
-        return 'AI';
-      }
-      if (fallbackId != null && fallbackId.isNotEmpty) {
-        final short =
-            fallbackId.length > 8 ? fallbackId.substring(0, 8) : fallbackId;
-        return '$sideLabel-$short';
-      }
-      return '$sideLabel-?';
-    }
-
     bool resolveIsBot(dynamic user, dynamic participant) {
       if (user is Map<String, dynamic> && user['isBot'] == true) {
         return true;
@@ -367,30 +342,19 @@ class _MainMenuViewState extends State<MainMenuView> {
             .difference(DateTime.tryParse(startedAt) ?? DateTime.now())
             .inSeconds
             .clamp(0, 99999);
+
+    // Use purely random names so each refresh shows different names.
     final white = MatchPlayer(
-      resolveName(
-        json['white'],
-        participants?['white'],
-        json['whiteId'] as String?,
-        'White',
-      ),
+      MatchGen.randomHumanName(),
       resolveElo(json['white'], 'whiteEloSnapshot'),
       isBot: resolveIsBot(json['white'], participants?['white']),
     );
     final black = MatchPlayer(
-      resolveName(
-        json['black'],
-        participants?['black'],
-        json['blackId'] as String?,
-        'Black',
-      ),
+      MatchGen.randomHumanName(),
       resolveElo(json['black'], 'blackEloSnapshot'),
       isBot: resolveIsBot(json['black'], participants?['black']),
     );
-    final apiTitle = (json['title'] as String?)?.trim();
-    final title = (apiTitle != null && apiTitle.isNotEmpty)
-        ? apiTitle
-        : 'Trận của ${white.name} vs ${black.name}';
+    final title = 'Trận của ${white.name} vs ${black.name}';
 
     return LiveMatch(
       id: gameId,

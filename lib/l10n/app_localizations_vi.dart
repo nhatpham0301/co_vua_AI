@@ -148,8 +148,7 @@ class AppLocalizationsVi extends AppLocalizations {
   String get matchmakingTitle => 'Đang tìm đối thủ...';
 
   @override
-  String get matchmakingSubtitle =>
-      'Ghép trận theo bậc xếp hạng. Nếu hết thời gian\nsẽ tự động chuyển sang AI.';
+  String get matchmakingSubtitle => 'Ghép trận theo bậc xếp hạng.';
 
   @override
   String get gameMode => 'Chế độ chơi';
@@ -270,7 +269,7 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String botLevel(int level) {
-    return 'Người chơi 2';
+    return 'DragonKnight';
   }
 
   @override

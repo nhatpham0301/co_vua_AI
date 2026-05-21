@@ -15,7 +15,7 @@
         android:xlargeScreens="false"/>
     <application
         android:name="${applicationName}"
-        android:label="Cờ Vua"
+        android:label="Cờ Vua Online"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
