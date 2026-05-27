@@ -795,12 +795,19 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                               ? appModel.spectatorWhiteProfile
                               : appModel.opponentProfile;
                           print('isAI: $isAI');
+                          final whiteProfile = isSpectator
+                              ? appModel.spectatorWhiteProfile
+                              : null;
                           final opponentName = isAI
                               ? appModel.opponentDisplayName
                               : (!appModel.authService.isLoggedIn
                                   ? l.twoPlayer
                                   : (isSpectator
-                                      ? 'White'
+                                      ? ((whiteProfile?['username'] as String?)
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? whiteProfile!['username'] as String
+                                          : 'White')
                                       : appModel.opponentDisplayName));
                           final opponentElo = isAI
                               ? botElo

@@ -343,14 +343,21 @@ class _MainMenuViewState extends State<MainMenuView> {
             .inSeconds
             .clamp(0, 99999);
 
-    // Use purely random names so each refresh shows different names.
+    String resolveUsername(dynamic user, String fallback) {
+      if (user is Map<String, dynamic>) {
+        final name = user['username'] as String?;
+        if (name != null && name.isNotEmpty) return name;
+      }
+      return fallback;
+    }
+
     final white = MatchPlayer(
-      MatchGen.randomHumanName(),
+      resolveUsername(json['white'], 'White'),
       resolveElo(json['white'], 'whiteEloSnapshot'),
       isBot: resolveIsBot(json['white'], participants?['white']),
     );
     final black = MatchPlayer(
-      MatchGen.randomHumanName(),
+      resolveUsername(json['black'], 'Black'),
       resolveElo(json['black'], 'blackEloSnapshot'),
       isBot: resolveIsBot(json['black'], participants?['black']),
     );

@@ -400,6 +400,10 @@ class AppModel extends ChangeNotifier {
   bool animateBoardRotation = false;
 
   bool get isBoardInverted {
+    // Spectator: white always at TOP (panel layout: top=white, bottom=black).
+    // playerSide is not set in spectator mode so we must guard here to avoid
+    // using stale playerSide from the previous game.
+    if (_spectatorMode) return true;
     // Online PvP: the local player always sits at the bottom.
     // Board is fixed to playerSide, not rotated per turn.
     if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
