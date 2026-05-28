@@ -67,6 +67,7 @@ class ActionButtonsPanel extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
     final isSpectator = appModel.isSpectatorMode;
+    final bool _isDebug = false;
 
     await showGeneralDialog<void>(
       context: context,
@@ -405,6 +406,41 @@ class _ActionBtn extends StatelessWidget {
     }
 
     return Tooltip(message: tooltip!, child: content);
+  }
+}
+
+class _SmallDebugBtn extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _SmallDebugBtn({
+    Key? key,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.18),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.9)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
   }
 }
 

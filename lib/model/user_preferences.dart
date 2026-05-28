@@ -24,6 +24,10 @@ final List<String> sortedPieceThemes = () {
 /// Manages user preferences backed by SharedPreferences.
 /// Extracted from AppModel to follow single-responsibility principle.
 class UserPreferences {
+  static const String _aiLevelKey = 'aiLevelUnlocked';
+  static const int aiLevelMin = 1;
+  static const int aiLevelMax = 9;
+  int aiLevelUnlocked = aiLevelMin;
   SharedPreferences? _prefs;
 
   // Keep offline defaults aligned with the desired local play pacing.
@@ -87,6 +91,7 @@ class UserPreferences {
     enableRotation = _prefs!.getBool('enableRotation') ?? false;
     allowUndoRedo = _prefs!.getBool('allowUndoRedo') ?? true;
     localeCode = _prefs!.getString('localeCode') ?? 'vi';
+    aiLevelUnlocked = _prefs!.getInt(_aiLevelKey) ?? aiLevelMin;
     // Timer settings in Settings are removed for online-first flow.
     // Force offline defaults to avoid stale persisted values.
     timeLimitMinutes = _offlineDefaultTimeLimitMinutes;
@@ -169,6 +174,13 @@ class UserPreferences {
     onChanged?.call();
   }
 
+  Future<void> setAiLevelUnlocked(int level) async {
+    aiLevelUnlocked = level.clamp(aiLevelMin, aiLevelMax);
+    _prefs ??= await SharedPreferences.getInstance();
+    await _prefs!.setInt(_aiLevelKey, aiLevelUnlocked);
+    onChanged?.call();
+  }
+
   Future<void> setAllowUndoRedo(bool allow) async {
     allowUndoRedo = allow;
     _prefs ??= await SharedPreferences.getInstance();
@@ -197,6 +209,8 @@ class UserPreferences {
     moveTimeLimitSeconds = _offlineDefaultMoveTimeLimitSeconds;
     apiBaseUrl = _defaultApiBaseUrl();
 
+    aiLevelUnlocked = aiLevelMin;
+
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setString('themeName', themeName);
     await _prefs!.setString('pieceTheme', pieceTheme);
@@ -210,6 +224,7 @@ class UserPreferences {
     await _prefs!.setInt('timeLimitMinutes', timeLimitMinutes);
     await _prefs!.setInt('moveTimeLimitSeconds', moveTimeLimitSeconds);
     await _prefs!.setString('apiBaseUrl', apiBaseUrl);
+    await _prefs!.setInt(_aiLevelKey, aiLevelUnlocked);
     onChanged?.call();
   }
 }

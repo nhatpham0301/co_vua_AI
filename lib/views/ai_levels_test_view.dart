@@ -163,6 +163,8 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
       // Apply the game snapshot and start online tracking
       appModel.setPlayerCount(1);
       appModel.markOnlineVsAiLocalFallbackSession(false);
+      // Mark that this game was started from the level selection UI
+      appModel.markStartedFromLevelSelection(level);
       appModel.applyJoinGameResponse(gameData);
       await appModel.startOnlineEventTracking(gameId);
 
@@ -246,26 +248,30 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
                 const SizedBox(height: 12),
                 // AI Level buttons grid
                 Expanded(
-                  child: CupertinoScrollbar(
-                    child: ListView.builder(
-                      padding: EdgeInsets.zero,
-                      physics: const ClampingScrollPhysics(),
-                      itemCount: aiLevels.length,
-                      itemBuilder: (context, index) {
-                        final levelData = aiLevels[index];
-                        return Consumer<AppModel>(
-                          builder: (context, appModel, _) => _AiLevelCard(
-                            levelData: levelData,
-                            isLoading: _isLoading,
-                            onPressed: () => _startAiGame(
-                              context,
-                              appModel,
-                              levelData['level'] as int,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  child: Consumer<AppModel>(
+                    builder: (context, appModel, _) {
+                      final unlocked = appModel.aiLevelUnlocked.clamp(1, 9);
+                      return CupertinoScrollbar(
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: aiLevels.length,
+                          itemBuilder: (context, index) {
+                            final levelData = aiLevels[index];
+                            final level = levelData['level'] as int;
+                            final isUnlocked = level <= unlocked;
+                            return _AiLevelCard(
+                              levelData: levelData,
+                              isUnlocked: isUnlocked,
+                              isLoading: _isLoading,
+                              onPressed: isUnlocked && !_isLoading
+                                  ? () => _startAiGame(context, appModel, level)
+                                  : null,
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ),
                 BottomPadding(),
@@ -280,11 +286,13 @@ class _AiLevelsTestViewState extends State<AiLevelsTestView> {
 
 class _AiLevelCard extends StatelessWidget {
   final Map<String, dynamic> levelData;
+  final bool isUnlocked;
   final bool isLoading;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const _AiLevelCard({
     required this.levelData,
+    required this.isUnlocked,
     required this.isLoading,
     required this.onPressed,
   });
@@ -293,126 +301,125 @@ class _AiLevelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final level = levelData['level'] as int;
     final name = levelData['name'] as String;
-    final description = levelData['description'] as String;
     final engine = levelData['engine'] as String;
 
     final isStockfish = engine == 'Stockfish';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: GestureDetector(
-        onTap: isLoading ? null : onPressed,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                isStockfish
-                    ? const Color(0xFF1e3a5f).withValues(alpha: 0.5)
-                    : const Color(0xFF2d3a2d).withValues(alpha: 0.5),
-                bgCard.withValues(alpha: 0.4),
+      child: Opacity(
+        opacity: isUnlocked ? 1.0 : 0.5,
+        child: GestureDetector(
+          onTap: isUnlocked && !isLoading ? onPressed : null,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  isStockfish
+                      ? const Color(0xFF1e3a5f).withValues(alpha: 0.5)
+                      : const Color(0xFF2d3a2d).withValues(alpha: 0.5),
+                  bgCard.withValues(alpha: 0.4),
+                ],
+              ),
+              border: Border.all(
+                color: isStockfish
+                    ? const Color(0xFF00a8ff).withValues(alpha: 0.4)
+                    : const Color(0xFFb8860b).withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Level circle
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isStockfish
+                        ? const Color(0xFF00a8ff).withValues(alpha: 0.15)
+                        : const Color(0xFFDAA520).withValues(alpha: 0.15),
+                    border: Border.all(
+                      color: isStockfish
+                          ? const Color(0xFF00a8ff).withValues(alpha: 0.6)
+                          : const Color(0xFFDAA520).withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Center(
+                    child: isUnlocked
+                        ? Text(
+                            '$level',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: isStockfish
+                                  ? const Color(0xFF00a8ff)
+                                  : const Color(0xFFDAA520),
+                            ),
+                          )
+                        : const Icon(CupertinoIcons.lock_fill,
+                            color: Color(0xFF888888), size: 20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFF4D293),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Start button
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isStockfish
+                        ? const Color(0xFF00a8ff).withValues(alpha: 0.2)
+                        : const Color(0xFFDAA520).withValues(alpha: 0.2),
+                    border: Border.all(
+                      color: isStockfish
+                          ? const Color(0xFF00a8ff).withValues(alpha: 0.5)
+                          : const Color(0xFFDAA520).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Center(
+                    child: isLoading && isUnlocked
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CupertinoActivityIndicator(),
+                          )
+                        : Icon(
+                            isUnlocked
+                                ? CupertinoIcons.play_fill
+                                : CupertinoIcons.lock_fill,
+                            size: 16,
+                            color: isUnlocked
+                                ? (isStockfish
+                                    ? const Color(0xFF00a8ff)
+                                    : const Color(0xFFDAA520))
+                                : const Color(0xFF888888),
+                          ),
+                  ),
+                ),
               ],
             ),
-            border: Border.all(
-              color: isStockfish
-                  ? const Color(0xFF00a8ff).withValues(alpha: 0.4)
-                  : const Color(0xFFb8860b).withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Level circle
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isStockfish
-                      ? const Color(0xFF00a8ff).withValues(alpha: 0.15)
-                      : const Color(0xFFDAA520).withValues(alpha: 0.15),
-                  border: Border.all(
-                    color: isStockfish
-                        ? const Color(0xFF00a8ff).withValues(alpha: 0.6)
-                        : const Color(0xFFDAA520).withValues(alpha: 0.6),
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    '$level',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isStockfish
-                          ? const Color(0xFF00a8ff)
-                          : const Color(0xFFDAA520),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFF4D293),
-                      ),
-                    ),
-                    // const SizedBox(height: 4),
-                    // Text(
-                    //   description,
-                    //   style: TextStyle(
-                    //     fontSize: 12,
-                    //     color: Colors.white.withValues(alpha: 0.5),
-                    //   ),
-                    //   maxLines: 2,
-                    //   overflow: TextOverflow.ellipsis,
-                    // ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Start button
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isStockfish
-                      ? const Color(0xFF00a8ff).withValues(alpha: 0.2)
-                      : const Color(0xFFDAA520).withValues(alpha: 0.2),
-                  border: Border.all(
-                    color: isStockfish
-                        ? const Color(0xFF00a8ff).withValues(alpha: 0.5)
-                        : const Color(0xFFDAA520).withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Center(
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CupertinoActivityIndicator(),
-                        )
-                      : Icon(
-                          CupertinoIcons.play_fill,
-                          size: 16,
-                          color: isStockfish
-                              ? const Color(0xFF00a8ff)
-                              : const Color(0xFFDAA520),
-                        ),
-                ),
-              ),
-            ],
           ),
         ),
       ),

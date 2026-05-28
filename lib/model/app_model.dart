@@ -26,6 +26,108 @@ import 'player.dart';
 import 'user_preferences.dart';
 
 class AppModel extends ChangeNotifier {
+  /// AI Level progression (unlocked). Local fallback if not logged in.
+  int get aiLevelUnlocked => authService.isLoggedIn
+      ? _aiLevelUnlockedRemote ?? prefs.aiLevelUnlocked
+      : prefs.aiLevelUnlocked;
+
+  int? _aiLevelUnlockedRemote;
+
+  /// Call after login or GET /api/users/me to sync remote aiLevelUnlocked.
+  void setAiLevelUnlockedRemote(int? remote) {
+    if (remote != null) {
+      _aiLevelUnlockedRemote = remote;
+      prefs.setAiLevelUnlocked(remote);
+    }
+    notifyListeners();
+  }
+
+  /// Call after logout to clear remote and restore local.
+  void clearAiLevelUnlockedRemote() {
+    _aiLevelUnlockedRemote = null;
+    notifyListeners();
+  }
+
+  /// Update local progression (offline, not logged in)
+  Future<void> setAiLevelUnlockedLocal(int level) async {
+    await prefs.setAiLevelUnlocked(level);
+    notifyListeners();
+  }
+
+  Future<void> _syncAiLevelFromServer({
+    int maxRetries = 0,
+    int retryDelayMs = 800,
+    int? expectingGreaterThan,
+  }) async {
+    var attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        // Ensure access token is valid (refresh if necessary)
+        final token = await authService.ensureValidAccessToken();
+        if (token == null || token.isEmpty) {
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[AI_LEVEL] no valid access token available; aborting sync',
+          );
+          return;
+        }
+        apiClient.accessToken = token;
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AI_LEVEL] calling GET /api/users/me to refresh aiLevelUnlocked (attempt=$attempt)',
+        );
+
+        final json = await apiClient.getJsonAuth('/api/users/me');
+        final remote = (json['aiLevelUnlocked'] as num?)?.toInt();
+        if (remote != null) {
+          setAiLevelUnlockedRemote(remote);
+          DevLogger.instance.log(
+            DevLogCategory.http,
+            '[AI_LEVEL] synced remote aiLevelUnlocked=$remote (attempt=$attempt)',
+          );
+
+          if (expectingGreaterThan != null && remote <= expectingGreaterThan) {
+            if (attempt <= maxRetries) {
+              DevLogger.instance.log(
+                DevLogCategory.http,
+                '[AI_LEVEL] remote aiLevelUnlocked=$remote <= expecting=$expectingGreaterThan -> retrying after ${retryDelayMs}ms',
+              );
+              await Future.delayed(Duration(milliseconds: retryDelayMs));
+              continue; // retry loop
+            }
+          }
+        }
+
+        // success or no remote value — exit loop
+        break;
+      } on ApiException catch (e) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AI_LEVEL] api exception when syncing ai level: $e (attempt=$attempt)',
+        );
+        if (e.statusCode == 401) {
+          final refreshed = await authService.refreshTokens();
+          if (refreshed && attempt <= maxRetries) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[AI_LEVEL] refreshed token after 401, retrying (attempt=$attempt)',
+            );
+            await Future.delayed(Duration(milliseconds: retryDelayMs));
+            continue;
+          }
+        }
+        break;
+      } catch (e) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AI_LEVEL] failed to sync ai level from server: $e (attempt=$attempt)',
+        );
+        break;
+      }
+    }
+  }
+
   static String _envApiBaseUrl() {
     final raw = dotenv.env['API_BASE_URL']?.trim();
     if (raw == null || raw.isEmpty) return 'https://giaitri.cloud';
@@ -78,6 +180,21 @@ class AppModel extends ChangeNotifier {
   List<OnlineMoveRecord> onlineMoveHistory = [];
   OnlineMoveSubmitResult? onlineMoveSubmitSnapshot;
   Map<String, dynamic>? onlineUserGamesSnapshot;
+
+  /// When starting a game from the AI Levels selection screen, this is set
+  /// so ChessView can show level-specific post-game actions (like Next Level).
+  bool startedFromLevelSelection = false;
+  int startedLevel = 0;
+
+  void markStartedFromLevelSelection(int level) {
+    startedFromLevelSelection = true;
+    startedLevel = level;
+  }
+
+  void clearStartedFromLevelSelection() {
+    startedFromLevelSelection = false;
+    startedLevel = 0;
+  }
 
   // ── Delegated Accessors (backward compatibility) ──
   int get timeLimit => timerService.timeLimit;
@@ -433,10 +550,32 @@ class AppModel extends ChangeNotifier {
     timerService.onExpired = _handleTimerExpired;
     audio.enabled = prefs.soundEnabled;
 
-    authService.addListener(() => notifyListeners());
+    authService.addListener(_onAuthChanged);
 
     prefs.load();
     authService.init();
+  }
+
+  void _onAuthChanged() {
+    // Called whenever AuthService state changes (login/logout/profile).
+    // If user logged out, clear remote AI level so UI falls back to local prefs.
+    if (!authService.isLoggedIn) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[AI_LEVEL] auth changed: logged out -> clearing remote ai level',
+      );
+      clearAiLevelUnlockedRemote();
+      notifyListeners();
+      return;
+    }
+
+    // If logged in, fetch user's profile to sync aiLevelUnlocked from server.
+    DevLogger.instance.log(
+      DevLogCategory.http,
+      '[AI_LEVEL] auth changed: logged in -> syncing ai level from server',
+    );
+    unawaited(_syncAiLevelFromServer(maxRetries: 3, retryDelayMs: 800));
+    notifyListeners();
   }
 
   Future<void> _handleGlobalUnauthorized(ApiException error) async {
@@ -661,6 +800,37 @@ class AppModel extends ChangeNotifier {
     unawaited(adService.onGameEnded());
     unawaited(onlineEvents.stopTracking());
     if (!silent) notifyListeners();
+
+    // If user just won against AI, attempt to sync/unlock next AI level.
+    if (playingWithAI && userWon) {
+      // If logged in, refresh user's profile to get server-updated aiLevelUnlocked.
+      if (authService.isLoggedIn) {
+        DevLogger.instance.log(
+          DevLogCategory.http,
+          '[AI_LEVEL] triggering server sync after AI win; isLoggedIn=true',
+        );
+        // If this game was started from the level-selection flow, attempt
+        // to request a server-side level update for the next level.
+        // Server will update `aiLevelUnlocked` automatically. Only refresh
+        // the user's profile so the mobile UI shows the updated level.
+
+        // In all cases, attempt to sync remote profile (with retries) so the
+        // local UI reflects server-side changes when available.
+        unawaited(_syncAiLevelFromServer(
+            maxRetries: 3,
+            retryDelayMs: 800,
+            expectingGreaterThan:
+                startedFromLevelSelection ? startedLevel : null));
+      } else {
+        // Offline/local: unlock next level locally.
+        final current = prefs.aiLevelUnlocked;
+        final next = (current + 1)
+            .clamp(UserPreferences.aiLevelMin, UserPreferences.aiLevelMax);
+        if (next > current) {
+          unawaited(setAiLevelUnlockedLocal(next));
+        }
+      }
+    }
   }
 
   void undoEndGame({bool silent = false}) {

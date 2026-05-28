@@ -37,6 +37,7 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
   int _selectedTab = 0;
   List<dynamic>? _eloHistory;
   bool _loading = false;
+  int? _aiLevelUnlocked;
 
   // Game history pagination
   final List<GameHistoryItem> _gameHistory = [];
@@ -68,6 +69,16 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
       final history =
           await appModel.apiClient.fetchUserEloHistory(widget.userId);
       if (mounted) setState(() => _eloHistory = history);
+      // Also fetch profile to display AI level if available
+      try {
+        final profile =
+            await appModel.apiClient.fetchUserProfile(widget.userId);
+        final aiLevel = (profile['aiLevelUnlocked'] as num?)?.toInt();
+        if (mounted) setState(() => _aiLevelUnlocked = aiLevel);
+      } catch (e) {
+        // ignore profile fetch errors silently
+        debugPrint('Failed to fetch user profile for ai level: $e');
+      }
     } catch (e) {
       debugPrint('Error loading user data: $e');
     } finally {
@@ -217,6 +228,17 @@ class _UserProfileDialogState extends State<UserProfileDialog> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
+                          if (_aiLevelUnlocked != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'AI Level: ${_aiLevelUnlocked}',
+                              style: const TextStyle(
+                                color: Color(0xFF5A3921),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

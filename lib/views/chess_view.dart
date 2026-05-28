@@ -6,6 +6,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../model/user_preferences.dart';
+
 import '../l10n/app_localizations.dart';
 import '../logic/chess_game.dart';
 import '../logic/dev_logger.dart';
@@ -425,6 +427,45 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  Future<void> _startAiLevel(int level) async {
+    if (!mounted) return;
+    final app = appModel;
+    try {
+      final created = await _withAuthRetry(
+        appModel: app,
+        action: 'createAiGame(next-level)',
+        execute: () => app.apiClient.createAiGame(
+          aiLevel: level,
+          color: app.nextOnlineAiColor(),
+          timeControl: 'rapid_15',
+          moveTimeLimit: 0,
+        ),
+      );
+
+      final gameId = (created['id']?.toString() ?? '').trim();
+      if (gameId.isEmpty) throw Exception('missing game id');
+
+      app.setPlayerCount(1);
+      app.markOnlineVsAiLocalFallbackSession(false);
+      app.applyJoinGameResponse(created);
+      await app.onlineEvents.stopTracking();
+      await app.startOnlineEventTracking(gameId);
+      app.clearStartedFromLevelSelection();
+      app.markStartedFromLevelSelection(level);
+      app.isWaitingForOpponent = false;
+      app.opponentJoined = true;
+
+      app.newGame(notify: false);
+      _initFlameGame();
+      setState(() {
+        _isReady = true;
+        _showPostGameOptions = false;
+      });
+    } catch (e) {
+      DevLogger.instance.log(DevLogCategory.http, '[AI_NEXT] $e');
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
@@ -638,45 +679,95 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (_showPostGameOptions) ...[
-                                  GestureDetector(
-                                    onTap: _onReadyPressed,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 28,
-                                        vertical: 9,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(26),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color(0xFFD79D49),
-                                            Color(0xFF9A6330),
-                                          ],
-                                        ),
-                                        border: Border.all(
-                                          color: const Color(0xFFF3CE82)
-                                              .withValues(alpha: 0.55),
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black
-                                                .withValues(alpha: 0.28),
-                                            blurRadius: 14,
-                                            offset: const Offset(0, 8),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: _onReadyPressed,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 24,
+                                            vertical: 10,
                                           ),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        l.restartConfirm,
-                                        style: const TextStyle(
-                                          color: Color(0xFF4B2B15),
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w900,
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(26),
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                Color(0xFFD79D49),
+                                                Color(0xFF9A6330),
+                                              ],
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFF3CE82)
+                                                  .withValues(alpha: 0.55),
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.28),
+                                                blurRadius: 14,
+                                                offset: const Offset(0, 8),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Text(
+                                            l.restartConfirm,
+                                            style: const TextStyle(
+                                              color: Color(0xFF4B2B15),
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                      const SizedBox(width: 12),
+                                      if (appModel.startedFromLevelSelection &&
+                                          appModel.userWon)
+                                        GestureDetector(
+                                          onTap: () {
+                                            final current =
+                                                appModel.startedLevel;
+                                            final next = (current + 1).clamp(
+                                                1, UserPreferences.aiLevelMax);
+                                            _startAiLevel(next);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 10,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              color: const Color(0xFF2E7D32)
+                                                  .withValues(alpha: 0.92),
+                                              border: Border.all(
+                                                color: const Color(0xFF1B5E20)
+                                                    .withValues(alpha: 0.85),
+                                              ),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.24),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 6),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Text(
+                                              'Level tiếp theo',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ] else ...[
                                   Text(
