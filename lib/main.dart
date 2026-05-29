@@ -20,6 +20,7 @@ import 'logic/shared_functions.dart';
 import 'model/app_model.dart';
 import 'model/user_preferences.dart';
 import 'views/main_menu_view.dart';
+import 'services/update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +45,7 @@ Future<void> _bootstrapServicesAfterFirstFrame() async {
   await Future<void>.delayed(const Duration(milliseconds: 300));
   await _requestTrackingPermissionIfNeeded();
   await _warmUpServices();
+  unawaited(_checkForUpdatesAfterWarmUp());
 }
 
 Future<void> _requestTrackingPermissionIfNeeded() async {
@@ -79,6 +81,17 @@ Future<void> _warmUpServices() async {
   await _loadFlameAssets();
 }
 
+// After warming up other services, check for app updates and notify user.
+Future<void> _checkForUpdatesAfterWarmUp() async {
+  try {
+    // We intentionally ignore the result here; showing 'up-to-date'
+    // on every startup would be noisy.
+    await UpdateService.instance.checkAndShowIfAvailable(null);
+  } catch (e) {
+    // Ignore update check failures during startup.
+  }
+}
+
 Future<void> _loadFlameAssets() async {
   List<String> pieceImages = [];
   for (var theme in PIECE_THEMES) {
@@ -107,7 +120,7 @@ class Chess extends StatelessWidget {
       builder: (context, appModel, _) {
         return CupertinoApp(
           debugShowCheckedModeBanner: false,
-          title: 'Infinite Chess AI',
+          title: AppLocalizations.of(context)?.appTitle ?? 'Infinite Chess AI',
           navigatorKey: appNavigatorKey,
           locale: appModel.locale,
           localizationsDelegates: const [

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../services/update_service.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
@@ -401,6 +402,43 @@ class SettingsView extends StatelessWidget {
                           Consumer<AppModel>(
                             builder: (context, appModel, child) =>
                                 Toggles(appModel),
+                          ),
+                          const SizedBox(height: 12),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: RoundedButton(
+                              'Kiểm tra cập nhật',
+                              onPressed: () async {
+                                try {
+                                  final shown = await UpdateService.instance
+                                      .checkAndShowIfAvailable(context);
+                                  if (!shown) {
+                                    showAppDialog<void>(
+                                      context: context,
+                                      title: 'Thông báo',
+                                      message:
+                                          'Ứng dụng đã là phiên bản mới nhất.',
+                                      actions: const [
+                                        AppDialogAction(label: 'Đóng')
+                                      ],
+                                    );
+                                  }
+                                } catch (e) {
+                                  DevLogger.instance.log(
+                                    DevLogCategory.http,
+                                    '[SETTINGS] update check failed: $e',
+                                  );
+                                  showAppDialog<void>(
+                                    context: context,
+                                    title: 'Lỗi',
+                                    message: 'Không thể kiểm tra cập nhật: $e',
+                                    actions: const [
+                                      AppDialogAction(label: 'Đóng')
+                                    ],
+                                  );
+                                }
+                              },
+                            ),
                           ),
                         ],
                       ),

@@ -141,12 +141,13 @@ class _LoginViewState extends State<LoginView> {
   }
 
   void _showError(String message) {
+    final l = AppLocalizations.of(context)!;
     showAppDialog<void>(
       context: context,
-      title: _isRegister ? 'Register' : 'Login',
+      title: _isRegister ? l.registerTitle : l.loginTitle,
       message: message,
       actions: [
-        AppDialogAction(label: 'OK', isPrimary: true),
+        AppDialogAction(label: l.ok, isPrimary: true),
       ],
     );
   }
