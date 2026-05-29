@@ -264,6 +264,13 @@ class AppModel extends ChangeNotifier {
   bool _spectatorMode = false;
   bool _handlingGlobalUnauthorized = false;
   bool _clockSyncPaused = false;
+  // When true, for non-spectator online games we let the local timer run
+  // smoothly and defer server second-tick corrections. Server clocks are
+  // recorded and applied when the user leaves/re-enters the view.
+  bool _deferServerClockUpdatesDuringPlay = true;
+  int? _pendingServerWhiteSec;
+  int? _pendingServerBlackSec;
+  bool _serverClocksPending = false;
 
   // Track previous server clock values to detect frozen (non-decrementing) server clocks.
   // Used in _syncClocksIfDrifted to avoid resetting local timer from stale server data.
@@ -727,6 +734,9 @@ class AppModel extends ChangeNotifier {
     serverCheck = false;
     serverCheckMessage = null;
     clearServerCastlingVisual(notify: false);
+    // Apply any pending server clock snapshot before stopping tracking so the
+    // app remains in sync while backgrounded or when the user returns.
+    _applyPendingServerClocksAndClear();
     unawaited(onlineEvents.stopTracking());
     if (wasSpectator) {
       clearOnlinePreviewState(notify: false);
@@ -933,6 +943,10 @@ class AppModel extends ChangeNotifier {
       gameId: gameId,
       accessToken: token,
     );
+    // If we received clock ticks while the view was not fully ready, ensure
+    // any deferred server clock snapshot is applied now so UI reflects
+    // authoritative server state after enter.
+    _applyPendingServerClocksAndClear();
   }
 
   Future<void> startMatchmakingEventTracking() async {
@@ -1101,6 +1115,28 @@ class AppModel extends ChangeNotifier {
     _applyServerFenToBoard(fen, source: 'game:move:ok');
     _syncTurnFromFen(fen);
 
+    // If this move was made by the opponent (not local player), immediately
+    // show the per-move increment locally so users see the clock bump.
+    // `opponentJustMoved` is true when `turn` (next to play) == myColor,
+    // meaning the other player moved.
+    if (!_spectatorMode && opponentJustMoved) {
+      try {
+        // `turn` was updated to the next player; the moved player is the
+        // opposite of `turn`.
+        final movedPlayer = oppositePlayer(turn);
+        timerService.addSecondsToPlayer(movedPlayer, 10);
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[SOCKET] applied local increment +10s to ${movedPlayer.name} from game:move:ok',
+        );
+      } catch (e) {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[SOCKET] failed applying local increment from game:move:ok | error=$e',
+        );
+      }
+    }
+
     // Keep latest-move highlight aligned with server payload.
     final controller = gameController;
     if (controller != null &&
@@ -1209,7 +1245,19 @@ class AppModel extends ChangeNotifier {
       _prevServerWhiteSec = whiteSec;
       _prevServerBlackSec = blackSec;
     } else {
-      _syncClocksIfDrifted(whiteSec, blackSec);
+      // For normal players, optionally defer frequent server corrections so
+      // local time can run smoothly. Store pending server clocks and apply on
+      // view exit/enter. If deferring is disabled, apply drift-correction now.
+      if (_deferServerClockUpdatesDuringPlay) {
+        _pendingServerWhiteSec = whiteSec;
+        _pendingServerBlackSec = blackSec;
+        _serverClocksPending = true;
+        // Keep prev values for potential future drift checks.
+        _prevServerWhiteSec = whiteSec;
+        _prevServerBlackSec = blackSec;
+      } else {
+        _syncClocksIfDrifted(whiteSec, blackSec);
+      }
     }
 
     // Sync whose turn it is from server activeColor (authoritative)
@@ -1255,6 +1303,25 @@ class AppModel extends ChangeNotifier {
     // Always accept server value (source of truth)
     timerService.setServerClocks(
         whiteSeconds: whiteSec, blackSeconds: blackSec, source: source);
+  }
+
+  /// Apply any pending server clock snapshot that was deferred during play.
+  /// This writes the authoritative server values into the local timerService
+  /// and clears the pending buffer.
+  void _applyPendingServerClocksAndClear() {
+    if (!_serverClocksPending) return;
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[CLOCK] applying pending server clocks white=${_pendingServerWhiteSec} black=${_pendingServerBlackSec}',
+    );
+    timerService.setServerClocks(
+      whiteSeconds: _pendingServerWhiteSec,
+      blackSeconds: _pendingServerBlackSec,
+      source: 'game:clock:deferred-apply',
+    );
+    _serverClocksPending = false;
+    _pendingServerWhiteSec = null;
+    _pendingServerBlackSec = null;
   }
 
   /// Update player clocks only when the server is actively decrementing AND local

@@ -88,6 +88,18 @@ class TimerService {
     }
   }
 
+  /// Add seconds to a player's total clock. Positive values increase time.
+  void addSecondsToPlayer(Player player, int seconds) {
+    if (seconds == 0) return;
+    if (player == Player.player1) {
+      final old = player1TimeLeft.value.inSeconds;
+      player1TimeLeft.value = Duration(seconds: old + seconds);
+    } else {
+      final old = player2TimeLeft.value.inSeconds;
+      player2TimeLeft.value = Duration(seconds: old + seconds);
+    }
+  }
+
   /// Sync clocks from server.
   /// The server sends values in **seconds** (e.g. blitz_5 → 300).
   /// Called on every `game:clock` and `game:move:ok` socket event.

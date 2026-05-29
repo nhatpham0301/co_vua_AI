@@ -450,9 +450,22 @@ class GameController {
       appModel.pushMoveMeta(meta, silent: true);
     }
     if (changeTurn) {
+      // Record who made the move (current turn) so we can give that player
+      // the per-move bonus before switching turns.
+      final movedPlayer = appModel.turn;
       appModel.changeTurn(silent: true);
-      // Reset move clock for the player who just received the turn
-      if (!undoing) appModel.timerService.resetMoveTimer();
+      // Apply per-move increment to the player who just moved (applies to
+      // all modes: offline, AI, and online). Then reset move timer for the
+      // player who just received the turn.
+      if (!undoing) {
+        try {
+          appModel.timerService.addSecondsToPlayer(movedPlayer, 10);
+        } catch (e) {
+          DevLogger.instance
+              .log(DevLogCategory.game, 'Failed to add increment to timer: $e');
+        }
+        appModel.timerService.resetMoveTimer();
+      }
     }
     selectedPiece = null;
     // Single rebuild for all the state changes above
