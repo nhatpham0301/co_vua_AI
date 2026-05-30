@@ -659,6 +659,7 @@ class ChessBoard {
   void _checkEnPassant(MoveStackObject mso, MoveMeta meta) {
     var offset = mso.movedPiece?.player == Player.player1 ? 8 : -8;
     var tile = (mso.movedPiece?.tile ?? 0) + offset;
+    if (tile < 0 || tile >= 64) return;
     var takenPiece = tiles[tile];
     if (takenPiece != null && takenPiece == enPassantPiece) {
       incrementalValue -=
@@ -677,11 +678,11 @@ class ChessBoard {
     List<int> moves = [];
     var offset = pawn.player == Player.player1 ? -8 : 8;
     var firstTile = pawn.tile + offset;
-    if (tiles[firstTile] == null) {
+    if (firstTile >= 0 && firstTile < 64 && tiles[firstTile] == null) {
       moves.add(firstTile);
       if (pawn.moveCount == 0) {
         var secondTile = firstTile + offset;
-        if (tiles[secondTile] == null) {
+        if (secondTile >= 0 && secondTile < 64 && tiles[secondTile] == null) {
           moves.add(secondTile);
         }
       }
@@ -711,7 +712,9 @@ class ChessBoard {
 
   bool _canTakeEnPassantAt(Player pawnPlayer, int diagonal) {
     var offset = (pawnPlayer == Player.player1) ? 8 : -8;
-    var takenPiece = tiles[diagonal + offset];
+    var idx = diagonal + offset;
+    if (idx < 0 || idx >= 64) return false;
+    var takenPiece = tiles[idx];
     return takenPiece != null &&
         takenPiece.player != pawnPlayer &&
         takenPiece == enPassantPiece;
@@ -851,11 +854,15 @@ class ChessBoard {
   }
 
   void _setTile(int? tile, ChessPiece? piece) {
-    if (tile != null) {
+    if (tile != null && tile >= 0 && tile < 64) {
       tiles[tile] = piece;
     }
     if (piece != null) {
-      piece.tile = tile ?? 0;
+      if (tile != null && tile >= 0 && tile < 64) {
+        piece.tile = tile;
+      } else {
+        // keep existing tile if new tile is invalid
+      }
     }
   }
 

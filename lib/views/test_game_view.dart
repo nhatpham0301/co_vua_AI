@@ -20,7 +20,8 @@ enum _TestMode {
   fullAutoLocalLocal,
   castling,
   enPassant,
-  promotion,
+  promotionQueen,
+  promotionRook,
 }
 
 extension _TestModeX on _TestMode {
@@ -32,8 +33,10 @@ extension _TestModeX on _TestMode {
         return 'Case: Nhập thành (Castling)';
       case _TestMode.enPassant:
         return 'Case: Bắt tốt qua đường (En Passant)';
-      case _TestMode.promotion:
-        return 'Case: Phong cấp (Promotion)';
+      case _TestMode.promotionQueen:
+        return 'Case: Phong hậu (Promotion → Hậu)';
+      case _TestMode.promotionRook:
+        return 'Case: Phong xe (Promotion → Xe)';
     }
   }
 
@@ -45,8 +48,10 @@ extension _TestModeX on _TestMode {
         return 'Case 1: Castling Logic';
       case _TestMode.enPassant:
         return 'Case 2: En Passant Logic';
-      case _TestMode.promotion:
-        return 'Case 3: Promotion Logic';
+      case _TestMode.promotionQueen:
+        return 'Case 3: Promotion to Queen';
+      case _TestMode.promotionRook:
+        return 'Case 4: Promotion to Rook';
     }
   }
 
@@ -58,8 +63,10 @@ extension _TestModeX on _TestMode {
         return 'Trắng: Vua e1, Xe a1+h1. Nhấn ▶ để xem nhập thành.';
       case _TestMode.enPassant:
         return 'Trắng: Tốt d5. Đen: Tốt e5 (vừa đi 2 bước). Nhấn ▶ để xem bắt tốt qua đường.';
-      case _TestMode.promotion:
-        return 'Trắng: Tốt a7, gần phong hậu. Nhấn ▶ để xem phong cấp.';
+      case _TestMode.promotionQueen:
+        return 'Trắng: Tốt a7, đi lên a8 và phong hậu. Nhấn ▶ để xem phong hậu.';
+      case _TestMode.promotionRook:
+        return 'Trắng: Tốt a7, đi lên a8 và phong xe. Nhấn ▶ để xem phong xe.';
     }
   }
 }
@@ -88,6 +95,7 @@ class _TestGameViewState extends State<TestGameView> {
 
   // Forced moves played before handing off to the AI (for special cases).
   List<Move> _forcedMoves = [];
+  ChessPieceType? _forcedPromotionType;
 
   @override
   void initState() {
@@ -112,6 +120,7 @@ class _TestGameViewState extends State<TestGameView> {
     _moveLog = [];
     _gameOver = false;
     _forcedMoves = [];
+    _forcedPromotionType = null;
 
     switch (_selectedMode) {
       case _TestMode.fullAutoLocalLocal:
@@ -130,9 +139,17 @@ class _TestGameViewState extends State<TestGameView> {
         _forcedMoves = [Move(27, 20)];
         _statusText = _selectedMode.description;
         break;
-      case _TestMode.promotion:
+      case _TestMode.promotionQueen:
         _board = _buildPromotionBoard();
         // Forced first move: white a7(8) → a8(0) = promotion to queen
+        _forcedPromotionType = ChessPieceType.queen;
+        _forcedMoves = [Move(8, 0)];
+        _statusText = _selectedMode.description;
+        break;
+      case _TestMode.promotionRook:
+        _board = _buildPromotionBoard();
+        // Forced first move: white a7(8) → a8(0) = promotion to rook
+        _forcedPromotionType = ChessPieceType.rook;
         _forcedMoves = [Move(8, 0)];
         _statusText = _selectedMode.description;
         break;
@@ -278,9 +295,11 @@ class _TestGameViewState extends State<TestGameView> {
       return;
     }
 
-    // Apply the move, auto-promoting to queen.
+    // Apply the move. If a forced promotion type is configured for the
+    // selected test mode, use it; otherwise default to queen (legacy behavior).
+    final promoType = _forcedPromotionType ?? ChessPieceType.queen;
     final MoveMeta meta =
-        _board.push(move, getMeta: true, promotionType: ChessPieceType.queen);
+        _board.push(move, getMeta: true, promotionType: promoType);
 
     // Build move label.
     final fromAlg = _tileToAlgebraic(move.from);
@@ -291,7 +310,9 @@ class _TestGameViewState extends State<TestGameView> {
     } else if (meta.queenCastle) {
       moveStr = '${_turnLabel(_currentTurn)}: O-O-O (nhập thành cánh hậu)';
     } else if (meta.promotion) {
-      moveStr = '${_turnLabel(_currentTurn)}: $fromAlg→$toAlg=♛ (phong hậu)';
+      final isRook = meta.promotionType == ChessPieceType.rook;
+      moveStr = '${_turnLabel(_currentTurn)}: $fromAlg→$toAlg=' +
+          (isRook ? '♜ (phong xe)' : '♛ (phong hậu)');
     } else {
       moveStr = '${_turnLabel(_currentTurn)}: $fromAlg→$toAlg';
     }
