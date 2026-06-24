@@ -934,6 +934,7 @@ class AppModel extends ChangeNotifier {
     _onlineVsAiLocalFallbackSession = false;
     onlineEvents.onGameState = _handleSocketGameState;
     onlineEvents.onGameMoveOk = _handleSocketGameMoveOk;
+    onlineEvents.onGameMoveInvalid = _handleSocketGameMoveInvalid;
     onlineEvents.onGameClock = _handleSocketGameClock;
     onlineEvents.onGameEnd = _handleSocketGameEnd;
     onlineEvents.onPlayerDisconnected = _handleSocketPlayerDisconnected;
@@ -1168,6 +1169,16 @@ class AppModel extends ChangeNotifier {
     } else {
       clearServerCastlingVisual(notify: false);
     }
+    notifyListeners();
+  }
+
+  void _handleSocketGameMoveInvalid(Map<String, dynamic> data) {
+    DevLogger.instance.log(
+      DevLogCategory.game,
+      '[SOCKET] game:move:invalid | $data',
+    );
+    gameController?.undoMove();
+    isInputLocked = false;
     notifyListeners();
   }
 

@@ -25,6 +25,9 @@ class GameController {
   ChessPiece? selectedPiece;
   int? checkHintTile;
   Move? latestMove;
+  
+  // Track AI move epochs to easily cancel delayed background execution
+  int _aiMoveEpoch = 0;
 
   /// Called when the view needs to refresh sprites (e.g. after game restore).
   VoidCallback? onSnapSprites;
@@ -62,11 +65,15 @@ class GameController {
   }
 
   Future<void> _selectPieceUsingServerLegalMoves(ChessPiece piece) async {
+    // Show local valid moves immediately to prevent UI lag (Optimistic UI)
+    validMoves = board.movesForPiece(piece);
+    if (validMoves.isEmpty) {
+      selectedPiece = null;
+    }
+    appModel.update();
+
     final gameId = appModel.onlineEvents.activeGameId;
     if (gameId == null || gameId.isEmpty) {
-      validMoves = board.movesForPiece(piece);
-      if (validMoves.isEmpty) selectedPiece = null;
-      appModel.update();
       return;
     }
 
@@ -89,10 +96,7 @@ class GameController {
           DevLogCategory.http,
           '[ONLINE] legal-moves: waitingForTurn=true but local turn=${appModel.turn.name}==playerSide=${appModel.playerSide.name} for $from — auth issue suspected, using local moves',
         );
-        validMoves = board.movesForPiece(piece);
-        if (validMoves.isEmpty) selectedPiece = null;
-        appModel.update();
-        return;
+        return; // local moves already populated
       }
 
       validMoves = _extractServerLegalMoveTiles(payload);
@@ -106,7 +110,6 @@ class GameController {
         '[ONLINE] legal-moves fetch failed for $from | error=$e',
       );
       // Fallback to local moves to avoid blocking input when endpoint fails.
-      validMoves = board.movesForPiece(piece);
       if (validMoves.isEmpty) selectedPiece = null;
       appModel.update();
     }
@@ -186,6 +189,9 @@ class GameController {
 
   void _aiMove() async {
     if (appModel.gameOver) return;
+    
+    final epoch = _aiMoveEpoch; // Record epoch before delaying
+    
     final thinkDelayMs = _aiThinkDelayMinMs +
         math.Random().nextInt(_aiThinkDelayMaxMs - _aiThinkDelayMinMs + 1);
     DevLogger.instance.log(
@@ -193,6 +199,16 @@ class GameController {
       'AI thinking for ${thinkDelayMs}ms before move',
     );
     await Future.delayed(Duration(milliseconds: thinkDelayMs));
+    
+    // Check 1: Stop if cancelled during delay
+    if (epoch != _aiMoveEpoch) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        'AI move cancelled: epoch mismatch ($epoch != $_aiMoveEpoch)',
+      );
+      return;
+    }
+    
     if (appModel.gameOver || !appModel.isAIsTurn) return;
     var args = Map();
     args['aiPlayer'] = appModel.aiTurn;
@@ -202,6 +218,9 @@ class GameController {
       compute(calculateAIMove, args),
     );
     aiOperation?.value.then((move) {
+      // Check 2: Stop if cancelled during compute
+      if (epoch != _aiMoveEpoch) return;
+
       if (move == null || appModel.gameOver || !appModel.isAIsTurn) {
         DevLogger.instance
             .log(DevLogCategory.game, 'AI has no valid moves — ending game');
@@ -224,6 +243,7 @@ class GameController {
   }
 
   void cancelAIMove() {
+    _aiMoveEpoch++;
     aiOperation?.cancel();
   }
 
@@ -503,7 +523,7 @@ class GameController {
       to = _tileToAlgebraic(move.to);
     }
     final promotion =
-        meta.promotion ? pieceTypeToString(move.promotionType) : null;
+        meta.promotion ? _getPromoChar(move.promotionType) : null;
 
     appModel.onlineEvents.emitMove(
       gameId: gameId,
@@ -526,5 +546,20 @@ class GameController {
 
   void snapSprites() {
     onSnapSprites?.call();
+  }
+
+  String _getPromoChar(ChessPieceType type) {
+    switch (type) {
+      case ChessPieceType.queen:
+        return 'q';
+      case ChessPieceType.rook:
+        return 'r';
+      case ChessPieceType.bishop:
+        return 'b';
+      case ChessPieceType.knight:
+        return 'n';
+      default:
+        return 'q';
+    }
   }
 }

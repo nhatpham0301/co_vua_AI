@@ -243,14 +243,10 @@ class ChessBoard {
   void _applyCastlingRightsFromFen(String castling) {
     final whiteKing = kingForPlayer(Player.player1);
     final blackKing = kingForPlayer(Player.player2);
-    if (whiteKing != null) {
-      whiteKing.moveCount =
-          (castling.contains('K') || castling.contains('Q')) ? 0 : 1;
-    }
-    if (blackKing != null) {
-      blackKing.moveCount =
-          (castling.contains('k') || castling.contains('q')) ? 0 : 1;
-    }
+    
+    // Default all kings to having moved
+    if (whiteKing != null) whiteKing.moveCount = 1;
+    if (blackKing != null) blackKing.moveCount = 1;
 
     for (final rook in rooksForPlayer(Player.player1)) {
       rook.moveCount = 1;
@@ -259,30 +255,47 @@ class ChessBoard {
       rook.moveCount = 1;
     }
 
-    final whiteA1 = tiles[56];
-    final whiteH1 = tiles[63];
-    final blackA8 = tiles[0];
-    final blackH8 = tiles[7];
+    if (castling == '-') return;
 
-    if (whiteA1 != null &&
-        whiteA1.type == ChessPieceType.rook &&
-        whiteA1.player == Player.player1) {
-      whiteA1.moveCount = castling.contains('Q') ? 0 : 1;
-    }
-    if (whiteH1 != null &&
-        whiteH1.type == ChessPieceType.rook &&
-        whiteH1.player == Player.player1) {
-      whiteH1.moveCount = castling.contains('K') ? 0 : 1;
-    }
-    if (blackA8 != null &&
-        blackA8.type == ChessPieceType.rook &&
-        blackA8.player == Player.player2) {
-      blackA8.moveCount = castling.contains('q') ? 0 : 1;
-    }
-    if (blackH8 != null &&
-        blackH8.type == ChessPieceType.rook &&
-        blackH8.player == Player.player2) {
-      blackH8.moveCount = castling.contains('k') ? 0 : 1;
+    for (int i = 0; i < castling.length; i++) {
+      final char = castling[i];
+      final isWhite = char.toUpperCase() == char;
+      final rooks = isWhite ? rooksForPlayer(Player.player1) : rooksForPlayer(Player.player2);
+      
+      // If we find any valid castling char for a player, the king can castle
+      if (isWhite && whiteKing != null) whiteKing.moveCount = 0;
+      if (!isWhite && blackKing != null) blackKing.moveCount = 0;
+      
+      if (char.toUpperCase() == 'K') {
+        // Find right-most rook
+        ChessPiece? rightRook;
+        for (var r in rooks) {
+          if (rightRook == null || tileToCol(r.tile) > tileToCol(rightRook.tile)) {
+            rightRook = r;
+          }
+        }
+        if (rightRook != null) rightRook.moveCount = 0;
+      } else if (char.toUpperCase() == 'Q') {
+        // Find left-most rook
+        ChessPiece? leftRook;
+        for (var r in rooks) {
+          if (leftRook == null || tileToCol(r.tile) < tileToCol(leftRook.tile)) {
+            leftRook = r;
+          }
+        }
+        if (leftRook != null) leftRook.moveCount = 0;
+      } else {
+        // A-H or a-h
+        final fileIndex = char.toUpperCase().codeUnitAt(0) - 65; // A=0, H=7
+        if (fileIndex >= 0 && fileIndex <= 7) {
+          for (var r in rooks) {
+            if (tileToCol(r.tile) == fileIndex) {
+              r.moveCount = 0;
+              break;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -571,19 +584,26 @@ class ChessBoard {
     }
     _setTile(king?.tile, null);
     _setTile(rook?.tile, null);
-    var kingCol = tileToCol(rook?.tile ?? 0) == 0 ? 2 : 6;
-    var rookCol = tileToCol(rook?.tile ?? 0) == 0 ? 3 : 5;
-    _setTile(tileToRow(king?.tile ?? 0) * 8 + kingCol, king);
-    _setTile(tileToRow(rook?.tile ?? 0) * 8 + rookCol, rook);
+    
+    // In FRC, the king's original column and rook's original column decide kingside/queenside.
+    final originalKingCol = tileToCol(mso.move.from);
+    final originalRookCol = tileToCol(mso.move.to);
+    final isKingside = originalRookCol > originalKingCol;
+    
+    var kingDestCol = isKingside ? 6 : 2;
+    var rookDestCol = isKingside ? 5 : 3;
+    
+    final row = tileToRow(mso.move.from);
+    _setTile(row * 8 + kingDestCol, king);
+    _setTile(row * 8 + rookDestCol, rook);
+    
     if (king != null) {
       incrementalValue += squareValue(king, inEndGameCached);
     }
     if (rook != null) {
       incrementalValue += squareValue(rook, inEndGameCached);
     }
-    tileToCol(rook?.tile ?? 0) == 3
-        ? meta.queenCastle = true
-        : meta.kingCastle = true;
+    isKingside ? meta.kingCastle = true : meta.queenCastle = true;
     king?.moveCount++;
     rook?.moveCount++;
     mso.castled = true;
@@ -598,9 +618,11 @@ class ChessBoard {
         : mso.takenPiece;
     _setTile(king?.tile, null);
     _setTile(rook?.tile, null);
-    var rookCol = tileToCol(rook?.tile ?? 0) == 3 ? 0 : 7;
-    _setTile(tileToRow(king?.tile ?? 0) * 8 + 4, king);
-    _setTile(tileToRow(rook?.tile ?? 0) * 8 + rookCol, rook);
+    
+    // Use original tiles from move
+    _setTile(mso.move.from, king);
+    _setTile(mso.move.to, rook);
+    
     king?.moveCount--;
     rook?.moveCount--;
   }
@@ -768,16 +790,49 @@ class ChessBoard {
 
   bool _canCastle(ChessPiece? king, ChessPiece rook, bool legal) {
     if (rook.moveCount == 0 && king?.moveCount == 0) {
-      var offset = (king?.tile ?? 0) - rook.tile > 0 ? 1 : -1;
-      var tile = rook.tile;
-      while (tile != king?.tile) {
-        tile += offset;
-        if ((tiles[tile] != null && tile != king?.tile) ||
-            (legal &&
-                _kingInCheckAtTile(tile, king?.player ?? Player.player1))) {
+      final kingRow = tileToRow(king!.tile);
+      final originalKingCol = tileToCol(king.tile);
+      final originalRookCol = tileToCol(rook.tile);
+      final isKingside = originalRookCol > originalKingCol;
+      
+      final kingDestCol = isKingside ? 6 : 2;
+      
+      // Determine columns to check for pieces in between
+      final startColToEmpty = math.min(originalKingCol, originalRookCol);
+      final endColToEmpty = math.max(originalKingCol, originalRookCol);
+      for (int c = startColToEmpty + 1; c < endColToEmpty; c++) {
+        if (c == originalKingCol || c == originalRookCol) continue;
+        final tileIdx = kingRow * 8 + c;
+        // In FRC, King and Rook's final destination squares might overlap with their starting squares,
+        // so we must allow pieces that are the king or the castling rook.
+        final piece = tiles[tileIdx];
+        if (piece != null && piece != king && piece != rook) {
           return false;
         }
       }
+      
+      // Determine king's path for checking attacks
+      final startColToSafe = math.min(originalKingCol, kingDestCol);
+      final endColToSafe = math.max(originalKingCol, kingDestCol);
+      
+      // Check if squares between the king's current pos and king's dest pos (inclusive) are attacked.
+      if (legal) {
+        for (int c = startColToSafe; c <= endColToSafe; c++) {
+          final tileIdx = kingRow * 8 + c;
+          if (_kingInCheckAtTile(tileIdx, king.player)) {
+            return false;
+          }
+        }
+      }
+      
+      // Check if final rook dest is empty (excluding king/rook themselves)
+      final rookDestCol = isKingside ? 5 : 3;
+      final rookDestTile = kingRow * 8 + rookDestCol;
+      final pieceAtRookDest = tiles[rookDestTile];
+      if (pieceAtRookDest != null && pieceAtRookDest != king && pieceAtRookDest != rook) {
+        return false;
+      }
+      
       return true;
     }
     return false;

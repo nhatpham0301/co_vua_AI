@@ -365,7 +365,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     final profile = appModel.opponentProfile;
     final opponentName = isAI
         ? l.botLevel(diff)
-        : (isGuestLocalTwoPlayer ? l.twoPlayer : appModel.opponentDisplayName);
+        : (isGuestLocalTwoPlayer ? l.twoPlayer : ((appModel.opponentProfile?['username'] as String?)?.isNotEmpty == true
+                                          ? appModel.opponentProfile!['username'] as String
+                                          : appModel.opponentDisplayName));
     final opponentElo =
         isAI ? botElo : (profile?['elo'] as num?)?.toInt() ?? botElo;
     final opponentAvatar = isAI ? null : profile?['avatarUrl'] as String?;
@@ -899,7 +901,9 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                               true
                                           ? whiteProfile!['username'] as String
                                           : 'White')
-                                      : appModel.opponentDisplayName));
+                                      : ((appModel.opponentProfile?['username'] as String?)?.isNotEmpty == true
+                                          ? appModel.opponentProfile!['username'] as String
+                                          : appModel.opponentDisplayName)));
                           final opponentElo = isAI
                               ? botElo
                               : (profile?['elo'] as num?)?.toInt() ?? botElo;
