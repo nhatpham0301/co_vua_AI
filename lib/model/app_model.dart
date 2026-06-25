@@ -325,7 +325,30 @@ class AppModel extends ChangeNotifier {
 
   /// True khi màn hình countdown chưa xong — người dùng chưa bấm Sẵn sàng.
   /// Game engine đọc cờ này để chặn input trong lúc chờ.
-  bool isInputLocked = false;
+  bool _isInputLocked = false;
+  bool get isInputLocked => _isInputLocked;
+  int _flushEpoch = 0;
+
+  set isInputLocked(bool locked) {
+    _isInputLocked = locked;
+    if (!locked) {
+      final moves = List<Map<String, dynamic>>.from(_queuedMoves);
+      _queuedMoves.clear();
+      if (moves.isNotEmpty) {
+        _flushEpoch++;
+        final currentEpoch = _flushEpoch;
+        final delayMs = 3000 + math.Random().nextInt(2001);
+        Future.delayed(Duration(milliseconds: delayMs), () {
+          if (_flushEpoch != currentEpoch) return;
+          for (final move in moves) {
+            _handleSocketGameMoveOk(move);
+          }
+        });
+      }
+    }
+  }
+
+  final List<Map<String, dynamic>> _queuedMoves = [];
 
   /// Profile công khai của đối thủ trong ván online (null nếu chưa fetch hoặc là AI game).
   Map<String, dynamic>? opponentProfile;
@@ -614,7 +637,9 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
-    isInputLocked = false;
+    _flushEpoch++;
+    _isInputLocked = false;
+    _queuedMoves.clear();
     gameOver = false;
     stalemate = false;
     userWon = false;
@@ -718,6 +743,7 @@ class AppModel extends ChangeNotifier {
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
+    _flushEpoch++;
     _sessionStartedOnline = false;
     _spectatorMode = false;
     _clockSyncPaused = false;
@@ -751,6 +777,7 @@ class AppModel extends ChangeNotifier {
     saveGameState();
     gameController?.cancelAIMove();
     timerService.stop();
+    _flushEpoch++;
     _sessionStartedOnline = false;
     _spectatorMode = false;
     _clockSyncPaused = false;
@@ -1076,6 +1103,11 @@ class AppModel extends ChangeNotifier {
   /// clock for the player who just moved. The authoritative correction comes
   /// from the next `game:clock` tick.
   void _handleSocketGameMoveOk(Map<String, dynamic> data) {
+    if (isInputLocked) {
+      _queuedMoves.add(data);
+      return;
+    }
+
     final from = data['from']?.toString();
     final to = data['to']?.toString();
     if (from == null || to == null) {

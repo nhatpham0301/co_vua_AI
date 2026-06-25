@@ -339,9 +339,14 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
   }
 
   void _onExitAfterGame() {
+    final startedFromLevelSelection = appModel.startedFromLevelSelection;
     appModel.exitChessView();
     if (mounted) {
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      if (startedFromLevelSelection) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     }
   }
 
@@ -726,7 +731,8 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      if (appModel.startedFromLevelSelection &&
+                                      if (appModel.playingWithAI &&
+                                          appModel.startedFromLevelSelection &&
                                           appModel.userWon)
                                         GestureDetector(
                                           onTap: () {

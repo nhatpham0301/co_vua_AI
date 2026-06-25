@@ -21,8 +21,15 @@ void showExitDialog(BuildContext context, {VoidCallback? onCancel}) {
         label: l.exit,
         isDestructive: true,
         onPressed: () {
+          final navigator = Navigator.of(context);
+          final startedFromLevelSelection = appModel.startedFromLevelSelection;
           appModel.exitChessView();
-          Navigator.of(context).pop();
+          navigator.pop(); // Pop the dialog
+          if (startedFromLevelSelection) {
+            navigator.pop(); // Pop ChessView to return to AI list
+          } else {
+            navigator.popUntil((route) => route.isFirst); // Return to home
+          }
         },
       ),
       AppDialogAction(label: l.cancel, onPressed: onCancel),
