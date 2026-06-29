@@ -139,83 +139,34 @@ class _MainMenuViewState extends State<MainMenuView> {
 
     setState(() => _isAutoRecovering = true);
     try {
-      const pageSize = 50;
-      const maxPages = 5;
-      const unfinishedStatuses = {'in_progress', 'waiting'};
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[AUTO_RECOVER] calling GET /api/users/${user.id}/games | limit=1',
+      );
 
-      Map<String, dynamic>? latestRecoverable;
-      DateTime latestTs = DateTime.fromMillisecondsSinceEpoch(0);
-      int offset = 0;
-      int page = 0;
-      int? total;
+      final json = await model.apiClient.fetchUserGames(
+        userId: user.id,
+        limit: 1,
+        offset: 0,
+      );
 
-      while (page < maxPages) {
+      final rawGames = json['games'];
+      if (rawGames is! List || rawGames.isEmpty) {
         DevLogger.instance.log(
           DevLogCategory.http,
-          '[AUTO_RECOVER] calling GET /api/users/${user.id}/games | limit=$pageSize | offset=$offset',
+          '[AUTO_RECOVER] /users/:id/games returned empty or invalid list',
         );
-
-        final json = await model.apiClient.fetchUserGames(
-          userId: user.id,
-          limit: pageSize,
-          offset: offset,
-        );
-
-        final rawGames = json['games'];
-        if (rawGames is! List) {
-          DevLogger.instance.log(
-            DevLogCategory.http,
-            '[AUTO_RECOVER] /users/:id/games has no games list | payload=$json',
-          );
-          return;
-        }
-
-        total ??= (json['total'] as num?)?.toInt();
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[AUTO_RECOVER] page=${page + 1} | got=${rawGames.length} | total=${total ?? '-'}',
-        );
-
-        for (final g in rawGames) {
-          if (g is! Map) continue;
-          final game = g.cast<String, dynamic>();
-          final status =
-              (game['status']?.toString() ?? '').trim().toLowerCase();
-          if (!unfinishedStatuses.contains(status)) continue;
-
-          final endedAt = game['endedAt']?.toString();
-          if (endedAt != null && endedAt.isNotEmpty) continue;
-
-          final tsStr = game['updatedAt']?.toString() ??
-              game['startedAt']?.toString() ??
-              game['createdAt']?.toString() ??
-              '';
-          final ts = DateTime.tryParse(tsStr) ?? DateTime.now();
-          if (latestRecoverable == null || ts.isAfter(latestTs)) {
-            latestRecoverable = game;
-            latestTs = ts;
-          }
-        }
-
-        if (latestRecoverable != null) {
-          break;
-        }
-
-        if (rawGames.isEmpty) {
-          break;
-        }
-
-        offset += rawGames.length;
-        page += 1;
-        if (total != null && offset >= total) {
-          break;
-        }
+        return;
       }
 
-      if (latestRecoverable == null) {
+      final latestRecoverable = (rawGames.first as Map).cast<String, dynamic>();
+      final status = (latestRecoverable['status']?.toString() ?? '').trim().toLowerCase();
+      final endedAt = latestRecoverable['endedAt']?.toString();
+
+      if (status != 'in_progress' || (endedAt != null && endedAt.isNotEmpty)) {
         DevLogger.instance.log(
           DevLogCategory.game,
-          '[AUTO_RECOVER] no unfinished game found for user=${user.id}',
+          '[AUTO_RECOVER] latest game is not in_progress or already ended (status=$status)',
         );
         return;
       }
@@ -239,6 +190,15 @@ class _MainMenuViewState extends State<MainMenuView> {
         );
         return;
       }
+      
+      final actualStatus = (model.onlineGameSnapshot?.status ?? '').trim().toLowerCase();
+      if (actualStatus != 'in_progress') {
+        DevLogger.instance.log(
+          DevLogCategory.game,
+          '[AUTO_RECOVER] gameId=$gameId snapshot status=$actualStatus -> NOT in_progress/waiting, skipping recover',
+        );
+        return;
+      }
 
       await model.fetchOnlineGameMovesPreview(gameId);
       model.prepareOnlineSession();
@@ -248,6 +208,7 @@ class _MainMenuViewState extends State<MainMenuView> {
       await model.hydrateOpponentProfileFromSnapshot();
 
       model.setPlayerCount(model.onlineGameSnapshot!.isAiGame ? 1 : 2);
+      
       model.isWaitingForOpponent = false;
       model.opponentJoined = true;
       model.currentGameInviteCode = null;

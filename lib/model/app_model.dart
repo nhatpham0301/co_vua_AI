@@ -745,8 +745,20 @@ class AppModel extends ChangeNotifier {
     if (isOnlineGameMode && !wasSpectator && !gameOver) {
       final gameId = onlineGameSnapshot?.id;
       if (gameId != null && gameId.isNotEmpty) {
-        unawaited(apiClient.resignGame(gameId));
+        if (!isWaitingForOpponent) {
+          // Chỉ gọi API resign nếu trận đấu thực sự đã bắt đầu
+          unawaited(apiClient.resignGame(gameId).then((_) {}).catchError((e) {
+            DevLogger.instance.log(
+              DevLogCategory.http,
+              '[EXIT_CHESS_VIEW] resignGame failed (ignored): $e',
+            );
+          }));
+        }
       }
+    }
+
+    if (authService.isLoggedIn) {
+      unawaited(authService.fetchProfile());
     }
 
     gameController?.cancelAIMove();
@@ -790,6 +802,10 @@ class AppModel extends ChangeNotifier {
     _sessionStartedOnline = false;
     _spectatorMode = false;
     _clockSyncPaused = false;
+    
+    if (authService.isLoggedIn) {
+      unawaited(authService.fetchProfile());
+    }
     _endGameAdDisplayed = false;
     _onlineVsAiLocalFallbackSession = false;
     _spectatorAwaitClockTimer?.cancel();
@@ -1428,7 +1444,9 @@ class AppModel extends ChangeNotifier {
   /// Per BE_TIMER.md: stop timer immediately and end game.
   void _handleSocketGameEnd(Map<String, dynamic> data) {
     final status = data['status']?.toString() ?? 'unknown';
-    final winner = data['winner']?.toString();
+    final winnerRaw = data['winner']?.toString();
+    final winner = winnerRaw?.trim();
+    final winnerLower = winner?.toLowerCase();
     final reason = data['reason']?.toString();
 
     DevLogger.instance.log(
@@ -1445,27 +1463,48 @@ class AppModel extends ChangeNotifier {
 
     // Store reason so UI can show contextual message (e.g. "Opponent left")
     gameEndReason = status != 'unknown' ? status : reason;
+    
     // Store actual winner for spectator display (white/black/null=draw)
-    onlineWinner = (winner == 'white' || winner == 'black') ? winner : null;
-    // Clear disconnected flag — game is now officially over
+    if (winnerLower == 'white' || winnerLower == 'player1' || (onlineGameSnapshot?.whiteId != null && winner == onlineGameSnapshot?.whiteId)) {
+      onlineWinner = 'white';
+    } else if (winnerLower == 'black' || winnerLower == 'player2' || (onlineGameSnapshot?.blackId != null && winner == onlineGameSnapshot?.blackId)) {
+      onlineWinner = 'black';
+    } else if (authService.user?.id != null && winner == authService.user!.id) {
+      onlineWinner = playerSide == Player.player1 ? 'white' : 'black';
+    } else {
+      onlineWinner = null;
+    }
+    
     opponentDisconnected = false;
 
     if (!gameOver) {
-      // For online PvP, derive userWon exclusively from the server's winner field.
-      // Never fall back to didUserWin() which gives wrong results for online games.
+      // For online PvP, derive userWon from the server's winner field if available.
       bool? forceWon;
       if (isOnlineGameMode && !shouldRunLocalAiInOnlineVsAi) {
         final iAmWhite = playerSide == Player.player1;
-        // winner can be "white", "black", or null/absent (draw/stalemate)
-        if (winner == 'white' || winner == 'black') {
-          forceWon = (winner == 'white') == iAmWhite;
+        
+        if (winnerLower == 'white' || winnerLower == 'player1' || (onlineGameSnapshot?.whiteId != null && winner == onlineGameSnapshot?.whiteId)) {
+          forceWon = iAmWhite;
+        } else if (winnerLower == 'black' || winnerLower == 'player2' || (onlineGameSnapshot?.blackId != null && winner == onlineGameSnapshot?.blackId)) {
+          forceWon = !iAmWhite;
+        } else if (winner != null && winner.isNotEmpty && winnerLower != 'null' && winnerLower != 'unknown') {
+          // Direct ID match to current user
+          if (authService.user?.id != null && winner == authService.user!.id) {
+            forceWon = true;
+          } else {
+            forceWon = false; // It's some other non-empty string, assume we lost
+          }
         } else {
-          // draw or stalemate — nobody wins
-          forceWon = false;
+          // Backend did not provide a valid winner string (null or empty)
           if (status == 'stalemate' || status == 'draw') {
+            forceWon = false;
             stalemate = true;
+          } else {
+            // If it's a checkmate or timeout but no winner is provided, let didUserWin() handle it!
+            forceWon = null;
           }
         }
+        
         DevLogger.instance.log(
           DevLogCategory.game,
           '[SOCKET] game:end: winner=$winner iAmWhite=$iAmWhite playerSide=${playerSide.name} → userWon=$forceWon stalemate=$stalemate',
