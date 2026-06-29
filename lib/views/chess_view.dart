@@ -647,10 +647,13 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(
-                            height: _kTopBannerSlotHeight,
-                            child: GameBannerAd(bottomPad: 0),
-                          ),
+                          if (appModel.isWaitingForOpponent)
+                            const SizedBox(height: _kTopBannerSlotHeight)
+                          else
+                            const SizedBox(
+                              height: _kTopBannerSlotHeight,
+                              child: GameBannerAd(bottomPad: 0),
+                            ),
                           // Chess board stage
                           Expanded(
                             child: BoardStage(
@@ -912,9 +915,30 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                                           : appModel.opponentDisplayName)));
                           final opponentElo = isAI
                               ? botElo
-                              : (profile?['elo'] as num?)?.toInt() ?? botElo;
-                          final opponentAvatar =
-                              profile?['avatarUrl'] as String?;
+                              : isSpectator
+                                  ? (profile?['elo'] as num?)?.toInt() ?? botElo
+                                  : (() {
+                                      // Ưu tiên lấy ELO đối thủ từ snapshot để đồng bộ
+                                      final opponentSnapshotProfile =
+                                          appModel.playerSide == Player.player1
+                                              ? appModel.onlineGameSnapshot?.black
+                                              : appModel.onlineGameSnapshot?.white;
+                                      return (opponentSnapshotProfile?['elo'] as num?)?.toInt() ??
+                                          (profile?['elo'] as num?)?.toInt() ??
+                                          botElo;
+                                    })();
+                          final opponentAvatar = isAI
+                              ? null
+                              : isSpectator
+                                  ? (profile?['avatarUrl'] as String?)
+                                  : (() {
+                                      final opponentSnapshotProfile =
+                                          appModel.playerSide == Player.player1
+                                              ? appModel.onlineGameSnapshot?.black
+                                              : appModel.onlineGameSnapshot?.white;
+                                      return (opponentSnapshotProfile?['avatarUrl'] as String?) ??
+                                          (profile?['avatarUrl'] as String?);
+                                    })();
                           final isOnlinePvP = appModel.isOnlineGameMode &&
                               !appModel.shouldRunLocalAiInOnlineVsAi;
                           final iAmBlack =
@@ -985,10 +1009,30 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
                           final bottomElo = isSpectator
                               ? ((blackProfile?['elo'] as num?)?.toInt() ??
                                   1200)
-                              : (appModel.authService.user?.elo ?? 1200);
+                              : isOnlinePvP
+                                  ? (() {
+                                      // Lấy ELO từ snapshot theo side của người chơi local
+                                      final myProfile =
+                                          appModel.playerSide == Player.player1
+                                              ? appModel.onlineGameSnapshot?.white
+                                              : appModel.onlineGameSnapshot?.black;
+                                      return (myProfile?['elo'] as num?)?.toInt() ??
+                                          appModel.authService.user?.elo ??
+                                          1200;
+                                    })()
+                                  : (appModel.authService.user?.elo ?? 1200);
                           final bottomAvatar = isSpectator
                               ? (blackProfile?['avatarUrl'] as String?)
-                              : appModel.authService.user?.avatarUrl;
+                              : isOnlinePvP
+                                  ? (() {
+                                      final myProfile =
+                                          appModel.playerSide == Player.player1
+                                              ? appModel.onlineGameSnapshot?.white
+                                              : appModel.onlineGameSnapshot?.black;
+                                      return (myProfile?['avatarUrl'] as String?) ??
+                                          appModel.authService.user?.avatarUrl;
+                                    })()
+                                  : appModel.authService.user?.avatarUrl;
                           // Spectator: bottom = black = player2TimeLeft
                           final bottomClock = (isOnlinePvP &&
                                   appModel.playerSide == Player.player2)

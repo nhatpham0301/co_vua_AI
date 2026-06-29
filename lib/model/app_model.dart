@@ -740,6 +740,15 @@ class AppModel extends ChangeNotifier {
     final wasSpectator = _spectatorMode;
     // Nếu game chưa kết thúc, đánh dấu cần hiện ad trước ván tiếp theo.
     if (!gameOver) adService.markGameAbandoned();
+
+    // Tự động xử thua nếu người chơi chủ động rời bàn trong trận online đang diễn ra
+    if (isOnlineGameMode && !wasSpectator && !gameOver) {
+      final gameId = onlineGameSnapshot?.id;
+      if (gameId != null && gameId.isNotEmpty) {
+        unawaited(apiClient.resignGame(gameId));
+      }
+    }
+
     gameController?.cancelAIMove();
     timerService.stop();
     GameStateStorage.clearGameState();
@@ -1463,6 +1472,11 @@ class AppModel extends ChangeNotifier {
         );
       }
       endGame(forceUserWon: forceWon);
+    }
+
+    // Cập nhật lại profile local (ELO) sau khi trận đấu online kết thúc
+    if (isOnlineGameMode && !_spectatorMode && authService.isLoggedIn) {
+      unawaited(authService.fetchProfile());
     }
   }
 

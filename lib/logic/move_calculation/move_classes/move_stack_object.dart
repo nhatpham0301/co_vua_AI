@@ -15,6 +15,10 @@ class MoveStackObject {
   int previousBoardValue = 0;
   bool previousInEndGame = false;
 
+  /// Original tile of the rook involved in standard castling (king-to-destination style).
+  /// Used by _undoCastle to restore the rook to its original position.
+  int? castleRookOriginalTile;
+
   MoveStackObject(this.move, this.movedPiece, this.takenPiece,
       this.enPassantPiece, this.possibleOpenings);
 }

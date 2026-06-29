@@ -146,26 +146,6 @@ class GameController {
       validMoves = [];
       final fromTile = selectedPiece?.tile ?? 0;
       int internalToTile = tile;
-      // Online server legal-moves uses UCI castling squares (e1->g1/c1).
-      // Convert to internal Chess960-style king->rook tile so local board
-      // updates king+rook atomically in the same move.
-      if (appModel.isOnlineGameMode &&
-          !appModel.shouldRunLocalAiInOnlineVsAi &&
-          selectedPiece?.type == ChessPieceType.king) {
-        final fromRow = tileToRow(fromTile);
-        final toRow = tileToRow(tile);
-        final fromCol = tileToCol(fromTile);
-        final toCol = tileToCol(tile);
-        if (fromRow == toRow &&
-            (toCol - fromCol).abs() == 2 &&
-            board.tiles[tile] == null) {
-          final rookTile = _findCastlingRookTile(
-              fromRow, toCol > fromCol, selectedPiece!.player);
-          if (rookTile != null) {
-            internalToTile = rookTile;
-          }
-        }
-      }
 
       var move = Move(fromTile, internalToTile);
       var meta = board.push(move, getMeta: true);
@@ -328,29 +308,8 @@ class GameController {
       );
       return;
     }
-    // Detect standard UCI castling: king moves 2+ columns on the same row to
-    // an empty square. Convert to Chess960 king-to-rook format so board.push()
-    // detects it correctly via _castled() (which checks for friendly piece at to).
-    if (piece.type == ChessPieceType.king) {
-      final fromRow = tileToRow(fromTile);
-      final toRow = tileToRow(toTile);
-      final fromCol = tileToCol(fromTile);
-      final toCol = tileToCol(toTile);
-      if (fromRow == toRow &&
-          (toCol - fromCol).abs() >= 2 &&
-          board.tiles[toTile] == null) {
-        final isKingside = toCol > fromCol;
-        final rookTile =
-            _findCastlingRookTile(fromRow, isKingside, piece.player);
-        if (rookTile != null) {
-          DevLogger.instance.log(
-            DevLogCategory.game,
-            '[ONLINE] applyRemoteMove: detected UCI castling $from→$to | isKingside=$isKingside | rookTile=$rookTile',
-          );
-          toTile = rookTile;
-        }
-      }
-    }
+    // Standard castling is now detected natively by the board engine
+    // when king moves exactly 2 squares horizontally, no conversion needed.
     final promoType = promotion != null
         ? _promoStringToPieceType(promotion)
         : ChessPieceType.promotion;
@@ -377,26 +336,7 @@ class GameController {
     return rank * 8 + file;
   }
 
-  /// Find the rook tile used for castling on the given row/side.
-  /// Searches from the board edge inward toward the king (col 4).
-  int? _findCastlingRookTile(int row, bool kingside, Player player) {
-    if (kingside) {
-      for (int col = 7; col > 4; col--) {
-        final p = board.tiles[row * 8 + col];
-        if (p?.type == ChessPieceType.rook && p?.player == player) {
-          return row * 8 + col;
-        }
-      }
-    } else {
-      for (int col = 0; col < 4; col++) {
-        final p = board.tiles[row * 8 + col];
-        if (p?.type == ChessPieceType.rook && p?.player == player) {
-          return row * 8 + col;
-        }
-      }
-    }
-    return null;
-  }
+
 
   ChessPieceType _promoStringToPieceType(String s) {
     switch (s.toLowerCase()) {
@@ -510,10 +450,10 @@ class GameController {
     if (gameId == null || gameId.isEmpty) return;
 
     final from = _tileToAlgebraic(move.from);
-    // For castling, the local board uses Chess960 king-to-rook notation
-    // (move.to = rook's tile). Convert to standard UCI (king's destination
-    // square) so the backend understands it: kingside → g-file (col 6),
-    // queenside → c-file (col 2).
+    // For castling, the board now uses standard notation (king moves 2 squares
+    // to destination col), so move.to is already the correct UCI destination.
+    // However, for compatibility, we still explicitly compute the destination
+    // from meta flags to handle any edge case.
     String to;
     if (meta.kingCastle || meta.queenCastle) {
       final kingRow = tileToRow(move.from);

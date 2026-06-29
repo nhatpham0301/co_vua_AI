@@ -386,7 +386,7 @@ class ChessBoard {
     }
     // Toggle side to move
     zobristHash ^= _zobristSideToMove;
-    if (_castled(mso.movedPiece, mso.takenPiece)) {
+    if (_castled(mso.movedPiece, mso.takenPiece, mso.move)) {
       _castle(mso, meta);
     } else {
       _standardMove(mso, meta);
@@ -570,12 +570,36 @@ class ChessBoard {
   }
 
   void _castle(MoveStackObject mso, MoveMeta meta) {
-    var king = mso.movedPiece?.type == ChessPieceType.king
-        ? mso.movedPiece
-        : mso.takenPiece;
-    var rook = mso.movedPiece?.type == ChessPieceType.rook
-        ? mso.movedPiece
-        : mso.takenPiece;
+    final isChess960Style = mso.takenPiece != null &&
+        mso.takenPiece!.player == mso.movedPiece?.player;
+
+    ChessPiece? king;
+    ChessPiece? rook;
+    int rookOriginalTile;
+
+    if (isChess960Style) {
+      // Chess960: King captures own Rook → movedPiece/takenPiece identify both
+      king = mso.movedPiece?.type == ChessPieceType.king
+          ? mso.movedPiece
+          : mso.takenPiece;
+      rook = mso.movedPiece?.type == ChessPieceType.rook
+          ? mso.movedPiece
+          : mso.takenPiece;
+      rookOriginalTile = mso.move.to; // rook was at move.to
+    } else {
+      // Standard castling: King moves 2 squares, takenPiece is null
+      king = mso.movedPiece;
+      final kingRow = tileToRow(mso.move.from);
+      final kingDestCol = tileToCol(mso.move.to);
+      final isKingside = kingDestCol > tileToCol(mso.move.from);
+      // Find the castling rook on the same row
+      rookOriginalTile = isKingside ? kingRow * 8 + 7 : kingRow * 8;
+      rook = tiles[rookOriginalTile];
+    }
+
+    // Store rook's original tile for undo
+    mso.castleRookOriginalTile = rookOriginalTile;
+
     if (king != null) {
       incrementalValue -= squareValue(king, inEndGameCached);
     }
@@ -584,19 +608,18 @@ class ChessBoard {
     }
     _setTile(king?.tile, null);
     _setTile(rook?.tile, null);
-    
-    // In FRC, the king's original column and rook's original column decide kingside/queenside.
+
     final originalKingCol = tileToCol(mso.move.from);
-    final originalRookCol = tileToCol(mso.move.to);
-    final isKingside = originalRookCol > originalKingCol;
-    
+    final isKingside = tileToCol(mso.move.to) > originalKingCol ||
+        (isChess960Style && tileToCol(rookOriginalTile) > originalKingCol);
+
     var kingDestCol = isKingside ? 6 : 2;
     var rookDestCol = isKingside ? 5 : 3;
-    
+
     final row = tileToRow(mso.move.from);
     _setTile(row * 8 + kingDestCol, king);
     _setTile(row * 8 + rookDestCol, rook);
-    
+
     if (king != null) {
       incrementalValue += squareValue(king, inEndGameCached);
     }
@@ -610,19 +633,37 @@ class ChessBoard {
   }
 
   void _undoCastle(MoveStackObject mso) {
-    var king = mso.movedPiece?.type == ChessPieceType.king
-        ? mso.movedPiece
-        : mso.takenPiece;
-    var rook = mso.movedPiece?.type == ChessPieceType.rook
-        ? mso.movedPiece
-        : mso.takenPiece;
+    final isChess960Style = mso.castleRookOriginalTile == mso.move.to;
+
+    ChessPiece? king;
+    ChessPiece? rook;
+
+    if (isChess960Style) {
+      king = mso.movedPiece?.type == ChessPieceType.king
+          ? mso.movedPiece
+          : mso.takenPiece;
+      rook = mso.movedPiece?.type == ChessPieceType.rook
+          ? mso.movedPiece
+          : mso.takenPiece;
+    } else {
+      king = mso.movedPiece;
+      // Rook is at its destination tile now — find it
+      final originalKingCol = tileToCol(mso.move.from);
+      final isKingside = tileToCol(mso.move.to) > originalKingCol;
+      final row = tileToRow(mso.move.from);
+      final rookDestCol = isKingside ? 5 : 3;
+      rook = tiles[row * 8 + rookDestCol];
+    }
+
     _setTile(king?.tile, null);
     _setTile(rook?.tile, null);
-    
-    // Use original tiles from move
+
+    // Restore king to original position
     _setTile(mso.move.from, king);
-    _setTile(mso.move.to, rook);
-    
+    // Restore rook to original position
+    final rookOriginal = mso.castleRookOriginalTile ?? mso.move.to;
+    _setTile(rookOriginal, rook);
+
     king?.moveCount--;
     rook?.moveCount--;
   }
@@ -767,21 +808,22 @@ class ChessBoard {
   }
 
   List<int> _rookCastleMove(ChessPiece rook, bool legal) {
-    if (!legal || !kingInCheck(rook.player)) {
-      var king = kingForPlayer(rook.player);
-      if (_canCastle(king, rook, legal)) {
-        return [king?.tile ?? 0];
-      }
-    }
+    // Standard chess: Rook cannot move to King's square for castling.
+    // Only King initiates castling by moving 2 squares.
     return [];
   }
 
   List<int> _kingCastleMoves(ChessPiece king, bool legal) {
     List<int> moves = [];
     if (!legal || !kingInCheck(king.player)) {
+      final kingRow = tileToRow(king.tile);
+      final kingCol = tileToCol(king.tile);
       for (var rook in rooksForPlayer(king.player)) {
         if (_canCastle(king, rook, legal)) {
-          moves.add(rook.tile);
+          // Standard destination: g-file (col 6) for kingside, c-file (col 2) for queenside
+          final isKingside = tileToCol(rook.tile) > kingCol;
+          final destCol = isKingside ? 6 : 2;
+          moves.add(kingRow * 8 + destCol);
         }
       }
     }
@@ -962,8 +1004,17 @@ class ChessBoard {
   // Private: Move Predicates
   // ──────────────────────────────────────────────
 
-  bool _castled(ChessPiece? movedPiece, ChessPiece? takenPiece) {
-    return takenPiece != null && takenPiece.player == movedPiece?.player;
+  bool _castled(ChessPiece? movedPiece, ChessPiece? takenPiece, Move move) {
+    // Chess960 style: king "captures" own rook
+    if (takenPiece != null && takenPiece.player == movedPiece?.player) {
+      return true;
+    }
+    // Standard castling: king moves exactly 2 squares horizontally
+    if (movedPiece?.type == ChessPieceType.king) {
+      final colDiff = (tileToCol(move.to) - tileToCol(move.from)).abs();
+      if (colDiff == 2) return true;
+    }
+    return false;
   }
 
   bool _promotion(ChessPiece? movedPiece) {
