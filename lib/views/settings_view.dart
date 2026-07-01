@@ -1,15 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../services/update_service.dart';
+import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
-import 'test_game_view.dart';
+import '../services/update_service.dart';
 import 'chess_view.dart';
 import 'components/main_menu_view/game_options/game_mode_picker.dart';
 import 'components/main_menu_view/mm_background.dart';
@@ -22,6 +21,7 @@ import 'components/shared/bottom_padding.dart';
 import 'components/shared/rounded_button.dart';
 import 'delete_account_view.dart';
 import 'developer_view.dart';
+import 'test_game_view.dart';
 
 class SettingsView extends StatelessWidget {
   Future<T> _withAuthRetry<T>({

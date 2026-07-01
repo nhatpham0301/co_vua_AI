@@ -19,7 +19,9 @@ class RestartExitButtons extends StatelessWidget {
       children: [
         Expanded(
           child: RoundedAlertButton(
-            l.restart,
+            (appModel.isOnlineGameMode && appModel.opponentDisconnected)
+                ? l.newGameTitle
+                : l.restart,
             onConfirm: () {
               if (!appModel.gameOver) {
                 appModel.adService.markGameAbandoned();

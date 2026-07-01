@@ -198,6 +198,19 @@ class OnlineGameEventsService {
     _emitWithLog(socket, 'game:move', payload, gameId: gameId);
   }
 
+  /// Emit an arbitrary event via socket
+  void emitEvent(String eventName, Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket == null || !socket.connected) {
+      DevLogger.instance.log(
+        DevLogCategory.http,
+        '[SOCKET] emitEvent: socket not connected | event=$eventName',
+      );
+      return;
+    }
+    _emitWithLog(socket, eventName, payload, gameId: payload['gameId']);
+  }
+
   void _bindGameEvents(io.Socket socket, String gameId) {
     DevLogger.instance.log(
       DevLogCategory.http,

@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
@@ -85,6 +85,10 @@ class ExperimentalApiClient {
       requiresAuth: true,
     );
     return MonetizationConfig.fromJson(json);
+  }
+
+  Future<Map<String, dynamic>> fetchGameRaw(String gameId) {
+    return _getJson('/api/games/$gameId', requiresAuth: true);
   }
 
   Future<OnlineGameSnapshot> fetchGameSnapshot(String gameId) async {
@@ -285,6 +289,11 @@ class ExperimentalApiClient {
       requiresAuth: true,
       body: const {},
     );
+  }
+
+  // ── Rematch (auth) ─────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> offerRematch(String gameId) {
+    return _postJson('/api/games/$gameId/rematch', requiresAuth: true, body: const {});
   }
 
   // ── Matchmaking (auth) ─────────────────────────────────────────────────────

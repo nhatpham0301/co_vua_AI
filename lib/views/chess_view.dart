@@ -6,14 +6,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../model/user_preferences.dart';
-
 import '../l10n/app_localizations.dart';
 import '../logic/chess_game.dart';
 import '../logic/dev_logger.dart';
 import '../logic/experimental_api_client.dart';
 import '../model/app_model.dart';
 import '../model/player.dart';
+import '../model/user_preferences.dart';
 import 'components/chess_view/board_stage.dart';
 import 'components/chess_view/chess_actions.dart';
 import 'components/chess_view/chess_dialogs.dart';
@@ -229,28 +228,138 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
         appModel.opponentJoined = true;
         appModel.currentGameInviteCode = null;
       } else {
-        final created = await _withAuthRetry(
-          appModel: appModel,
-          action: 'createPvPGame(rematch)',
-          execute: () => appModel.apiClient.createPvPGame(
-            timeControl: appModel.onlineTimeControl,
-            moveTimeLimit: appModel.moveTimeLimit,
-          ),
-        );
-        final gameId = (created['id']?.toString() ?? '').trim();
-        if (gameId.isEmpty) {
-          throw Exception('createPvPGame rematch missing game id');
+        final oldGameId = appModel.onlineGameSnapshot?.id;
+        bool rematchSuccess = false;
+
+        if (oldGameId != null) {
+          bool dialogVisible = true;
+          bool cancelRematch = false;
+          showCupertinoDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (ctx) => CupertinoAlertDialog(
+              content: const Row(
+                children: [
+                  CupertinoActivityIndicator(),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Đang đợi đối thủ chơi lại...', style: TextStyle(fontSize: 14))),
+                ],
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  child: const Text('Hủy'),
+                  onPressed: () {
+                    cancelRematch = true;
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+              ],
+            ),
+          ).then((_) {
+            dialogVisible = false;
+            cancelRematch = true;
+          });
+
+          try {
+            for (int i = 0; i < 15; i++) { // 15 loops * 2s = 30s
+              if (cancelRematch) break;
+
+              final rematchResult = await _withAuthRetry(
+                appModel: appModel,
+                action: 'offerRematch',
+                execute: () => appModel.apiClient
+                    .offerRematch(oldGameId)
+                    .timeout(const Duration(seconds: 5)),
+              );
+
+              if (cancelRematch) break;
+
+              final gameId = (rematchResult['id']?.toString() ?? '').trim();
+              if (gameId.isNotEmpty) {
+                appModel.applyJoinGameResponse(rematchResult);
+                await appModel.onlineEvents.stopTracking();
+                await appModel.startOnlineEventTracking(gameId);
+                appModel.setPlayerCount(2);
+                appModel.isWaitingForOpponent = false;
+                appModel.opponentJoined = true;
+                appModel.currentGameInviteCode = null;
+                rematchSuccess = true;
+                break;
+              }
+
+              final status = rematchResult['status']?.toString();
+              if (status != 'waiting') {
+                break; // Opponent declined or error
+              }
+
+              if (i < 14) {
+                await Future.delayed(const Duration(seconds: 2));
+              }
+            }
+          } catch (e) {
+            DevLogger.instance.log(DevLogCategory.game, '[REMATCH] failed/timeout: $e');
+          }
+
+          if (mounted && dialogVisible) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
         }
 
-        appModel.applyJoinGameResponse(created);
-        await appModel.onlineEvents.stopTracking();
-        await appModel.startOnlineEventTracking(gameId);
-        appModel.setPlayerCount(2);
-        appModel.isWaitingForOpponent = true;
-        appModel.opponentJoined = false;
-        final inviteCode = (created['inviteCode']?.toString() ?? '').trim();
-        appModel.currentGameInviteCode =
-            inviteCode.isNotEmpty ? inviteCode : null;
+        if (!rematchSuccess) {
+          bool dialogVisible = true;
+          showCupertinoDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const CupertinoAlertDialog(
+              content: Row(
+                children: [
+                  CupertinoActivityIndicator(),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Đang tìm đối thủ khác (5s)...', style: TextStyle(fontSize: 14))),
+                ],
+              ),
+            ),
+          ).then((_) => dialogVisible = false);
+
+          try {
+            final quickPlayResult = await _withAuthRetry(
+              appModel: appModel,
+              action: 'quickPlayRematchFallback',
+              execute: () => appModel.apiClient.quickPlay(
+                timeControl: appModel.onlineTimeControl,
+                fallbackToAi: true,
+                fallbackTimeoutSec: 5,
+              ),
+            );
+
+            final newGameId = quickPlayResult.gameId.trim();
+            if (newGameId.isNotEmpty) {
+              final gameDetails = await _withAuthRetry(
+                appModel: appModel,
+                action: 'fetchGameDetails',
+                execute: () => appModel.apiClient.fetchGameRaw(newGameId),
+              );
+
+              appModel.applyJoinGameResponse(gameDetails);
+              await appModel.onlineEvents.stopTracking();
+              await appModel.startOnlineEventTracking(newGameId);
+              appModel.setPlayerCount(quickPlayResult.mode == 'ai' ? 1 : 2);
+              appModel.isWaitingForOpponent = false;
+              appModel.opponentJoined = true;
+              appModel.currentGameInviteCode = null;
+            }
+          } catch (e) {
+            DevLogger.instance.log(DevLogCategory.game, '[REMATCH FALLBACK] quickPlay failed: $e');
+            if (mounted && dialogVisible) {
+              Navigator.of(context, rootNavigator: true).pop();
+            }
+            return; // Abort
+          }
+
+          if (mounted && dialogVisible) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        }
       }
 
       appModel.newGame(notify: false);
@@ -484,6 +593,7 @@ class _ChessViewState extends State<ChessView> with WidgetsBindingObserver {
     } else if (state == AppLifecycleState.resumed) {
       if (!appModel.gameOver) {
         appModel.timerService.resume();
+        appModel.requestSocketSync();
       }
     }
   }

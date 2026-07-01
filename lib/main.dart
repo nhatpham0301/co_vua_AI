@@ -13,14 +13,13 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
-
 import 'logic/ad_service.dart';
 import 'logic/app_navigator.dart';
 import 'logic/shared_functions.dart';
 import 'model/app_model.dart';
 import 'model/user_preferences.dart';
-import 'views/main_menu_view.dart';
 import 'services/update_service.dart';
+import 'views/main_menu_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

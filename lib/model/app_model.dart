@@ -1021,6 +1021,19 @@ class AppModel extends ChangeNotifier {
     );
   }
 
+  /// Called on app resumed to re-sync state
+  void requestSocketSync() {
+    if (!isOnlineGameMode || gameOver) return;
+    final gameId = onlineGameSnapshot?.id;
+    if (gameId != null && gameId.isNotEmpty) {
+      DevLogger.instance.log(
+        DevLogCategory.game,
+        '[APP_MODEL] requestSocketSync | gameId=$gameId',
+      );
+      onlineEvents.emitEvent('game:reconnect', {'gameId': gameId});
+    }
+  }
+
   /// Handles `game:state` event from socket.
   /// Covers two cases:
   ///   1. Matchmaking: waiting PvP room transitions to `in_progress` when both
@@ -1173,26 +1186,15 @@ class AppModel extends ChangeNotifier {
     _applyServerFenToBoard(fen, source: 'game:move:ok');
     _syncTurnFromFen(fen);
 
-    // If this move was made by the opponent (not local player), immediately
-    // show the per-move increment locally so users see the clock bump.
-    // `opponentJustMoved` is true when `turn` (next to play) == myColor,
-    // meaning the other player moved.
-    if (!_spectatorMode && opponentJustMoved) {
-      try {
-        // `turn` was updated to the next player; the moved player is the
-        // opposite of `turn`.
-        final movedPlayer = oppositePlayer(turn);
-        timerService.addSecondsToPlayer(movedPlayer, 10);
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[SOCKET] applied local increment +10s to ${movedPlayer.name} from game:move:ok',
-        );
-      } catch (e) {
-        DevLogger.instance.log(
-          DevLogCategory.game,
-          '[SOCKET] failed applying local increment from game:move:ok | error=$e',
-        );
-      }
+    if (clocks != null) {
+      _syncClocksFromPayload(clocks, source: 'game:move:ok');
+    }
+
+    final moveTimeLimitMs = data['moveTimeLimitMs'] as num? ?? clocks?['moveTimeLimitMs'] as num?;
+    if (moveTimeLimitMs != null) {
+      timerService.moveTimeLeft.value = Duration(milliseconds: moveTimeLimitMs.toInt());
+    } else {
+      timerService.resetMoveTimer();
     }
 
     // Keep latest-move highlight aligned with server payload.
@@ -1328,6 +1330,11 @@ class AppModel extends ChangeNotifier {
       }
     }
 
+    final moveTimeLeftMs = data['moveTimeLeftMs'] as num?;
+    if (moveTimeLeftMs != null) {
+      timerService.moveTimeLeft.value = Duration(milliseconds: moveTimeLeftMs.toInt());
+    }
+
     // Sync whose turn it is from server activeColor (authoritative)
     final activeColor = data['activeColor']?.toString();
     bool turnChanged = false;
@@ -1398,7 +1405,7 @@ class AppModel extends ChangeNotifier {
   /// Key guard: only correct when `serverSec < _prevServerSec` (server is counting down).
   /// If the server sends the same value repeatedly (frozen/buggy), we skip correction so
   /// the local countdown continues uninterrupted.
-  static const int _clockDriftThresholdSeconds = 2;
+  static const int _clockDriftThresholdSeconds = 1;
   void _syncClocksIfDrifted(int? whiteSec, int? blackSec) {
     if (whiteSec != null) {
       final prev = _prevServerWhiteSec;

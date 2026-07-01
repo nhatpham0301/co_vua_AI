@@ -55,6 +55,7 @@ class MatchCornerProfile extends StatelessWidget {
             isActive: isActive,
             moveTimeLimitSeconds: moveTimeLimitSeconds,
             moveTimeLeft: moveTimeLeft,
+            totalTimeLeft: totalTimeLeft,
             dockToMenu: dockToMenu,
             isTimerActive: isTimerActive,
           ),
@@ -196,6 +197,7 @@ class _AvatarWithCountdown extends StatefulWidget {
   final bool isActive;
   final int moveTimeLimitSeconds;
   final ValueListenable<Duration> moveTimeLeft;
+  final ValueListenable<Duration> totalTimeLeft;
   final bool dockToMenu;
   final bool isTimerActive;
 
@@ -206,6 +208,7 @@ class _AvatarWithCountdown extends StatefulWidget {
     required this.isActive,
     required this.moveTimeLimitSeconds,
     required this.moveTimeLeft,
+    required this.totalTimeLeft,
     required this.dockToMenu,
     this.isTimerActive = true,
   });
@@ -224,6 +227,7 @@ class _AvatarWithCountdownState extends State<_AvatarWithCountdown>
     super.initState();
     _countdown = AnimationController(vsync: this, value: 1.0);
     widget.moveTimeLeft.addListener(_sync);
+    widget.totalTimeLeft.addListener(_sync);
     _sync();
   }
 
@@ -235,7 +239,9 @@ class _AvatarWithCountdownState extends State<_AvatarWithCountdown>
       _countdown.stop();
       return;
     }
+    
     final remaining = widget.moveTimeLeft.value;
+    
     final totalMs = widget.moveTimeLimitSeconds * 1000.0;
     final progress = (remaining.inMilliseconds / totalMs).clamp(0.0, 1.0);
     _countdown.value = progress;
@@ -251,6 +257,10 @@ class _AvatarWithCountdownState extends State<_AvatarWithCountdown>
       old.moveTimeLeft.removeListener(_sync);
       widget.moveTimeLeft.addListener(_sync);
     }
+    if (old.totalTimeLeft != widget.totalTimeLeft) {
+      old.totalTimeLeft.removeListener(_sync);
+      widget.totalTimeLeft.addListener(_sync);
+    }
     if (old.isActive != widget.isActive ||
         old.moveTimeLimitSeconds != widget.moveTimeLimitSeconds ||
         old.isTimerActive != widget.isTimerActive) {
@@ -261,6 +271,7 @@ class _AvatarWithCountdownState extends State<_AvatarWithCountdown>
   @override
   void dispose() {
     widget.moveTimeLeft.removeListener(_sync);
+    widget.totalTimeLeft.removeListener(_sync);
     _countdown.dispose();
     super.dispose();
   }

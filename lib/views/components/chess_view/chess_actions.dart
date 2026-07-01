@@ -67,7 +67,6 @@ class ActionButtonsPanel extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final showUndoRedo = appModel.allowUndoRedo && !appModel.isOnlineGameMode;
     final isSpectator = appModel.isSpectatorMode;
-    final bool _isDebug = false;
 
     await showGeneralDialog<void>(
       context: context,
@@ -247,7 +246,9 @@ class BottomButtonsPanel extends StatelessWidget {
           Expanded(
             child: _BottomBtn(
               icon: Icons.replay_rounded,
-              label: AppLocalizations.of(context)!.replayBtn,
+              label: (appModel.isOnlineGameMode && appModel.opponentDisconnected)
+                  ? AppLocalizations.of(context)!.newGameTitle
+                  : AppLocalizations.of(context)!.replayBtn,
               isPrimary: true,
               onTap: () => _showRestartDialog(context),
             ),
@@ -409,40 +410,6 @@ class _ActionBtn extends StatelessWidget {
   }
 }
 
-class _SmallDebugBtn extends StatelessWidget {
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _SmallDebugBtn({
-    Key? key,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.18),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.9)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _BottomBtn extends StatelessWidget {
   final IconData icon;
